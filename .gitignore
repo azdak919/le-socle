@@ -1,1 +1,5 @@
 node_modules/
+socle.sqlite
+socle.sqlite-*
+socle.version
+sauvegardes/

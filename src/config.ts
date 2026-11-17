@@ -38,3 +38,13 @@ export function parseConfig(value: unknown): SocleConfig {
 export function loadConfigFile(path: string | URL): SocleConfig {
   return parseConfig(JSON.parse(readFileSync(path, "utf8")));
 }
+
+export function enabledModules(config: SocleConfig): ModuleName[] {
+  return MODULES.filter((name) => config.modules[name]);
+}
+
+export function stringifyConfig(config: SocleConfig): string {
+  const modules = {} as Record<ModuleName, boolean>;
+  for (const name of MODULES) modules[name] = config.modules[name];
+  return `${JSON.stringify({ modules }, null, 2)}\n`;
+}

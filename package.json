@@ -9,7 +9,9 @@
   },
   "scripts": {
     "test": "node --test 'test/*.test.ts'",
-    "start": "node src/server.ts"
+    "start": "node src/server.ts",
+    "migrate": "node src/cli.ts migrate",
+    "export": "node src/cli.ts export"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.4",
