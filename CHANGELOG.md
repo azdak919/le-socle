@@ -2,6 +2,7 @@
 
 ## Non publié
 
+- Module 5, éteint par défaut. Abonnement par courriel ou par push, retrait par un lien. Le courriel part par le SMTP du projet. Le push est signé par des clés que le projet génère. Pas de service tiers. L'adresse est dans l'archive du journal, pas dans ses pages HTML. La clé privée n'y est pas.
 - Module 4, éteint par défaut. `POST /v1/audience/event` compte un nom et un contexte. La date est celle de Toronto. Pas d'adresse ni d'identifiant. Le détail tient 90 jours, puis une ligne de semaine. Le poids sportif ne s'allume pas.
 - Module 6, éteint par défaut. Décision de relecture : publier, programmer, renvoyer. Une correction proposée ne réécrit pas l'article. À l'heure, l'article passe à publié. Le site statique n'est pas réécrit.
 - Module 1, éteint par défaut. Trois portes : lien magique, GitHub, Cloudflare Access. Aucun mot de passe. Le jeton n'est stocké qu'en hachage. Le bouton Mettre à jour est au responsable quand le module est allumé. Les courriels des membres sont dans l'archive du journal, pas dans ses pages HTML.

@@ -16,6 +16,8 @@ Le module de relecture, éteint par défaut, décide : publier, programmer, ou r
 
 Le module d'audience, éteint par défaut, compte un nom et un contexte. La date civile est posée à Toronto. `POST /v1/audience/event` n'existe que si le module est allumé. Les totaux sont des sommes. Le détail tient 90 jours, puis une ligne par semaine. Aucune adresse, aucun identifiant de personne. Le poids des cartes sportives ne s'allume pas avec ce compteur.
 
+Le module d'abonnements, éteint par défaut, inscrit un courriel ou un navigateur, et le retire par un lien. `POST /v1/notify/abonnement` n'existe que si le module est allumé. Le courriel part par le SMTP du projet. Le push est signé par des clés que le projet génère. Aucun service d'envoi tiers. L'adresse reste dans l'archive du journal. Elle n'est pas dans les pages HTML. La clé privée n'est pas dans l'archive.
+
 ```bash
 npm ci
 npm test
