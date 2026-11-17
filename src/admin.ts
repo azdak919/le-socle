@@ -47,6 +47,7 @@ const COPY = {
     articlesLink: "Articles",
     reviewLink: "Relecture",
     mediaLink: "Médias",
+    audienceLink: "Audience",
     saveTitle: "Sauvegarde",
     off: "La sauvegarde est éteinte.",
     activate: "Activer",
@@ -83,6 +84,7 @@ const COPY = {
     articlesLink: "Articles",
     reviewLink: "Review",
     mediaLink: "Media",
+    audienceLink: "Audience",
     saveTitle: "Backup",
     off: "Backup is off.",
     activate: "Turn on",
@@ -218,7 +220,10 @@ export async function handleAdmin(
     const media = config.modules.media
       ? `<p><a href="${withLang("/admin/medias", lang)}">${copy.mediaLink}</a></p>`
       : "";
-    return adminDocument(lang, copy.office, `${notice}${writing}${media}<p><a href="${withLang("/admin/sauvegarde", lang)}">${copy.saveLink}</a></p><p><a href="${withLang("/admin/mise-a-jour", lang)}">${copy.updateLink}</a></p>`);
+    const audience = config.modules.audience
+      ? `<p><a href="${withLang("/admin/audience", lang)}">${copy.audienceLink}</a></p>`
+      : "";
+    return adminDocument(lang, copy.office, `${notice}${writing}${media}${audience}<p><a href="${withLang("/admin/sauvegarde", lang)}">${copy.saveLink}</a></p><p><a href="${withLang("/admin/mise-a-jour", lang)}">${copy.updateLink}</a></p>`);
   }
 
   if (path === "/admin/sauvegarde/activer" && method === "POST") {
