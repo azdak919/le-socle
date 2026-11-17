@@ -11,6 +11,7 @@ type D1Prepared = {
   bind(...values: readonly unknown[]): D1Prepared;
   run(): Promise<unknown>;
   first<T>(): Promise<T | null>;
+  all<T>(): Promise<{ results: T[] }>;
 };
 
 type D1Database = {
@@ -40,6 +41,16 @@ function wrapD1(db: D1Database, close: () => Promise<void>): SqlDb {
     async get(sql, params) {
       const row = await db.prepare(sql).bind(...params).first<Record<string, unknown>>();
       return row ?? undefined;
+    },
+    async all(sql, params) {
+      const result = await db.prepare(sql).bind(...params).all<Record<string, unknown>>();
+      return result.results;
+    },
+    async tableExists(name) {
+      const row = await db.prepare(
+        `SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = ?`,
+      ).bind(name).first();
+      return row !== null && row !== undefined;
     },
     close,
   };

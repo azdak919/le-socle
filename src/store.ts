@@ -12,8 +12,12 @@ export class ModuleOffError extends Error {
 
 export interface SocleStore {
   migrate(enabled: readonly ModuleName[]): Promise<void>;
+  resume(): Promise<void>;
+  applied(): Promise<ModuleName[]>;
+  rollback(): Promise<string | null>;
   put(module: ModuleName, key: string, value: string): Promise<void>;
   get(module: ModuleName, key: string): Promise<string | null>;
+  list(module: ModuleName): Promise<Array<{ key: string; value: string }>>;
   tableReady(module: ModuleName): Promise<boolean>;
   close(): Promise<void>;
 }

@@ -9,6 +9,8 @@ import { ModuleOffError, type SocleStore } from "../src/store.ts";
 async function conformance(open: () => Promise<SocleStore> | SocleStore): Promise<void> {
   const store = await open();
   try {
+    assert.deepEqual(await store.applied(), []);
+    await store.resume();
     await store.migrate([]);
     assert.equal(await store.tableReady("export"), false);
     await assert.rejects(() => store.put("export", "a", "1"), ModuleOffError);
@@ -23,6 +25,14 @@ async function conformance(open: () => Promise<SocleStore> | SocleStore): Promis
     assert.equal(await store.get("export", "a"), "1");
     assert.equal(await store.get("export", "absent"), null);
     await store.put("export", "a", "2");
+    assert.equal(await store.get("export", "a"), "2");
+    assert.deepEqual(await store.list("export"), [{ key: "a", value: "2" }]);
+    assert.deepEqual(await store.applied(), ["export"]);
+
+    await store.rollback();
+    await assert.rejects(() => store.get("export", "a"), ModuleOffError);
+    assert.equal(await store.tableReady("export"), true);
+    await store.migrate(["export"]);
     assert.equal(await store.get("export", "a"), "2");
 
     await store.migrate(["export"]);

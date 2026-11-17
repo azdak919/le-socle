@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Lire [`docs/plan.md`](docs/plan.md) avant d'écrire du code. Le plan est accepté. Le squelette est en place. Le module suivant attend une CI verte sur cette base, puis une pull request à part.
+Lire [`docs/plan.md`](docs/plan.md) avant d'écrire du code. Le plan est accepté. Le squelette, le pilote D1 et le module 7 (archive, migration, page Mise à jour) sont en place. Le module suivant est l'éditorial, dans une pull request à part.
 
 ## Git
 
@@ -12,7 +12,7 @@ La source de vérité, quand le clone est sous `VisualCode/`, est `../GIT-AND-TE
 - Ne pas fusionner une pull request. Le propriétaire le fait.
 - Vérification locale avant push : `npm test`.
 - Workflow : `.github/workflows/verification.yml`, nom **Vérification**, job **`test`**.
-- Pas de module métier dans le squelette. `GET /v1/health` est la seule route.
+- Sous `/v1/`, `GET /v1/health` est la seule route. `/admin` sert la sauvegarde et la mise à jour. Les modules restent éteints dans `socle.config.json`.
 
 ## Invariants déjà décidés dans le plan
 
