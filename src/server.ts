@@ -6,6 +6,7 @@ import { handleAdmin, type AdminDeps } from "./admin.ts";
 import { defaultConfig, loadConfigFile, stringifyConfig, type SocleConfig } from "./config.ts";
 import { handleEditorial } from "./editorial-http.ts";
 import { handleRequest } from "./health.ts";
+import { handleMedia } from "./media-http.ts";
 import { openSqliteFile } from "./sqlite.ts";
 import { VERSION } from "./version.ts";
 
@@ -21,11 +22,13 @@ export function createSocleServer(config: SocleConfig, admin?: AdminDeps) {
       const editorialPath = path.startsWith("/admin/articles")
         || path.startsWith("/admin/relecture")
         || path.startsWith("/v1/editorial");
-      const result = admin && editorialPath
-        ? await handleEditorial(method, url, config, admin, rawBody)
-        : admin && path.startsWith("/admin")
-          ? await handleAdmin(method, url, config, admin, rawBody)
-          : handleRequest(method, url, config);
+      const result = admin && path === "/admin/medias"
+        ? await handleMedia(method, url, config, admin)
+        : admin && editorialPath
+          ? await handleEditorial(method, url, config, admin, rawBody)
+          : admin && path.startsWith("/admin")
+            ? await handleAdmin(method, url, config, admin, rawBody)
+            : handleRequest(method, url, config);
       response.writeHead(result.status, result.headers);
       response.end(result.body);
     } catch {
