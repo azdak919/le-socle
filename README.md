@@ -2,10 +2,14 @@
 
 Outil de back-end libre, sous GPL-2.0-only, que **chaque projet installe et fait tourner chez lui**. Ce n'est pas un service central. Un journal sous LE KIOSQUE ne dépend jamais du serveur de LE-RADAR, ni d'aucun autre.
 
-Rien n'est implémenté. Le seul livrable de cette branche est le plan :
+Le plan est **[`docs/plan.md`](docs/plan.md)**. Cette branche n'a que le squelette : `GET /v1/health`, les interrupteurs, et deux pilotes de stockage (`node:sqlite`, PGlite). Aucune route métier. Les sept modules restent éteints.
 
-**[`docs/plan.md`](docs/plan.md)**
+```bash
+npm ci
+npm test
+npm start
+```
 
-Il décrit les besoins relevés dans le code, l'architecture, le schéma, l'API, les cibles gratuites, l'inventaire des dépôts `azdak919`, et l'ordre des pull requests. Les modules viendront après l'accord sur ce plan, un par un, désactivés par défaut.
+`npm start` écoute `127.0.0.1:8787` et lit `socle.config.json`. La seule réponse utile est `GET /v1/health`.
 
 Le site statique doit rester lisible quand ce serveur est arrêté. Seule l'écriture s'interrompt.

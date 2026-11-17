@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Lire [`docs/plan.md`](docs/plan.md) avant d'écrire du code. Tant que ce plan n'est pas accepté, on n'ajoute ni module, ni dépendance, ni workflow.
+Lire [`docs/plan.md`](docs/plan.md) avant d'écrire du code. Le plan est accepté. Le squelette est en place. Le module suivant attend une CI verte sur cette base, puis une pull request à part.
 
 ## Git
 
@@ -10,7 +10,9 @@ La source de vérité, quand le clone est sous `VisualCode/`, est `../GIT-AND-TE
 - Identité des commits : **Azdak** `<azdak-qc@proton.me>`. Jamais d'autre nom ni d'autre courriel.
 - Pour se mettre à jour : fusionner `main` dans la branche. Pas de force-push, pas de réécriture d'un historique déjà poussé.
 - Ne pas fusionner une pull request. Le propriétaire le fait.
-- La première pull request de code, après l'accord, copie `VisualCode/templates/new-github-project/` et obtient une CI verte (workflow Vérification, job `test`) avant tout module.
+- Vérification locale avant push : `npm test`.
+- Workflow : `.github/workflows/verification.yml`, nom **Vérification**, job **`test`**.
+- Pas de module métier dans le squelette. `GET /v1/health` est la seule route.
 
 ## Invariants déjà décidés dans le plan
 

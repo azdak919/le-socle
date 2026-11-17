@@ -1,6 +1,6 @@
 # Plan — le-socle
 
-Statut : **proposition**. Aucun module n'est écrit. Cette pull request ne contient que de la documentation. Le travail de code commence après l'accord.
+Statut : **accepté** le 17 novembre 2026. Le squelette (`GET /v1/health`, interrupteurs, `SocleStore`) est le premier code. Aucun module métier n'est écrit.
 
 Date des constats : 16 novembre 2026. Les dépôts lus sont `azdak919/le-kiosque` (main `8d7b602`) et `azdak919/le-radar` (lecture seule). `CHANTIERS.md` n'existe dans aucun des deux. Le registre du Kiosque est la section « Registre officiel de livraison » de son `AGENTS.md` (`SUITE.md` n'est qu'un pointeur). Le registre du Radar est son `AGENTS.md`, avec `docs/agent-playbook.md` et `docs/maintenance.md`.
 
