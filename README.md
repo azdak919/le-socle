@@ -6,6 +6,8 @@ Le plan est **[`docs/plan.md`](docs/plan.md)**. Le guide court est **[`docs/adop
 
 Le serveur expose `GET /v1/health`. Les interrupteurs sont éteints. Sous `/v1/`, aucune autre route tant qu'un module n'est pas allumé. La version 1.0.0 fige ce contrat. Le stockage et l'adaptateur du Kiosque passent la même suite sur `node:sqlite`, PGlite et D1 (Miniflare, en local).
 
+PHP sert le même contrat, sans démon. Le contrôleur est `php/public/index.php`. La base est `php/data/socle.sqlite`, hors de la racine web. Sans SQLite, les pages déjà exportées restent servies. Sur un hébergement qui reçoit un dossier, `SOCLE_UPLOAD_DIR` nomme l'endroit déjà utilisé.
+
 Le back-office sert la sauvegarde ZIP du journal et la page Mise à jour du programme. Rien ne migre au démarrage. `socle migrate` écrit d'abord une archive, du même format que l'export, et s'arrête si ce fichier ne s'écrit pas.
 
 Le module éditorial, éteint par défaut, parle le contrat de LE KIOSQUE épinglé dans `src/kiosque-pin.ts`. L'adaptateur se teste hors ligne. `GET /v1/editorial/snapshot` n'existe que si le module est allumé.

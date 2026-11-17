@@ -2,7 +2,7 @@
 
 Ce guide est pour qui installe **sa** copie. Un client du Kiosque passe par le configurateur, pas par ces commandes. Compter moins d'une heure. On n'allume un module que lorsqu'on en a besoin.
 
-1. Choisir la machine. Pour essayer : ce dépôt, Node 22.18 ou plus récent, le fichier SQLite à côté. PGlite sert aux tests. D1 se vérifie en local avec Miniflare. La cible PHP n'existe pas encore : en attendant, le site statique du Kiosque suffit. Pas de service central, pas de compte partagé.
+1. Choisir la machine. Pour essayer avec Node : ce dépôt, Node 22.18 ou plus récent, le fichier SQLite à côté. PGlite sert aux tests. D1 se vérifie en local avec Miniflare. Pour un hébergement qui reçoit un dossier : le contrôleur est `php/public/index.php`, la base est `php/data/socle.sqlite`, hors de la racine web. Sans SQLite, les pages déjà exportées restent servies. `SOCLE_UPLOAD_DIR` nomme le dossier déjà utilisé ; le bouton de mise à jour prépare la sauvegarde et ce dossier. Pas de service central, pas de compte partagé.
 
 2. Copier `socle.config.json`. Tout laisser à `false`. Aucun secret dans ce fichier. Le mode (`SOCLE_AUTH_MODE`), le SMTP (`SOCLE_SMTP_HOST`, `SOCLE_SMTP_FROM`), les clés push (`SOCLE_VAPID_PUBLIC`, `SOCLE_VAPID_PRIVATE`), le client GitHub et `SOCLE_RESPONSABLE` se posent à côté, pas dedans.
 
@@ -11,6 +11,12 @@ Ce guide est pour qui installe **sa** copie. Un client du Kiosque passe par le c
    ```bash
    npm ci
    node src/cli.ts migrate --backup sauvegardes/avant.zip
+   ```
+
+   Le même geste en PHP, avec `php-cli`, `php-sqlite3` et `php-mbstring` :
+
+   ```bash
+   php php/bin/migrate.php --db php/data/socle.sqlite --config socle.config.json --backup sauvegardes/avant.zip
    ```
 
    Lire le ZIP. Il contient `index.html`. Ouvrir cette page montre ce qui a été gardé. Avec l'export éteint, l'archive est vide d'articles. `node src/cli.ts migrate --down --backup sauvegardes/retour.zip` retire la dernière migration. La table reste. Rien de tout cela ne part au démarrage de `npm start`.
@@ -23,6 +29,7 @@ Ce guide est pour qui installe **sa** copie. Un client du Kiosque passe par le c
 
    ```bash
    node src/cli.ts export --out sauvegardes/journal.zip
+   php php/bin/migrate.php export --db php/data/socle.sqlite --config socle.config.json --out sauvegardes/journal.zip
    ```
 
    Le ZIP ne contient pas de ligne de jeton, de mot de passe ou de clé. Il n'est pas publié. Le remettre plus tard se fait par le back-office, en envoyant le fichier à `/admin/sauvegarde/restaurer`. La réponse dit les années absentes. Une archive de session ne remplace que ses articles.
