@@ -20,7 +20,9 @@ import {
 } from "../src/editorial.ts";
 import { buildSiteZip } from "../src/archive.ts";
 import { defaultConfig } from "../src/config.ts";
+import { openD1Memory } from "../src/d1.ts";
 import { KIOSQUE_PIN } from "../src/kiosque-pin.ts";
+import { openPgliteMemory } from "../src/pglite.ts";
 import { openSqliteMemory } from "../src/sqlite.ts";
 import type { SocleStore } from "../src/store.ts";
 import { unzip } from "../src/zip.ts";
@@ -94,7 +96,7 @@ function article(patch: Partial<SocleArticle> = {}): SocleArticle {
   };
 }
 
-test("l'adaptateur passe la suite du Kiosque épinglé, hors ligne", async () => {
+test("l'adaptateur passe la suite du Kiosque épinglé, hors ligne, sur SQLite, PGlite et D1", async () => {
   const pinDir = process.env.KIOSQUE_PIN_DIR ?? join(root, "../le-kiosque");
   const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: pinDir, encoding: "utf8" }).trim();
   assert.equal(head, KIOSQUE_PIN);
@@ -102,52 +104,57 @@ test("l'adaptateur passe la suite du Kiosque épinglé, hors ligne", async () =>
     runConformanceSuite: (factory: () => unknown, config: unknown, options?: unknown) => Promise<{ ok: boolean; checks: Array<{ name: string; ok: boolean; detail?: string }> }>;
     formatConformanceReport: (report: unknown) => string;
   };
-  const store = openSqliteMemory();
-  const config = defaultConfig();
-  config.modules.editorial = true;
-  await store.migrate(["editorial"]);
-  await store.put("editorial", "publication", JSON.stringify(publication));
-  await store.put("editorial", "author:22222222-2222-4222-8222-222222222222", JSON.stringify(author()));
-  await store.put("editorial", "section:33333333-3333-4333-8333-333333333333", JSON.stringify({
-    id: "33333333-3333-4333-8333-333333333333", slug: "campus", name: "Campus",
-  }));
-  await store.put("editorial", "category:44444444-4444-4444-8444-444444444444", JSON.stringify({
-    id: "44444444-4444-4444-8444-444444444444", slug: "une", name: "Une",
-  }));
-  await store.put("editorial", "tag:55555555-5555-4555-8555-555555555555", JSON.stringify({
-    id: "55555555-5555-4555-8555-555555555555", slug: "greve", name: "grève",
-  }));
-  await saveArticle(store, article(), ISO);
-  await saveArticle(store, article({
-    id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-    slug: "brouillon",
-    title: "Brouillon",
-    status: "draft",
-    authors: [],
-    section: undefined,
-    publishedAt: undefined,
-    lead: undefined,
-    body: { format: "markdown", raw: "pas encore" },
-    canonicalUrl: "https://journal.example/brouillon",
-    source: { backend: "socle", backendId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", fetchedAt: ISO },
-  }), ISO);
-  await putBytes(store, "/media/2026/a.jpg", Buffer.from("jpeg"));
-  try {
-    let fetched = false;
-    const report = await kit.runConformanceSuite(() => createSocleSource(store), {}, {
-      ctx: {
-        fetch: async () => {
-          fetched = true;
-          throw new Error("réseau");
+  const drivers = [
+    ["sqlite", () => openSqliteMemory()],
+    ["pglite", () => openPgliteMemory()],
+    ["d1", () => openD1Memory()],
+  ] as const;
+  for (const [name, open] of drivers) {
+    const store = await open();
+    await store.migrate(["editorial"]);
+    await store.put("editorial", "publication", JSON.stringify(publication));
+    await store.put("editorial", "author:22222222-2222-4222-8222-222222222222", JSON.stringify(author()));
+    await store.put("editorial", "section:33333333-3333-4333-8333-333333333333", JSON.stringify({
+      id: "33333333-3333-4333-8333-333333333333", slug: "campus", name: "Campus",
+    }));
+    await store.put("editorial", "category:44444444-4444-4444-8444-444444444444", JSON.stringify({
+      id: "44444444-4444-4444-8444-444444444444", slug: "une", name: "Une",
+    }));
+    await store.put("editorial", "tag:55555555-5555-4555-8555-555555555555", JSON.stringify({
+      id: "55555555-5555-4555-8555-555555555555", slug: "greve", name: "grève",
+    }));
+    await saveArticle(store, article(), ISO);
+    await saveArticle(store, article({
+      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      slug: "brouillon",
+      title: "Brouillon",
+      status: "draft",
+      authors: [],
+      section: undefined,
+      publishedAt: undefined,
+      lead: undefined,
+      body: { format: "markdown", raw: "pas encore" },
+      canonicalUrl: "https://journal.example/brouillon",
+      source: { backend: "socle", backendId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", fetchedAt: ISO },
+    }), ISO);
+    await putBytes(store, "/media/2026/a.jpg", Buffer.from("jpeg"));
+    try {
+      let fetched = false;
+      const report = await kit.runConformanceSuite(() => createSocleSource(store), {}, {
+        ctx: {
+          fetch: async () => {
+            fetched = true;
+            throw new Error("réseau");
+          },
         },
-      },
-    });
-    assert.equal(report.ok, true, kit.formatConformanceReport(report));
-    assert.equal(fetched, false);
-    const authors = await createSocleSource(store).fetchAuthors();
-    assert.equal("email" in authors[0]!, false);
-  } finally {
-    await store.close();
+      });
+      assert.equal(report.ok, true, `${name}\n${kit.formatConformanceReport(report)}`);
+      assert.equal(fetched, false);
+      const authors = await createSocleSource(store).fetchAuthors();
+      assert.equal("email" in authors[0]!, false);
+    } finally {
+      await store.close();
+    }
   }
 });
 

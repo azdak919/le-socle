@@ -4,7 +4,7 @@ Outil de back-end libre, sous GPL-2.0-only, que **chaque projet installe et fait
 
 Le plan est **[`docs/plan.md`](docs/plan.md)**. Le guide court est **[`docs/adoption.md`](docs/adoption.md)**.
 
-Le serveur expose `GET /v1/health`. Les interrupteurs sont éteints. Sous `/v1/`, aucune autre route. Le stockage passe la même suite sur `node:sqlite`, PGlite et D1 (Miniflare, en local).
+Le serveur expose `GET /v1/health`. Les interrupteurs sont éteints. Sous `/v1/`, aucune autre route tant qu'un module n'est pas allumé. La version 1.0.0 fige ce contrat. Le stockage et l'adaptateur du Kiosque passent la même suite sur `node:sqlite`, PGlite et D1 (Miniflare, en local).
 
 Le back-office sert la sauvegarde ZIP du journal et la page Mise à jour du programme. Rien ne migre au démarrage. `socle migrate` écrit d'abord une archive, du même format que l'export, et s'arrête si ce fichier ne s'écrit pas.
 
