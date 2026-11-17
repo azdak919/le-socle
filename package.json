@@ -12,6 +12,10 @@
     "start": "node src/server.ts"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.4"
+    "@electric-sql/pglite": "0.5.4",
+    "miniflare": "4.20260730.0"
+  },
+  "allowScripts": {
+    "workerd@1.20260730.1": true
   }
 }

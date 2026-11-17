@@ -2,7 +2,7 @@
 
 Outil de back-end libre, sous GPL-2.0-only, que **chaque projet installe et fait tourner chez lui**. Ce n'est pas un service central. Un journal sous LE KIOSQUE ne dépend jamais du serveur de LE-RADAR, ni d'aucun autre.
 
-Le plan est **[`docs/plan.md`](docs/plan.md)**. Cette branche n'a que le squelette : `GET /v1/health`, les interrupteurs, et deux pilotes de stockage (`node:sqlite`, PGlite). Aucune route métier. Les sept modules restent éteints.
+Le plan est **[`docs/plan.md`](docs/plan.md)**. Le serveur expose `GET /v1/health`. Les interrupteurs sont éteints. Le stockage passe la même suite sur `node:sqlite`, PGlite et D1 (Miniflare, en local). Aucune route métier.
 
 ```bash
 npm ci
