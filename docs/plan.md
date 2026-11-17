@@ -22,7 +22,7 @@ miroir portable (Markdown, JSON, médias, dans Git ou sur une clé)
 site statique, qui continue d'être lu
 ```
 
-C'est déjà la règle du Kiosque : `packages/pipeline/src/build.ts` n'importe aucun adaptateur, et un test le vérifie. Le socle s'y branche comme une source de plus. Il ne devient pas le site.
+C'est déjà la règle du Kiosque : `packages/pipeline/src/build.ts` n'importe aucun adaptateur, et un test le vérifie. Le socle s'y branche comme une source de plus. Le build reste celui du Kiosque. La machine du journal peut servir les pages construites en plus de l'écriture.
 
 Les sept modules, chacun avec un interrupteur, tous **éteints** par défaut :
 
@@ -32,7 +32,7 @@ Les sept modules, chacun avec un interrupteur, tous **éteints** par défaut :
 4. Audience anonyme. Le sport est le premier cas (annexe du 16 novembre 2026, 23 h 11, Montréal). Le même compteur sert aux articles et aux autres événements qu'un projet choisit d'allumer.
 5. Abonnements et notifications.
 6. File de relecture et publication programmée.
-7. Export complet (Markdown, JSON, médias).
+7. Export complet. Une archive ZIP du site : Markdown, JSON, médias, plus un `index.html` pour lire l'archive sans serveur. L'installateur du Kiosque peut restaurer cette archive.
 
 ## 2. Ce que le code fait déjà
 
@@ -213,10 +213,10 @@ Routes ajoutées seulement par le module allumé. Esquisse, à figer en 1.0.0 :
 - auth : lien magique (`POST` puis consommation du jeton), début et retour GitHub, session lue depuis l'en-tête JWT de Cloudflare Access quand c'est le mode choisi ;
 - éditorial : les opérations de `EditorialBackend`, plus un adaptateur `ContentSource` pour `kiosque sync` ;
 - médias : envoi du binaire et de son crédit ;
-- audience : `POST /v1/audience/sports-click` avec `sport` et `contexte`, réponse vide ;
+- audience : `POST /v1/audience/event` avec un nom (`article`, `sport`, ou un nom que le projet a allumé) et `contexte`, réponse vide. Le serveur pose la date. Un champ en plus est refusé ;
 - file : liste, décision, heure de publication ;
 - notifications : abonnement, désabonnement par lien ;
-- export : la commande `socle export`, pas une route publique.
+- export : pas une route publique. L'admin télécharge une archive ZIP (module 7). La commande `socle export` sert au guide technique.
 
 Une version mineure peut ajouter un champ. Elle n'en retire pas, n'en change pas le sens, et n'exige pas un client nouveau. Une rupture est une version majeure : l'ancienne majeure reste installable, avec un guide et une migration réversible.
 
@@ -256,6 +256,31 @@ Avant d'allumer l'interrupteur en production, une personne vérifie qu'aucun ide
 
 > Nous comptons, sans vous identifier, les ouvertures d'articles et les clics que le projet a choisi de mesurer, pour voir ce qui est lu. Sur le Radar, les clics des cartes sportives servent en plus à varier ce qui est mis de l'avant.
 
+## Module 7 — archive ZIP du site
+
+Décision du 17 novembre 2026. Le module reste éteint tant qu'un admin ne l'allume pas. Tant qu'il est éteint, une notice reste affichée dans le back-office pour les admins. Elle dit d'allumer la sauvegarde, de télécharger l'archive, et, si le serveur est perdu, de réinstaller avec le configurateur du Kiosque en choisissant cette archive. La notice ne bloque pas l'écriture. Elle disparaît une fois le module allumé et une archive téléchargée.
+
+L'archive est un seul fichier ZIP. Elle doit quitter le serveur : une copie qui reste seulement sur la machine ne sert plus si la machine est morte. L'installateur du Kiosque gagne l'option « Restaurer à partir d'une sauvegarde ». On lui donne le ZIP. Il remet ce que l'archive contient. Il dit quelles années ne sont pas dans le fichier.
+
+Deux archives :
+
+- **Le site.** Les fichiers du journal (`kiosque.config.ts`, `theme/tokens.css`, `OWNERS.md`), les articles des années choisies, leurs médias et leurs crédits. Les brouillons et les textes en relecture de ces années sont dans le même fichier : un arrêt ne doit pas les effacer.
+- **Une session, articles seulement.** Automne, hiver, été, ou la période que le journal a nommée. Pas le reste du site. La restaurer est une option : elle remet ces articles dans un journal déjà en place, sans remplacer les autres années.
+
+Paramètres, modifiables, et mémorisés comme défaut du journal :
+
+- L'année en cours et l'année précédente sont cochées.
+- Les années plus anciennes sont décochées. On suppose qu'une archive antérieure les a déjà. Le produit ne peut pas le vérifier. La page le dit.
+- L'admin peut recocher une année ancienne, ou retirer l'année précédente, et garder ce choix.
+
+Dans le ZIP, à côté des fichiers de données : un `index.html` et les pages HTML des articles inclus. On ouvre `index.html` dans un navigateur et on parcourt le contenu de cette archive. Ces pages servent à lire. La restauration lit le Markdown, le JSON et les médias, pas le HTML.
+
+Le ZIP ne contient pas de secret (mot de passe, jeton, clé). Il n'est pas publié sur le site. Les courriels des membres, si le module 1 est allumé, sont un renseignement personnel : l'archive reste chez le journal.
+
+Cette archive n'est pas la sauvegarde d'une mise à jour de version. La page Mise à jour garde la sienne, pour revenir au programme d'avant. Ici, c'est le contenu du journal.
+
+La démo produit la même archive depuis la copie du navigateur. Le Radar n'a pas cette archive : ce n'est pas un journal client.
+
 ## 6. Cibles gratuites
 
 Ce chapitre dit où **un journal** peut installer **sa** copie, sans payer. Ce n'est pas un branchement sur ce qui existe déjà.
@@ -273,7 +298,8 @@ Ce que cette machine porte :
 - le compteur anonyme et les totaux du jour ;
 - les photos et leurs crédits ;
 - qui a le droit de publier ;
-- les mises à jour du socle et du Kiosque.
+- les mises à jour du socle et du Kiosque ;
+- l'archive ZIP du site, à télécharger.
 
 Si cette machine est le seul exemplaire du site, son arrêt éteint aussi la lecture. Une copie (export, Pages) reste possible quand les questions d'installation l'ont prévue. `build.ts` n'importe pas le serveur. La machine sert les pages déjà construites.
 
@@ -367,6 +393,7 @@ On modifie un dépôt quand le socle lui retire du travail réel. Le propriétai
 ### LE KIOSQUE
 
 - La valeur du Kiosque pour un client, c'est le configurateur. Il pose les questions nécessaires, en quelques étapes : le nom, la langue, où le journal est hébergé (leur serveur pour le site entier, ou des pages seules), qui publie. Après ces réponses, le journal est en place. On ne refait pas le questionnaire pour une mise à jour. Le Kiosque ne fournit pas d'hébergement : la machine est la leur. Les secrets ne sont pas dans les réponses.
+- Le configurateur propose aussi « Restaurer à partir d'une sauvegarde ». Le fichier est l'archive ZIP du module 7. Une archive « session, articles seulement » se restaure à part, dans un journal déjà là.
 - `kiosque.config.ts` gagne un adaptateur `socle`, absent du gabarit. Le défaut reste Sveltia ou la démo, selon le projet.
 - L'import du paquet est dynamique, limité à `sync` et à la page d'admin. `build.ts` ne change pas d'imports. Le test existant reste vert.
 - `packages/core` reste ici. PocketBase reste un stub qui ne se connecte pas.
@@ -441,6 +468,7 @@ Le guide réel s'écrit avec la première pull request de code, quand les comman
 | Ce dépôt est public et nomme les dépôts privés | Les verdicts restent courts. Si la liste doit sortir, on la retire avant la fusion. |
 | `node:sqlite` change d'API | Version de Node épinglée, la même que le Kiosque (22.18). Pas de module natif tiers. |
 | La page de mise à jour remplace le programme | Bouton réservé au responsable. Sauvegarde nommée avant. Échec = rester sur l'ancienne version. Aucun envoi de la base. |
+| L'archive ZIP reste sur le serveur qui va tomber | La notice demande de la télécharger. La restauration part du fichier que l'admin a gardé. |
 
 ## 12. Pull requests à venir
 
@@ -449,7 +477,7 @@ Après l'accord seulement. Une par une. CI verte avant la suivante. Pas de fusio
 0. **Celle-ci.** Documentation. Pas de CI : il n'y a rien à exécuter. C'est voulu.
 1. Squelette. Copier `VisualCode/templates/new-github-project/` (workflow Vérification, job `test`). Santé `/v1/health`, interrupteurs, interface de stockage, pilotes PGlite et `node:sqlite`, suite de conformité minimale (écrire, relire, éteindre un module). Aucune route métier. Mettre à jour la carte `VisualCode/AGENTS.md`. CI verte **avant** le premier module.
 2. Pilote D1, même suite, en local (Miniflare, dépendance de développement épinglée).
-3. Module 7, export, migration avec sauvegarde, et la page Mise à jour (version, bouton, retour arrière). Tôt, pour qu'aucune donnée ne soit prisonnière et que le geste existe avant les modules d'écriture.
+3. Module 7, archive ZIP (années par défaut, session d'articles, `index.html`), migration avec sauvegarde, et la page Mise à jour (version, bouton, retour arrière). Tôt, pour qu'aucune donnée ne soit prisonnière et que le geste existe avant les modules d'écriture.
 4. Module 2, éditorial, contre le contrat épinglé du Kiosque. `scheduledAt` et la file minimale pour les champs de révision déjà prévus. Admin français et anglais, impression, accès clavier.
 5. Module 3, médias et crédits.
 6. Module 1, les trois portes d'identité, rôles par organisation.
@@ -457,7 +485,7 @@ Après l'accord seulement. Une par une. CI verte avant la suivante. Pas de fusio
 8. Module 4, audience, tests d'absence d'identifiant, rétention 90 jours, résumé hebdomadaire.
 9. Module 5, abonnements. Courriel par le SMTP du projet, push par des clés que le projet génère. Pas de service tiers.
 10. Cible PHP, la même suite HTTP, une fois `/v1` figé par la 1.0.0.
-11. **Intégration Kiosque**, interrupteur éteint, test anti-import dans `build.ts`, docs du dépôt. Le configurateur pose les questions et installe le journal. La page Mise à jour couvre le socle et le Kiosque, dans l'admin et dans la démo.
+11. **Intégration Kiosque**, interrupteur éteint, test anti-import dans `build.ts`, docs du dépôt. Le configurateur pose les questions, installe le journal, et peut restaurer une archive ZIP. La notice de sauvegarde, la page Mise à jour (socle et Kiosque) et l'archive sont dans l'admin et dans la démo.
 12. **Intégration Radar, clics**, interrupteur éteint, ordre inchangé, bump du service worker si le shell change. La page Mise à jour y couvre le socle. Pas les affiches, pas les réseaux, pas la revue de presse.
 
 La 1.0.0 est posée quand la suite passe sur PGlite, SQLite et D1, et que l'adaptateur passe `runConformanceSuite` du Kiosque épinglé. Avant ça, les versions sont 0.x et peuvent encore casser. On ne demande à personne d'épingler un 0.x en production.
@@ -479,3 +507,4 @@ Précision du même jour :
 
 - La page Mise à jour est dans le Kiosque, la démo et le Radar. Chez un client elle couvre le socle et le Kiosque. Sauvegarde avant, retour si ça échoue. Une majeure attend un oui de plus. `content/`, `media/`, les jetons, la config et `OWNERS.md` restent au journal.
 - L'installation client est le configurateur : les questions nécessaires, quelques étapes, puis le journal est en place. Certains hébergent le journal entier sur leur serveur. Un serveur personnel sert la collection. Les clients apportent le leur.
+- L'archive du site est un ZIP à télécharger. Année en cours et année précédente cochées par défaut, années plus anciennes décochées. Une session peut être archivée en articles seulement, et restaurée en option. `index.html` dans l'archive permet de lire le contenu. Le configurateur restaure ce ZIP. Une notice reste affichée aux admins tant que ce n'est pas en place.
