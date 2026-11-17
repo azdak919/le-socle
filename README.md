@@ -10,6 +10,8 @@ Le back-office sert la sauvegarde ZIP du journal et la page Mise à jour du prog
 
 Le module éditorial, éteint par défaut, parle le contrat de LE KIOSQUE épinglé dans `src/kiosque-pin.ts`. L'adaptateur se teste hors ligne. `GET /v1/editorial/snapshot` n'existe que si le module est allumé.
 
+Le module d'identité, éteint par défaut, a trois portes : un lien magique, GitHub, ou Cloudflare Access. Il ne garde pas de mot de passe. Le jeton de session est haché. `POST /v1/auth/lien` n'existe que si le module est allumé. Tant qu'il est éteint, le bouton de mise à jour reste à qui ouvre la page. Allumé, le bouton est au responsable.
+
 ```bash
 npm ci
 npm test

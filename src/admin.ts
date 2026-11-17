@@ -13,6 +13,7 @@ import {
   wasDownloaded,
   writePrefs,
 } from "./archive.ts";
+import { mayUpdate, type AuthRuntime } from "./auth.ts";
 import { enabledModules, type SocleConfig } from "./config.ts";
 import type { SocleStore } from "./store.ts";
 
@@ -26,6 +27,7 @@ export type AdminDeps = {
   setVersion: (version: string) => Promise<void>;
   backupDir: string;
   saveConfig?: (config: SocleConfig) => void;
+  auth?: AuthRuntime;
 };
 
 type Result = { status: number; body: string | Uint8Array; headers: Record<string, string> };
@@ -195,6 +197,7 @@ export async function handleAdmin(
   config: SocleConfig,
   deps: AdminDeps,
   rawBody: Uint8Array,
+  actor?: string | null,
 ): Promise<Result> {
   const parsed = new URL(url, "http://127.0.0.1");
   const path = parsed.pathname;
@@ -221,7 +224,7 @@ export async function handleAdmin(
     return { status: 303, body: "", headers: { location: withLang("/admin/sauvegarde", lang) } };
   }
 
-  if (!exportOn) {
+  if (!exportOn && path !== "/admin/mise-a-jour" && path !== "/admin/mise-a-jour/revenir") {
     if (path === "/admin/sauvegarde" && method === "GET") {
       return adminDocument(lang, copy.saveTitle, `<p>${copy.off}</p><form class="noprint" method="post" action="${withLang("/admin/sauvegarde/activer", lang)}"><button type="submit">${copy.activate}</button></form>`);
     }
@@ -295,18 +298,25 @@ export async function handleAdmin(
       ? `<p>${copy.backupWill} : ${named}. ${copy.notContent}</p>`
       : "";
     const saved = readProgramBackup(deps.backupDir);
-    const revert = saved
+    const allowed = await mayUpdate(deps.store, actor);
+    const revert = allowed && saved
       ? `<form class="noprint" method="post" action="${withLang("/admin/mise-a-jour/revenir", lang)}"><button type="submit">${copy.revert}</button></form>`
       : "";
-    return adminDocument(lang, copy.updateTitle, `<h2>${copy.line}</h2><p>${copy.installed} : ${current}.</p>${offer}${backup}
-<form class="noprint" method="post" action="${withLang("/admin/mise-a-jour", lang)}">
+    const form = allowed
+      ? `<form class="noprint" method="post" action="${withLang("/admin/mise-a-jour", lang)}">
 ${extra}
 <p><button type="submit" name="confirm" value="1">${copy.updateBtn}</button></p>
-</form>
+</form>`
+      : "";
+    return adminDocument(lang, copy.updateTitle, `<h2>${copy.line}</h2><p>${copy.installed} : ${current}.</p>${offer}${backup}
+${form}
 ${revert}`);
   }
 
   if (path === "/admin/mise-a-jour" && method === "POST") {
+    if (!(await mayUpdate(deps.store, actor))) {
+      return { status: 403, body: "réservé au responsable", headers: { "content-type": "text/plain; charset=utf-8" } };
+    }
     const offered = deps.release();
     if (!offered) return { status: 409, body: "rien à mettre à jour", headers: { "content-type": "text/plain; charset=utf-8" } };
     const text = new TextDecoder().decode(rawBody);
@@ -326,6 +336,9 @@ ${revert}`);
   }
 
   if (path === "/admin/mise-a-jour/revenir" && method === "POST") {
+    if (!(await mayUpdate(deps.store, actor))) {
+      return { status: 403, body: "réservé au responsable", headers: { "content-type": "text/plain; charset=utf-8" } };
+    }
     const saved = readProgramBackup(deps.backupDir);
     if (!saved) return { status: 409, body: COPY[lang].noBackup, headers: { "content-type": "text/plain; charset=utf-8" } };
     const previous = deps.version();

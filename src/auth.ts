@@ -1,0 +1,335 @@
+import { createHash, randomBytes } from "node:crypto";
+
+import { ModuleOffError, type SocleStore } from "./store.ts";
+
+const ROLES = ["auteur", "reviseur", "editeur", "responsable"] as const;
+const MAGIC_MS = 15 * 60 * 1000;
+const SESSION_MS = 12 * 60 * 60 * 1000;
+const STATE_MS = 10 * 60 * 1000;
+
+export type OrgRole = (typeof ROLES)[number];
+export type AuthMode = "magic" | "github" | "access";
+
+export class AuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AuthError";
+  }
+}
+
+export type AuthRuntime = {
+  mode?: string;
+  mailer?: (to: string, url: string) => Promise<void>;
+  fetch?: (input: string, init?: RequestInit) => Promise<Response>;
+  verifyAccess?: (token: string) => Promise<string | null>;
+  publicOrigin?: string;
+  githubClientId?: string;
+  githubClientSecret?: string;
+  randomBytes?: (size: number) => Uint8Array;
+};
+
+export type MemberRecord = { email: string; role: OrgRole };
+
+export function isRole(value: string | null | undefined): value is OrgRole {
+  return value !== null && value !== undefined && (ROLES as readonly string[]).includes(value);
+}
+
+export function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+export function sessionCookie(token: string): string {
+  return `socle_session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${SESSION_MS / 1000}`;
+}
+
+export async function ensureResponsable(store: SocleStore, email: string | undefined): Promise<void> {
+  if (!email?.trim()) return;
+  const clean = normalizeEmail(email);
+  if (!clean) throw new AuthError("demande refusée");
+  await store.put("auth", `member:${clean}`, "responsable");
+}
+
+export async function roleOf(store: SocleStore, email: string): Promise<OrgRole | null> {
+  try {
+    const value = await store.get("auth", `member:${email}`);
+    return isRole(value) ? value : null;
+  } catch (error) {
+    if (error instanceof ModuleOffError) return null;
+    throw error;
+  }
+}
+
+export async function mayUpdate(store: SocleStore, actor: string | null | undefined): Promise<boolean> {
+  if (actor === undefined) return true;
+  if (!actor) return false;
+  return (await roleOf(store, actor)) === "responsable";
+}
+
+export async function saveMember(
+  store: SocleStore,
+  actor: string | null,
+  email: string,
+  role: string,
+): Promise<void> {
+  if (!actor || (await roleOf(store, actor)) !== "responsable") throw new AuthError("réservé au responsable");
+  const clean = normalizeEmail(email);
+  if (!clean) throw new AuthError("demande refusée");
+  if (!isRole(role)) throw new AuthError("rôle inconnu");
+  await store.put("auth", `member:${clean}`, role);
+}
+
+export async function startMagic(
+  store: SocleStore,
+  runtime: AuthRuntime | undefined,
+  now: Date,
+  email: string,
+): Promise<void> {
+  requireMode(runtime, "magic");
+  if (!runtime?.mailer) throw new AuthError("smtp absent");
+  const clean = normalizeEmail(email);
+  if (!clean) throw new AuthError("demande refusée");
+  await forgetExpired(store, now);
+  const raw = newToken(runtime);
+  const hash = hashToken(raw);
+  const exp = new Date(now.getTime() + MAGIC_MS).toISOString();
+  await store.put("auth", `magic:${hash}`, JSON.stringify({ email: clean, exp }));
+  const origin = (runtime.publicOrigin ?? "http://127.0.0.1:8787").replace(/\/$/, "");
+  try {
+    await runtime.mailer(clean, `${origin}/v1/auth/lien?token=${encodeURIComponent(raw)}`);
+  } catch {
+    await store.delete("auth", `magic:${hash}`);
+    throw new AuthError("smtp absent");
+  }
+}
+
+export async function consumeMagic(
+  store: SocleStore,
+  runtime: AuthRuntime | undefined,
+  now: Date,
+  token: string,
+): Promise<string> {
+  requireMode(runtime, "magic");
+  if (!token) throw new AuthError("lien inconnu");
+  const hash = hashToken(token);
+  const row = await store.get("auth", `magic:${hash}`);
+  if (!row) throw new AuthError("lien inconnu");
+  await store.delete("auth", `magic:${hash}`);
+  const parsed = JSON.parse(row) as { email?: string; exp?: string };
+  if (!parsed.email || !parsed.exp || Date.parse(parsed.exp) <= now.getTime()) throw new AuthError("lien expiré");
+  await forgetExpired(store, now);
+  return createSession(store, runtime, parsed.email, now);
+}
+
+export async function githubStart(
+  store: SocleStore,
+  runtime: AuthRuntime | undefined,
+  now: Date,
+): Promise<string> {
+  requireMode(runtime, "github");
+  if (!runtime?.githubClientId || !runtime?.githubClientSecret) throw new AuthError("client absent");
+  await forgetExpired(store, now);
+  const state = newToken(runtime);
+  await store.put("auth", `state:${hashToken(state)}`, JSON.stringify({
+    exp: new Date(now.getTime() + STATE_MS).toISOString(),
+  }));
+  const url = new URL("https://github.com/login/oauth/authorize");
+  url.searchParams.set("client_id", runtime.githubClientId);
+  url.searchParams.set("scope", "user:email");
+  url.searchParams.set("state", state);
+  if (runtime.publicOrigin) {
+    url.searchParams.set("redirect_uri", `${runtime.publicOrigin.replace(/\/$/, "")}/v1/auth/github/retour`);
+  }
+  return url.toString();
+}
+
+export async function githubFinish(
+  store: SocleStore,
+  runtime: AuthRuntime | undefined,
+  now: Date,
+  code: string,
+  state: string,
+): Promise<string> {
+  requireMode(runtime, "github");
+  if (!runtime?.githubClientId || !runtime?.githubClientSecret) throw new AuthError("client absent");
+  if (!runtime.fetch) throw new AuthError("réseau absent");
+  if (!code || !state) throw new AuthError("demande refusée");
+  const key = `state:${hashToken(state)}`;
+  const row = await store.get("auth", key);
+  await store.delete("auth", key);
+  if (!row) throw new AuthError("demande refusée");
+  const parsed = JSON.parse(row) as { exp?: string };
+  if (!parsed.exp || Date.parse(parsed.exp) <= now.getTime()) throw new AuthError("lien expiré");
+  const email = await githubEmail(runtime, code);
+  return createSession(store, runtime, email, now);
+}
+
+export async function accessLogin(
+  store: SocleStore,
+  runtime: AuthRuntime | undefined,
+  now: Date,
+  assertion: string | undefined,
+): Promise<string> {
+  requireMode(runtime, "access");
+  if (!assertion) throw new AuthError("accès refusé");
+  const verify = runtime?.verifyAccess ?? rejectAccess;
+  let email: string | null = null;
+  try {
+    email = await verify(assertion);
+  } catch {
+    email = null;
+  }
+  const clean = normalizeEmail(email);
+  if (!clean) throw new AuthError("accès refusé");
+  return createSession(store, runtime, clean, now);
+}
+
+export async function emailFromCookie(
+  store: SocleStore,
+  now: () => Date,
+  cookie: string | undefined,
+): Promise<string | null> {
+  const token = readCookie(cookie, "socle_session");
+  if (!token) return null;
+  const key = `session:${hashToken(token)}`;
+  try {
+    const row = await store.get("auth", key);
+    if (!row) return null;
+    const parsed = JSON.parse(row) as { email?: string; exp?: string };
+    if (!parsed.email || !parsed.exp || Date.parse(parsed.exp) <= now().getTime()) {
+      await store.delete("auth", key);
+      return null;
+    }
+    return parsed.email;
+  } catch (error) {
+    if (error instanceof ModuleOffError) return null;
+    throw error;
+  }
+}
+
+export async function membersForArchive(store: SocleStore): Promise<MemberRecord[]> {
+  try {
+    const rows = await store.list("auth");
+    const members: MemberRecord[] = [];
+    for (const row of rows) {
+      if (!row.key.startsWith("member:")) continue;
+      if (!isRole(row.value)) continue;
+      members.push({ email: row.key.slice("member:".length), role: row.value });
+    }
+    members.sort((a, b) => a.email.localeCompare(b.email));
+    return members;
+  } catch (error) {
+    if (error instanceof ModuleOffError) return [];
+    throw error;
+  }
+}
+
+export async function restoreMembers(store: SocleStore, value: unknown): Promise<void> {
+  if (!Array.isArray(value)) return;
+  for (const item of value) {
+    if (item === null || typeof item !== "object") continue;
+    const record = item as { email?: unknown; role?: unknown };
+    const email = normalizeEmail(record.email);
+    if (!email || !isRole(typeof record.role === "string" ? record.role : null)) continue;
+    try {
+      await store.put("auth", `member:${email}`, record.role);
+    } catch (error) {
+      if (error instanceof ModuleOffError) return;
+      throw error;
+    }
+  }
+}
+
+/** Sans vérificateur injecté, le jeton Access n'est pas décodé et n'ouvre pas de session. */
+export function rejectAccess(_token: string): Promise<null> {
+  return Promise.resolve(null);
+}
+
+function requireMode(runtime: AuthRuntime | undefined, expected: AuthMode): asserts runtime is AuthRuntime {
+  if (runtime?.mode !== expected) throw new AuthError("mode inconnu");
+}
+
+function normalizeEmail(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const email = value.trim().toLowerCase();
+  if (email.length > 200 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
+  return email;
+}
+
+function newToken(runtime: AuthRuntime): string {
+  const bytes = runtime.randomBytes ? runtime.randomBytes(32) : randomBytes(32);
+  if (bytes.byteLength !== 32) throw new AuthError("demande refusée");
+  return Buffer.from(bytes).toString("base64url");
+}
+
+async function createSession(
+  store: SocleStore,
+  runtime: AuthRuntime | undefined,
+  email: string,
+  now: Date,
+): Promise<string> {
+  if (!runtime) throw new AuthError("mode inconnu");
+  const raw = newToken(runtime);
+  await store.put("auth", `session:${hashToken(raw)}`, JSON.stringify({
+    email,
+    exp: new Date(now.getTime() + SESSION_MS).toISOString(),
+  }));
+  return raw;
+}
+
+async function forgetExpired(store: SocleStore, now: Date): Promise<void> {
+  const rows = await store.list("auth");
+  for (const row of rows) {
+    if (!row.key.startsWith("magic:") && !row.key.startsWith("state:") && !row.key.startsWith("session:")) continue;
+    let exp = "";
+    try {
+      exp = (JSON.parse(row.value) as { exp?: string }).exp ?? "";
+    } catch {
+      exp = "";
+    }
+    if (!exp || Date.parse(exp) <= now.getTime()) await store.delete("auth", row.key);
+  }
+}
+
+async function githubEmail(runtime: AuthRuntime, code: string): Promise<string> {
+  if (!runtime.fetch) throw new AuthError("réseau absent");
+  try {
+    const tokenRes = await runtime.fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: { accept: "application/json", "content-type": "application/json" },
+      body: JSON.stringify({
+        client_id: runtime.githubClientId,
+        client_secret: runtime.githubClientSecret,
+        code,
+      }),
+    });
+    const tokenBody = await tokenRes.json() as { access_token?: string };
+    if (!tokenRes.ok || !tokenBody.access_token) throw new AuthError("github refusé");
+    const emailsRes = await runtime.fetch("https://api.github.com/user/emails", {
+      headers: {
+        accept: "application/vnd.github+json",
+        authorization: `Bearer ${tokenBody.access_token}`,
+      },
+    });
+    const emails = await emailsRes.json() as Array<{ email?: string; primary?: boolean; verified?: boolean }>;
+    const chosen = emails.find((item) => item.primary && item.verified)?.email
+      ?? emails.find((item) => item.verified)?.email;
+    const clean = normalizeEmail(chosen);
+    if (!emailsRes.ok || !clean) throw new AuthError("github refusé");
+    return clean;
+  } catch (error) {
+    if (error instanceof AuthError) throw error;
+    throw new AuthError("github refusé");
+  }
+}
+
+function readCookie(header: string | undefined, name: string): string | null {
+  if (!header) return null;
+  for (const part of header.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq === -1) continue;
+    if (part.slice(0, eq).trim() !== name) continue;
+    const value = part.slice(eq + 1).trim();
+    return value || null;
+  }
+  return null;
+}
