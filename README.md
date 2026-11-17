@@ -12,6 +12,8 @@ Le module éditorial, éteint par défaut, parle le contrat de LE KIOSQUE éping
 
 Le module d'identité, éteint par défaut, a trois portes : un lien magique, GitHub, ou Cloudflare Access. Il ne garde pas de mot de passe. Le jeton de session est haché. `POST /v1/auth/lien` n'existe que si le module est allumé. Tant qu'il est éteint, le bouton de mise à jour reste à qui ouvre la page. Allumé, le bouton est au responsable.
 
+Le module de relecture, éteint par défaut, décide : publier, programmer, ou renvoyer. La correction proposée reste à côté du texte. Quand l'heure est passée, la lecture suivante publie l'article. Le site déjà construit ne change pas tout seul.
+
 ```bash
 npm ci
 npm test

@@ -159,6 +159,30 @@ export function checkArticle(article: SocleArticle): void {
   }
 }
 
+export async function publishDue(store: SocleStore, now: Date): Promise<number> {
+  try {
+    await store.get("review", "on");
+  } catch (error) {
+    if (error instanceof ModuleOffError) return 0;
+    throw error;
+  }
+  const instant = now.toISOString();
+  let count = 0;
+  for (const article of await readArticles(store)) {
+    if (article.status !== "scheduled" || !article.scheduledAt) continue;
+    if (Date.parse(article.scheduledAt) > now.getTime()) continue;
+    article.status = "published";
+    article.publishedAt = article.scheduledAt;
+    try {
+      await saveArticle(store, article, instant);
+      count += 1;
+    } catch (error) {
+      if (!(error instanceof EditorialError)) throw error;
+    }
+  }
+  return count;
+}
+
 export async function saveArticle(store: SocleStore, article: SocleArticle, now: string): Promise<SocleArticle> {
   const next: SocleArticle = {
     ...article,
@@ -220,6 +244,7 @@ export function createSocleSource(store: SocleStore) {
       };
     },
     async *fetchArticles(cursor?: { since?: string }) {
+      await publishDue(store, new Date());
       const since = cursor?.since;
       for (const article of await readArticles(store)) {
         if (since && article.updatedAt <= since) continue;
@@ -270,6 +295,7 @@ export function createSocleEditorial(store: SocleStore) {
     },
     async getSnapshot(options: { audience: "public" | "editorial"; includeDemo?: boolean }) {
       guard();
+      await publishDue(store, new Date());
       const publication = await readPublication(store);
       if (!publication) throw new EditorialError("publication absente");
       const demoOn = (await store.get("editorial", "demo-visible")) !== "0";
