@@ -29,7 +29,7 @@ Les sept modules, chacun avec un interrupteur, tous **éteints** par défaut :
 1. Authentification et rôles, par organisation (un média, une rédaction).
 2. Données éditoriales, qui réalisent `EditorialBackend`.
 3. Médias, avec leurs crédits.
-4. Audience anonyme, selon l'annexe approuvée le 16 novembre 2026 à 23 h 11, heure de Montréal.
+4. Audience anonyme. Le sport est le premier cas (annexe du 16 novembre 2026, 23 h 11, Montréal). Le même compteur sert aux articles et aux autres événements qu'un projet choisit d'allumer.
 5. Abonnements et notifications.
 6. File de relecture et publication programmée.
 7. Export complet (Markdown, JSON, médias).
@@ -103,9 +103,17 @@ Hors de cet outil, et hors des pull requests Radar qui suivront : `affiches/` (l
 
 ## 3. Partage du modèle
 
-`packages/core` est le dossier du Kiosque qui dit ce qu'est un article, un auteur, une photo. Il reste là. Le socle apprend à lire ces définitions. On ne les déménage pas ici : sinon, pour réafficher un site déjà publié, il faudrait installer le serveur même quand il est éteint. Le site se reconstruit comme aujourd'hui, avec le Kiosque seul.
+Les deux envies tiennent ensemble, et elles ne portent pas sur le même objet.
 
-Le déplacer forcerait chaque journal à dépendre de ce dépôt pour **reconstruire** son site. Le Kiosque s'interdit ça : deux dépendances de production, zéro réseau au build, reconstruction dans dix ans depuis le miroir seul, même si plus personne ne maintient le Kiosque. Un journal installé aujourd'hui doit pouvoir mettre à jour **le serveur** sans que le build change de forme.
+Le site publié reste indépendant. `packages/core` est le dossier du Kiosque qui dit ce qu'est un article, un auteur, une photo. Il reste dans le Kiosque. Réafficher un site déjà en ligne ne demande pas le socle. Si plus personne ne maintient le Kiosque, `npm ci && kiosque build` reconstruit quand même depuis le miroir.
+
+Le serveur, lui, se développe à un seul endroit : ce dépôt. Le Kiosque, le Radar et les autres ne gardent pas une copie du code du serveur. Une amélioration (compteur, export, rôles) profite à toutes les installations qui suivent la ligne 1.x, sans que personne ouvre leur dépôt pour y coller des fichiers.
+
+Sur la machine du journal, le programme suit cette ligne 1.x. Avant de changer de version il écrit une sauvegarde. Si la migration échoue, il reste sur la version d'avant. Les pages du site ne sont pas réécrites par cette mise à jour. Personne n'a à intervenir : ni le mainteneur du socle, ni la rédaction. Une version majeure, qui casse quelque chose, ne part pas toute seule. Elle attend un oui.
+
+C'est un changement par rapport au premier mandat, qui interdisait toute mise à jour automatique. Décision du 17 novembre 2026 : l'automatisme vaut pour le programme serveur, dans une même majeure, avec sauvegarde et retour arrière. Il ne vaut pas pour le site statique, ni pour une rupture.
+
+Le déplacer (`packages/core` vers ici) forcerait chaque journal à dépendre de ce dépôt pour **reconstruire** son site. Le Kiosque s'interdit ça : deux dépendances de production, zéro réseau au build, reconstruction dans dix ans depuis le miroir seul.
 
 Ce que fait le socle à la place :
 
@@ -141,7 +149,7 @@ Pilotes prévus :
 
 | Pilote | Où | Dialecte |
 |---|---|---|
-| `node:sqlite` | machine locale, clé avec Node, VM Oracle | SQLite |
+| `node:sqlite` | ordinateur de la rédaction, serveur de l'établissement, petit VPS | SQLite |
 | D1 | Cloudflare Workers | SQLite, sous-ensemble D1 |
 | PDO SQLite | hébergement PHP | le même SQLite |
 | PGlite 0.5.4 | démo et tests, comme le Kiosque | Postgres |
@@ -152,7 +160,7 @@ Le SQL commun à D1, à `node:sqlite` et à PHP tient dans un sous-ensemble : pa
 
 La cible PHP ne partage pas le code TypeScript. Elle réalise la même interface HTTP, une fois le contrat figé. Avant ça, l'hébergement mutualisé et la clé USB sont le site statique, déjà produit par le Kiosque (`.htaccess`, copie de `dist/`). Le module 7 rend ce dossier depuis le socle aussi.
 
-Aucun téléphone maison, aucune mise à jour silencieuse. Une nouvelle version est un tag. Le projet qui l'utilise reçoit une pull request, qu'il fusionne ou qu'il ignore, sur le modèle de `maj-plateforme.yml`.
+Le programme serveur suit la ligne 1.x sur la machine qui l'héberge (section 3). Le thème et le build du Kiosque, eux, continuent de passer par `maj-plateforme.yml` : une pull request que la rédaction fusionne ou ignore. Ce sont les fichiers du site. On ne les écrase pas à distance.
 
 Secrets : variables d'environnement, jamais le fichier de config commité. Même règle que `SourceContext.secrets` du Kiosque.
 
@@ -220,15 +228,21 @@ Trois portes, au choix de l'organisation, une suffit :
 2. GitHub, pour les rédactions qui ont déjà un dépôt. Application OAuth GitHub, gratuite. Le socle ne devient pas un serveur d'autorisation.
 3. Cloudflare Access, forfait gratuit jusqu'à 50 personnes. La 51e est refusée, elle n'est pas facturée, d'après le forum Cloudflare du 5 novembre 2026. À revérifier sur la page des forfaits au moment du module. Ne pas activer le forfait payant ni un ajout comme Log Explorer. Les journaux Access du forfait gratuit durent 24 heures et concernent les rédacteurs, pas les lecteurs.
 
-## 5. Module 4 — audience des sports
+## 5. Module 4 — audience anonyme
 
-L'annexe du 16 novembre 2026 est la spec. Ici, seulement la façon de la tenir.
+Même idée qu'Umami : compter sans dossier de lecteur, sur la machine du projet, pas chez un régie publicitaire. Umami est un logiciel libre à part (licence MIT), avec ses comptes, ses pays, ses navigateurs, ses référents. On ne l'embarque pas : ce serait un deuxième produit à tenir pendant des années. On reprend l'usage, en plus petit, dans le socle.
+
+Un événement a un nom (`article`, `sport`, ou un autre nom que le projet allume), un contexte court, et la date du jour posée par le serveur. On additionne. On ne garde pas l'adresse, le navigateur, le pays, le référent, ni un identifiant de personne. Le script Umami déjà présent sur l'accueil du Radar (Pomo, Solitaire) n'est pas le canal de ces comptes, et cette proposition ne l'enlève pas.
+
+L'annexe du 16 novembre 2026 reste la règle du sport. Ici, la façon de la tenir, élargie aux autres événements.
 
 Le navigateur envoie un clic ou un tapotement sur une carte du bandeau. Pas un survol, pas une impression, pas un défilement. Le corps contient le code de sport (voile et `sailing` déjà unifiés comme dans le Radar) et le contexte `accueil` ou `page sports`. **Le serveur** pose la date civile de Montréal (`America/Toronto`) et refuse un corps qui contiendrait autre chose. On ne fait pas confiance à l'horloge du téléphone, et on n'offre pas de champ libre où un identifiant pourrait se glisser.
 
 Le serveur incrémente `audience_day`. Il ne écrit pas de journal de la requête : pas d'adresse, pas d'en-têtes, pas d'URL complète, pas d'identifiant de carte. Le plafond anti-rafale tient dans la mémoire du processus, quelques minutes, puis il est oublié. Sur Workers, cette mémoire est un Durable Object qui **n'écrit pas** la clé dans SQLite : un redémarrage remet le plafond à zéro, ce qui limite la casse sans créer de dossier. Pas de KV pour ça. KV ne permet que 1 000 écritures par jour, et une clé dérivée de l'adresse serait un identifiant qu'on aurait conservé.
 
-Conservation : 90 jours de détail, ou la saison scolaire si elle est plus courte (le calendrier scolaire est une donnée que le Radar devra fournir ; en attendant, 90 jours). Ensuite une ligne hebdomadaire, puis l'effacement du détail. Aucun partage avec Umami, un réseau publicitaire, ou un autre sous-traitant.
+Conservation : 90 jours de détail, ou la saison scolaire si elle est plus courte (le calendrier scolaire est une donnée que le Radar devra fournir ; en attendant, 90 jours). Ensuite une ligne hebdomadaire, puis l'effacement du détail. Aucun envoi vers Umami cloud, un réseau publicitaire, ou un autre sous-traitant.
+
+Le même tableau sert un article, une carte sportive, ou un autre nom d'événement. Le poids dans le bandeau sportif reste un cas particulier, en dernier recours, et il ne s'allume pas avec le compteur. Les autres projets lisent leurs totaux. Ils n'héritent pas des règles du bandeau.
 
 Le site statique ne lit pas le compteur en direct à chaque visite : ça brûlerait le quota de requêtes et ça rendrait la lecture dépendante du serveur. Une fois par jour, le workflow qui met déjà `sports.json` à jour **peut** télécharger l'agrégat et le committer. Tant que l'interrupteur est éteint, il ne le fait pas. Le bandeau continue de se trier comme aujourd'hui.
 
@@ -238,7 +252,7 @@ Deux tests de non-régression accompagnent la première intégration Radar : l'o
 
 Avant d'allumer l'interrupteur en production, une personne vérifie qu'aucun identifiant n'est resté dans les journaux ou les en-têtes conservés. Ce n'est pas un contrôle qu'on peut déclarer fait depuis le code : les Workers du Radar persistent aujourd'hui leurs journaux d'invocation, et la plateforme peut garder une trace courte même si l'application n'écrit rien. Le Worker d'audience aura `observability.logs` désactivé, et il ne réutilise pas les Workers existants. La phrase à ajouter à la politique de confidentialité, le jour où l'interrupteur s'allume et pas avant :
 
-> Nous comptons, sans vous identifier, les clics sur les cartes sportives pour varier ce qui est mis de l'avant.
+> Nous comptons, sans vous identifier, les ouvertures d'articles et les clics que le projet a choisi de mesurer, pour voir ce qui est lu. Sur le Radar, les clics des cartes sportives servent en plus à varier ce qui est mis de l'avant.
 
 ## 6. Cibles gratuites
 
@@ -246,7 +260,14 @@ Ce chapitre dit où **un journal** peut installer **sa** copie, sans payer. Ce n
 
 - Pas les Workers déjà en ligne du Radar (météo, titres à l'antenne, traduction, fonds). Ils restent où ils sont. Le socle n'écrit pas dedans.
 - Pas la machine Oracle des parties SS14. On n'y déploie rien, on n'y lit rien, on ne la cite pas comme hébergement de cet outil.
-- Cloudflare et Oracle n'apparaissent ici que comme deux étagères gratuites possibles pour un journal qui n'a pas de serveur à lui. Le chemin normal, c'est le fichier SQLite sur la machine du journal, ou simplement les pages statiques sur une clé ou un hébergement Apache.
+L'ordre pour une rédaction étudiante, du plus simple au plus rare :
+
+1. **Pas de serveur.** GitHub Pages, l'espace web de l'établissement, une clé USB, un hébergement qui ne fait que servir des fichiers. C'est le chemin d'installation actuel du Kiosque (`docs/installation.md` : gabarit GitHub, configurateur, Pages). La lecture est entière. L'écriture passe par le dépôt ou par la démo dans le navigateur.
+2. **Une machine qu'ils ont déjà.** L'ordinateur de la rédaction, le serveur de l'établissement, une machine à la maison. Un fichier SQLite. Rien à acheter.
+3. **L'hébergement mutualisé pas cher** qu'ils ont souvent déjà (Hostinger et les offres du même genre, parfois via l'association étudiante). Le socle y tourne en PHP si l'hébergeur a SQLite. Sinon cet hébergement sert les pages statiques, et l'écriture reste dans Git.
+4. **Cloudflare ou une VM Always Free**, seulement si quelqu'un veut vraiment s'en servir. Ce n'est pas le conseil par défaut. Ce n'est pas la machine SS14. Ce n'est pas les Workers du Radar.
+
+Personne ici n'achète un serveur pour les clients du Kiosque. Chaque journal apporte le sien, ou n'en apporte pas. Un petit serveur personnel pour les projets de la collection n'est pas un préalable : il devient utile le jour où un de ces projets a besoin d'un programme qui reste allumé (le compteur, par exemple). D'ici là, l'acheter ne fait rien tourner.
 
 Chiffres relevés le 16 novembre 2026. Ils bougent. La pull request du pilote correspondant les revérifie. Aucune de ces cibles ne demande une carte qui se met à facturer toute seule : le dépassement du forfait Workers gratuit **échoue**, il ne bascule pas sur le payant. On ne crée pas les ressources d'essai (crédit Oracle de 300 $, Workers payant à 5 $ US, Cloudflare Images, forfait Zero Trust payant).
 
@@ -306,7 +327,7 @@ Liste obtenue avec `gh repo list azdak919 --limit 200` le 16 novembre 2026. Quat
 | Dépôt | Aujourd'hui | Verdict | Modules |
 |---|---|---|---|
 | `le-kiosque` | Miroir Git, build statique, démo PGlite, stub PocketBase, export, doctor, adopt. Pas de serveur. | **Adopter**, en premier, interrupteur éteint. | 1, 2, 3, 6, 7. Le 5 plus tard, s'il sert à prévenir une rédaction. Pas le 4 : un journal n'a pas le bandeau sportif du Radar. |
-| `le-radar` | Pages statiques, bots qui commitent le JSON, quatre Workers de cache, Umami sur trois pages, rapports QC. | **Adopter**, en second. D'abord le 4, éteint. Le 6 ensuite, sans remplacer les bots. | 4, puis 6. Pas 1 ni 5 : les suivis restent dans `localStorage` (`radar-media-follows-v1`) tant qu'on n'a pas décidé de comptes. Pas 2 : le Radar n'est pas une rédaction. |
+| `le-radar` | Pages statiques, bots qui commitent le JSON, quatre Workers de cache, Umami cloud sur trois pages, rapports QC. La revue de presse est la pull request 438. | **Adopter**, plus tard, pour le compteur anonyme seulement, éteint. | 4. Pas la revue de presse. Pas 1 ni 5 tant que les suivis restent dans le navigateur. Pas 2 : le Radar n'est pas une rédaction. |
 | `kiosque-essai-gabarit` | Copie jetable du gabarit, démo PGlite, Pages. | **Ne pas adopter.** Le gabarit suivra le Kiosque le jour où quelqu'un refera un essai. | aucun |
 | `mutua` | Hub statique, données reçues par pull requests. | **Ne pas adopter.** | aucun |
 | `mutua-studio` | Pages statiques. Deux Workers de cache (géocodage, traduction), sans base. Le proxy de traduction n'est plus appelé par le client. | **Ne pas adopter.** Un cache d'adresses n'est pas un back-office, et les documents restent chez la personne. | aucun |
@@ -328,10 +349,11 @@ On modifie un dépôt quand le socle lui retire du travail réel. Le propriétai
 
 ### LE KIOSQUE
 
+- L'installation d'un journal gagne un choix, dans le configurateur et dans `docs/installation.md`. Aujourd'hui le guide va du gabarit GitHub jusqu'à Pages, et il dit déjà que le Kiosque ne fournit pas d'hébergement. On ajoute l'autre branche : « j'ai déjà un endroit » (établissement, mutualisé, ordinateur de la rédaction, petit VPS). Le configurateur écrit la config sans secret et donne la commande à lancer **sur leur machine**. Il ne propose pas un serveur à nous.
 - `kiosque.config.ts` gagne un adaptateur `socle`, absent du gabarit. Le défaut reste Sveltia ou la démo, selon le projet.
 - L'import du paquet est dynamique, limité à `sync` et à la page d'admin. `build.ts` ne change pas d'imports. Le test existant reste vert.
 - `packages/core` reste ici. PocketBase reste un stub qui ne se connecte pas.
-- La version du socle est épinglée (tag Git). Un workflow propose la mise à jour en pull request et ne la fusionne pas.
+- Le programme serveur, sur leur machine, suit la ligne 1.x tout seul (section 3). Le dépôt du journal n'en contient pas une copie.
 - `AGENTS.md`, `CHANGELOG.md`, et la feuille de route du README (jalon 4 déjà fait) sont mis à jour dans la même pull request.
 - Le guide d'une heure est `docs/adopter-le-socle.md` **dans le socle**, lié depuis le Kiosque. Il n'existe pas encore : les commandes n'existent pas. Son sommaire est en section 10.
 
@@ -409,4 +431,8 @@ Le nom `le-socle` est gardé. Le propriétaire l'a accepté le 16 novembre 2026.
 
 Il a aussi laissé le choix des dépôts à modifier : seulement ceux pour qui c'est utile. Le détail est en section 8.
 
-Le reste de ce document n'est pas une liste de questions. `packages/core` reste dans le Kiosque (section 3). Les brouillons tiennent dans un fichier SQLite. La démo et les tests réutilisent PGlite, déjà dans le Kiosque (section 4). Un clic sportif note le sport et la page ; le serveur ajoute la date du jour à Montréal, pour qu'un téléphone à l'heure fausse n'écrive pas n'importe quel jour (section 5). La section 7 nomme les autres dépôts, une ligne chacun, sans secret : c'est l'inventaire demandé pour savoir où l'outil sert. Cloudflare et Oracle, en section 6, sont des endroits gratuits possibles pour un journal. Ils ne désignent ni les Workers du Radar, ni la machine SS14.
+Décisions du 17 novembre 2026, à la relecture :
+
+- Le site reste indépendant : `packages/core` demeure dans le Kiosque. Le serveur se développe seulement ici, et la ligne 1.x se met à jour sur la machine du journal, sauvegarde d'abord, sans que personne ouvre leur dépôt.
+- Pas d'achat de serveur pour les clients, ni comme préalable. L'installation du Kiosque proposera « pas de serveur » ou « l'endroit que vous avez déjà » : Pages, établissement, mutualisé du genre Hostinger, ordinateur de la rédaction, petit VPS. Cloudflare et Oracle restent possibles, après ça.
+- Le compteur anonyme vaut pour les articles et les autres événements qu'on allume, pas seulement le sport. Même usage qu'Umami, sans embarquer Umami. La revue de presse du Radar (deux textes, pull request 438) est comprise et laissée là où elle est.
