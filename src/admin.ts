@@ -44,6 +44,7 @@ const COPY = {
     updateLink: "Mise à jour",
     articlesLink: "Articles",
     reviewLink: "Relecture",
+    mediaLink: "Médias",
     saveTitle: "Sauvegarde",
     off: "La sauvegarde est éteinte.",
     activate: "Activer",
@@ -79,6 +80,7 @@ const COPY = {
     updateLink: "Update",
     articlesLink: "Articles",
     reviewLink: "Review",
+    mediaLink: "Media",
     saveTitle: "Backup",
     off: "Backup is off.",
     activate: "Turn on",
@@ -206,7 +208,10 @@ export async function handleAdmin(
     const writing = config.modules.editorial
       ? `<p><a href="${withLang("/admin/articles", lang)}">${copy.articlesLink}</a></p><p><a href="${withLang("/admin/relecture", lang)}">${copy.reviewLink}</a></p>`
       : "";
-    return adminDocument(lang, copy.office, `${notice}${writing}<p><a href="${withLang("/admin/sauvegarde", lang)}">${copy.saveLink}</a></p><p><a href="${withLang("/admin/mise-a-jour", lang)}">${copy.updateLink}</a></p>`);
+    const media = config.modules.media
+      ? `<p><a href="${withLang("/admin/medias", lang)}">${copy.mediaLink}</a></p>`
+      : "";
+    return adminDocument(lang, copy.office, `${notice}${writing}${media}<p><a href="${withLang("/admin/sauvegarde", lang)}">${copy.saveLink}</a></p><p><a href="${withLang("/admin/mise-a-jour", lang)}">${copy.updateLink}</a></p>`);
   }
 
   if (path === "/admin/sauvegarde/activer" && method === "POST") {
