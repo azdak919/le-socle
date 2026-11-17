@@ -42,6 +42,8 @@ const COPY = {
     notice: "Allumez la sauvegarde et téléchargez l'archive. Si le serveur est perdu, réinstallez avec le configurateur du Kiosque et choisissez cette archive.",
     saveLink: "Sauvegarde",
     updateLink: "Mise à jour",
+    articlesLink: "Articles",
+    reviewLink: "Relecture",
     saveTitle: "Sauvegarde",
     off: "La sauvegarde est éteinte.",
     activate: "Activer",
@@ -75,6 +77,8 @@ const COPY = {
     notice: "Turn backup on and download the archive. If the server is lost, reinstall with the Kiosque configurator and choose that archive.",
     saveLink: "Backup",
     updateLink: "Update",
+    articlesLink: "Articles",
+    reviewLink: "Review",
     saveTitle: "Backup",
     off: "Backup is off.",
     activate: "Turn on",
@@ -109,7 +113,7 @@ function withLang(path: string, lang: Lang): string {
   return path.includes("?") ? `${path}&lang=en` : `${path}?lang=en`;
 }
 
-function page(lang: Lang, title: string, body: string): Result {
+export function adminDocument(lang: Lang, title: string, body: string): Result {
   const copy = COPY[lang];
   const other = withLang("/admin", copy.otherLang === "en" ? "en" : "fr");
   return {
@@ -199,7 +203,10 @@ export async function handleAdmin(
   if (path === "/admin" && method === "GET") {
     const downloaded = exportOn ? await wasDownloaded(deps.store) : false;
     const notice = !exportOn || !downloaded ? `<p><strong>${copy.notice}</strong></p>` : "";
-    return page(lang, copy.office, `${notice}<p><a href="${withLang("/admin/sauvegarde", lang)}">${copy.saveLink}</a></p><p><a href="${withLang("/admin/mise-a-jour", lang)}">${copy.updateLink}</a></p>`);
+    const writing = config.modules.editorial
+      ? `<p><a href="${withLang("/admin/articles", lang)}">${copy.articlesLink}</a></p><p><a href="${withLang("/admin/relecture", lang)}">${copy.reviewLink}</a></p>`
+      : "";
+    return adminDocument(lang, copy.office, `${notice}${writing}<p><a href="${withLang("/admin/sauvegarde", lang)}">${copy.saveLink}</a></p><p><a href="${withLang("/admin/mise-a-jour", lang)}">${copy.updateLink}</a></p>`);
   }
 
   if (path === "/admin/sauvegarde/activer" && method === "POST") {
@@ -211,7 +218,7 @@ export async function handleAdmin(
 
   if (!exportOn) {
     if (path === "/admin/sauvegarde" && method === "GET") {
-      return page(lang, copy.saveTitle, `<p>${copy.off}</p><form class="noprint" method="post" action="${withLang("/admin/sauvegarde/activer", lang)}"><button type="submit">${copy.activate}</button></form>`);
+      return adminDocument(lang, copy.saveTitle, `<p>${copy.off}</p><form class="noprint" method="post" action="${withLang("/admin/sauvegarde/activer", lang)}"><button type="submit">${copy.activate}</button></form>`);
     }
     return { status: 404, body: "", headers: {} };
   }
@@ -229,7 +236,7 @@ export async function handleAdmin(
       const href = withLang(`/admin/sauvegarde/session.zip?session=${encodeURIComponent(session)}`, lang);
       return `<li><a href="${href}">${copy.sessionOf} ${session}, ${copy.articlesOnly}</a></li>`;
     }).join("");
-    return page(lang, copy.saveTitle, `<p>${copy.yearsHelp}</p>
+    return adminDocument(lang, copy.saveTitle, `<p>${copy.yearsHelp}</p>
 <form class="noprint" method="post" action="${withLang("/admin/sauvegarde/prefs", lang)}">${boxes}<p><button type="submit">${copy.savePrefs}</button></p></form>
 <p class="noprint"><a href="${withLang("/admin/sauvegarde/site.zip", lang)}">${copy.downloadSite}</a></p>
 <ul class="noprint">${links}</ul>
@@ -286,7 +293,7 @@ export async function handleAdmin(
     const revert = saved
       ? `<form class="noprint" method="post" action="${withLang("/admin/mise-a-jour/revenir", lang)}"><button type="submit">${copy.revert}</button></form>`
       : "";
-    return page(lang, copy.updateTitle, `<h2>${copy.line}</h2><p>${copy.installed} : ${current}.</p>${offer}${backup}
+    return adminDocument(lang, copy.updateTitle, `<h2>${copy.line}</h2><p>${copy.installed} : ${current}.</p>${offer}${backup}
 <form class="noprint" method="post" action="${withLang("/admin/mise-a-jour", lang)}">
 ${extra}
 <p><button type="submit" name="confirm" value="1">${copy.updateBtn}</button></p>
@@ -310,7 +317,7 @@ ${revert}`);
       if (!(error instanceof Error)) throw error;
       return { status: 500, body: previous, headers: { "content-type": "text/plain; charset=utf-8" } };
     }
-    return page(lang, copy.updateTitle, `<h2>${copy.line}</h2><p>${copy.done}</p><p>${copy.installed} : ${deps.version()}.</p>`);
+    return adminDocument(lang, copy.updateTitle, `<h2>${copy.line}</h2><p>${copy.done}</p><p>${copy.installed} : ${deps.version()}.</p>`);
   }
 
   if (path === "/admin/mise-a-jour/revenir" && method === "POST") {
@@ -323,7 +330,7 @@ ${revert}`);
       if (!(error instanceof Error)) throw error;
       return { status: 500, body: previous, headers: { "content-type": "text/plain; charset=utf-8" } };
     }
-    return page(lang, copy.updateTitle, `<h2>${copy.line}</h2><p>${copy.reverted}</p><p>${copy.installed} : ${deps.version()}.</p>`);
+    return adminDocument(lang, copy.updateTitle, `<h2>${copy.line}</h2><p>${copy.reverted}</p><p>${copy.installed} : ${deps.version()}.</p>`);
   }
 
   return { status: 404, body: "", headers: {} };

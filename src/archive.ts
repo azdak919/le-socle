@@ -1,4 +1,5 @@
 import type { SocleStore } from "./store.ts";
+import { ModuleOffError } from "./store.ts";
 import { textFile, unzip, zipStore, type ZipFile } from "./zip.ts";
 
 export type ArticleRecord = {
@@ -51,14 +52,53 @@ function stripSecrets(text: string): string {
   return text.split("\n").filter((line) => !SECRET_LINE.test(line)).join("\n");
 }
 
-async function articlesOf(store: SocleStore): Promise<ArticleRecord[]> {
-  const rows = await store.list("export");
-  const articles: ArticleRecord[] = [];
-  for (const row of rows) {
-    if (!row.key.startsWith("article:")) continue;
-    articles.push(JSON.parse(row.value) as ArticleRecord);
+async function rowsOf(store: SocleStore, module: "export" | "editorial"): Promise<Array<{ key: string; value: string }>> {
+  try {
+    return await store.list(module);
+  } catch (error) {
+    if (error instanceof ModuleOffError) return [];
+    throw error;
   }
-  return articles;
+}
+
+function recordFromEditorial(value: string): ArticleRecord | null {
+  const parsed = JSON.parse(value) as {
+    id?: string;
+    title?: string;
+    status?: string;
+    session?: string;
+    publishedAt?: string;
+    updatedAt?: string;
+    body?: { raw?: string };
+  };
+  if (!parsed.id || !parsed.title) return null;
+  const when = parsed.publishedAt ?? parsed.updatedAt;
+  if (!when) return null;
+  const year = civilYear(new Date(when));
+  if (!Number.isFinite(year)) return null;
+  return {
+    id: parsed.id,
+    title: parsed.title,
+    year,
+    session: typeof parsed.session === "string" ? parsed.session : "",
+    status: parsed.status ?? "draft",
+    markdown: parsed.body?.raw ?? "",
+  };
+}
+
+async function articlesOf(store: SocleStore): Promise<ArticleRecord[]> {
+  const byId = new Map<string, ArticleRecord>();
+  for (const row of await rowsOf(store, "export")) {
+    if (!row.key.startsWith("article:")) continue;
+    const article = JSON.parse(row.value) as ArticleRecord;
+    byId.set(article.id, article);
+  }
+  for (const row of await rowsOf(store, "editorial")) {
+    if (!row.key.startsWith("article:")) continue;
+    const article = recordFromEditorial(row.value);
+    if (article) byId.set(article.id, article);
+  }
+  return [...byId.values()];
 }
 
 function htmlPage(title: string, body: string): string {
@@ -124,6 +164,13 @@ export async function buildSiteZip(store: SocleStore, now: Date): Promise<Uint8A
     files.push({ name: path, data: Buffer.from(row.value, "base64") });
     const credit = rows.find((item) => item.key === `credit:${path}`);
     if (credit) files.push(textFile(`${path}.credit`, credit.value));
+  }
+  for (const row of await rowsOf(store, "editorial")) {
+    if (!row.key.startsWith("bytes:")) continue;
+    const path = row.key.slice("bytes:".length);
+    const used = included.some((article) => article.markdown.includes(path));
+    if (!used) continue;
+    files.push({ name: path, data: Buffer.from(row.value, "base64") });
   }
   return zipStore(files);
 }

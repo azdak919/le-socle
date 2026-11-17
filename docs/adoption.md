@@ -15,7 +15,7 @@ Ce guide est pour qui installe **sa** copie. Un client du Kiosque passe par le c
 
    Lire le ZIP. Il contient `index.html`. Ouvrir cette page montre ce qui a été gardé. Avec l'export éteint, l'archive est vide d'articles. `node src/cli.ts migrate --down --backup sauvegardes/retour.zip` retire la dernière migration. La table reste. Rien de tout cela ne part au démarrage de `npm start`.
 
-4. Allumer un seul module, dans `socle.config.json`, puis relancer `migrate` avec une nouvelle archive. Aujourd'hui le seul module qui fait quelque chose est `export`.
+4. Allumer un seul module, dans `socle.config.json`, puis relancer `migrate` avec une nouvelle archive. `export` fait l'archive. `editorial` fait les articles, contre le contrat du Kiosque épinglé dans `src/kiosque-pin.ts`. Les autres modules ne font encore rien.
 
 5. Le Kiosque ne s'importe pas ici. `npm start` ne reconstruit pas le site. Le build du journal ne doit pas importer ce dépôt. Cette vérification se rejoue dans la pull request d'intégration.
 

@@ -79,6 +79,11 @@ class PgliteStore implements SocleStore {
     );
   }
 
+  async delete(module: ModuleName, key: string): Promise<void> {
+    assertEnabled(this.enabled, module);
+    await this.db.query(`DELETE FROM ${tableName(module)} WHERE key = $1`, [key]);
+  }
+
   async get(module: ModuleName, key: string): Promise<string | null> {
     assertEnabled(this.enabled, module);
     const result = await this.db.query<{ value: string }>(

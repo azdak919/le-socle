@@ -16,6 +16,7 @@ export interface SocleStore {
   applied(): Promise<ModuleName[]>;
   rollback(): Promise<string | null>;
   put(module: ModuleName, key: string, value: string): Promise<void>;
+  delete(module: ModuleName, key: string): Promise<void>;
   get(module: ModuleName, key: string): Promise<string | null>;
   list(module: ModuleName): Promise<Array<{ key: string; value: string }>>;
   tableReady(module: ModuleName): Promise<boolean>;

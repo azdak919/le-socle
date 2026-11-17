@@ -1,4 +1,5 @@
 node_modules/
+.kiosque-pin/
 socle.sqlite
 socle.sqlite-*
 socle.version
