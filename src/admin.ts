@@ -14,6 +14,7 @@ import {
   writePrefs,
 } from "./archive.ts";
 import { mayUpdate, type AuthRuntime } from "./auth.ts";
+import type { NotifyRuntime } from "./notify.ts";
 import { enabledModules, type SocleConfig } from "./config.ts";
 import type { SocleStore } from "./store.ts";
 
@@ -28,6 +29,7 @@ export type AdminDeps = {
   backupDir: string;
   saveConfig?: (config: SocleConfig) => void;
   auth?: AuthRuntime;
+  notify?: NotifyRuntime;
 };
 
 type Result = { status: number; body: string | Uint8Array; headers: Record<string, string> };
@@ -48,6 +50,7 @@ const COPY = {
     reviewLink: "Relecture",
     mediaLink: "Médias",
     audienceLink: "Audience",
+    notifyLink: "Abonnements",
     saveTitle: "Sauvegarde",
     off: "La sauvegarde est éteinte.",
     activate: "Activer",
@@ -85,6 +88,7 @@ const COPY = {
     reviewLink: "Review",
     mediaLink: "Media",
     audienceLink: "Audience",
+    notifyLink: "Subscriptions",
     saveTitle: "Backup",
     off: "Backup is off.",
     activate: "Turn on",
@@ -223,7 +227,10 @@ export async function handleAdmin(
     const audience = config.modules.audience
       ? `<p><a href="${withLang("/admin/audience", lang)}">${copy.audienceLink}</a></p>`
       : "";
-    return adminDocument(lang, copy.office, `${notice}${writing}${media}${audience}<p><a href="${withLang("/admin/sauvegarde", lang)}">${copy.saveLink}</a></p><p><a href="${withLang("/admin/mise-a-jour", lang)}">${copy.updateLink}</a></p>`);
+    const notify = config.modules.notify
+      ? `<p><a href="${withLang("/admin/abonnements", lang)}">${copy.notifyLink}</a></p>`
+      : "";
+    return adminDocument(lang, copy.office, `${notice}${writing}${media}${audience}${notify}<p><a href="${withLang("/admin/sauvegarde", lang)}">${copy.saveLink}</a></p><p><a href="${withLang("/admin/mise-a-jour", lang)}">${copy.updateLink}</a></p>`);
   }
 
   if (path === "/admin/sauvegarde/activer" && method === "POST") {

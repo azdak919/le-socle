@@ -10,6 +10,7 @@ import { defaultConfig, loadConfigFile, stringifyConfig, type SocleConfig } from
 import { handleEditorial } from "./editorial-http.ts";
 import { handleRequest } from "./health.ts";
 import { handleMedia } from "./media-http.ts";
+import { handleNotify } from "./notify-http.ts";
 import { handleReview } from "./review-http.ts";
 import { sendSmtp, smtpFromEnv } from "./smtp.ts";
 import { openSqliteFile } from "./sqlite.ts";
@@ -31,6 +32,7 @@ export function createSocleServer(config: SocleConfig, admin?: AdminDeps) {
         : undefined;
       const reviewPath = path.startsWith("/admin/relecture") || path.startsWith("/v1/review");
       const audiencePath = path.startsWith("/v1/audience") || path.startsWith("/admin/audience");
+      const notifyPath = path.startsWith("/v1/notify") || path.startsWith("/admin/abonnements");
       const editorialPath = path.startsWith("/admin/articles")
         || path.startsWith("/admin/relecture")
         || path.startsWith("/v1/editorial");
@@ -44,7 +46,9 @@ export function createSocleServer(config: SocleConfig, admin?: AdminDeps) {
           ? await handleEditorial(method, url, config, admin, rawBody)
           : admin && audiencePath
             ? await handleAudience(method, url, config, admin, rawBody, actor)
-            : admin && path.startsWith("/admin")
+            : admin && notifyPath
+              ? await handleNotify(method, url, config, admin, rawBody, actor)
+              : admin && path.startsWith("/admin")
               ? await handleAdmin(method, url, config, admin, rawBody, actor)
               : handleRequest(method, url, config);
       response.writeHead(result.status, result.headers);
@@ -92,7 +96,7 @@ export async function openRunningAdmin(
     }
   }
   let version = existsSync(versionFile) ? readFileSync(versionFile, "utf8").trim() : VERSION;
-  const smtp = config.modules.auth ? smtpFromEnv() : null;
+  const smtp = config.modules.auth || config.modules.notify ? smtpFromEnv() : null;
   return {
     config,
     admin: {
@@ -117,6 +121,19 @@ export async function openRunningAdmin(
             mailer: smtp
               ? async (to, url) => {
                   await sendSmtp(smtp, to, "Lien de connexion", url);
+                }
+              : undefined,
+          }
+        : undefined,
+      notify: config.modules.notify
+        ? {
+            publicOrigin: process.env.SOCLE_PUBLIC_ORIGIN,
+            publicKey: process.env.SOCLE_VAPID_PUBLIC,
+            privateKey: process.env.SOCLE_VAPID_PRIVATE,
+            subject: process.env.SOCLE_SMTP_FROM ? `mailto:${process.env.SOCLE_SMTP_FROM}` : undefined,
+            mailer: smtp
+              ? async (to, text) => {
+                  await sendSmtp(smtp, to, "Abonnement", text);
                 }
               : undefined,
           }
