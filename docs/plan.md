@@ -64,7 +64,7 @@ Le jalon 4 est livré dans le code et dans le registre `AGENTS.md` : `kiosque do
 
 `runConformanceSuite` (`testkit.ts`) est le critère d'un adaptateur : hors ligne, `fetch` injecté, publication valide, auteurs, taxonomies, articles, identifiants stables, `source.backend` égal à l'id de l'adaptateur, média en `Uint8Array`, et un `since` futur qui ne renvoie pas plus que la lecture complète. `health()` ne lève jamais.
 
-La clé USB et l'hébergement mutualisé, dans le Kiosque, désignent le **site statique**. `deploy-hint.ts` dit de copier `dist/` sur la clé. Le build écrit un `.htaccess` pour Apache. Le mot PHP n'apparaît pas. Il n'y a pas de serveur à installer pour lire le journal.
+La clé USB et l'hébergement mutualisé, dans le Kiosque aujourd'hui, désignent le **site statique**. `deploy-hint.ts` dit de copier `dist/` sur la clé. Le build écrit un `.htaccess` pour Apache. Le mot PHP n'apparaît pas. Un client peut aussi poser le journal entier sur son serveur : pages publiques et rédaction. C'est la section 6.
 
 La ligne du registre « Fédération, API distante, stockage, rôles et DAM » est bloquée tant que les responsabilités ne sont pas définies. Ce plan est cette définition. Le Kiosque continue de n'héberger personne.
 
@@ -109,13 +109,11 @@ Le site publié reste indépendant. `packages/core` est le dossier du Kiosque qu
 
 Le serveur, lui, se développe à un seul endroit : ce dépôt. Le Kiosque, le Radar et les autres ne gardent pas une copie du code du serveur. Une amélioration (compteur, export, rôles) profite à toutes les installations qui suivent la ligne 1.x, sans que personne ouvre leur dépôt pour y coller des fichiers.
 
-Sur la machine du journal, la mise à jour se fait dans une page du back-office. Pas dans un terminal. Pas en demandant à une IA. La même page est dans le Kiosque, dans la démo, et dans le Radar le jour où il a son back-office. Le détail est en section 9.
+La page Mise à jour est dans le Kiosque, dans la démo, et dans le Radar. Chez un client du Kiosque elle a deux lignes : le socle, et le Kiosque. Le détail est en section 9.
 
-La page dit la version en place, la version proposée, et ce qui change, en français courant. Un bouton lance la mise à jour. Avant, le programme écrit une sauvegarde et le dit avec des mots. Si la migration échoue, il reste sur la version d'avant. Les pages du site publié ne sont pas réécrites. Une version 1.x attend ce bouton : elle ne part pas pendant la nuit. La rédaction la voit la prochaine fois qu'elle ouvre le back-office, là où elle écrit déjà. Une version majeure, qui casse quelque chose, est expliquée sur la même page et attend un oui de plus.
+Chaque ligne dit la version en place, la version proposée, et ce qui change. Un bouton lance la mise à jour. Avant, une sauvegarde. Si ça échoue, la version d'avant continue. Une version majeure est à part et attend un oui de plus.
 
-Personne n'ouvre le dépôt du journal pour y coller des fichiers. Personne n'a à savoir taper une commande.
-
-C'est un changement par rapport au premier mandat, qui interdisait toute mise à jour du programme. La formule du 17 novembre, qui faisait partir la ligne 1.x toute seule, est précisée le même jour : la sauvegarde et le retour arrière restent, le geste est le bouton de la page.
+Une mise à jour du Kiosque remplace les fichiers de la plateforme et reconstruit le site. Elle ne touche pas `content/`, `media/`, `theme/tokens.css`, `kiosque.config.ts`, ni `OWNERS.md`. Un journal sans serveur reçoit ces améliorations par `maj-plateforme.yml`, en pull request.
 
 Le déplacer (`packages/core` vers ici) forcerait chaque journal à dépendre de ce dépôt pour **reconstruire** son site. Le Kiosque s'interdit ça : deux dépendances de production, zéro réseau au build, reconstruction dans dix ans depuis le miroir seul.
 
@@ -164,7 +162,7 @@ Le SQL commun à D1, à `node:sqlite` et à PHP tient dans un sous-ensemble : pa
 
 La cible PHP ne partage pas le code TypeScript. Elle réalise la même interface HTTP, une fois le contrat figé. Avant ça, l'hébergement mutualisé et la clé USB sont le site statique, déjà produit par le Kiosque (`.htaccess`, copie de `dist/`). Le module 7 rend ce dossier depuis le socle aussi.
 
-Le programme serveur se met à jour depuis la page du back-office (sections 3 et 9). Le thème et le build du Kiosque, eux, continuent de passer par `maj-plateforme.yml` : une pull request que la rédaction fusionne ou ignore. Ce sont les fichiers du site. On ne les écrase pas à distance.
+Le socle et le Kiosque se mettent à jour depuis la même page (sections 3 et 9). Un journal sans serveur reçoit le Kiosque par `maj-plateforme.yml`. Le contenu du journal n'est pas écrasé.
 
 Secrets : variables d'environnement, jamais le fichier de config commité. Même règle que `SourceContext.secrets` du Kiosque.
 
@@ -265,26 +263,27 @@ Ce chapitre dit où **un journal** peut installer **sa** copie, sans payer. Ce n
 - Pas les Workers déjà en ligne du Radar (météo, titres à l'antenne, traduction, fonds). Ils restent où ils sont. Le socle n'écrit pas dedans.
 - Pas la machine Oracle des parties SS14. On n'y déploie rien, on n'y lit rien, on ne la cite pas comme hébergement de cet outil.
 
-La lecture n'a pas besoin de serveur : des pages suffisent. Dès qu'une rédaction écrit à plusieurs, compte ce qui est lu, ou veut mettre son back-office à jour depuis une page, il lui faut une machine qui reste allumée. Même petite. C'est l'avantage. Sans elle, on relit un site. Avec elle, on travaille dans le navigateur.
+Certains clients hébergent le journal en entier sur leur serveur : les pages que le public lit, et l'endroit où la rédaction écrit. Un petit serveur suffit pour ça. C'est un cas normal, pas un supplément.
 
-Ce qu'un petit serveur change, dès le premier jour :
+Ce que cette machine porte :
 
-- plusieurs personnes écrivent des brouillons en même temps ;
+- le site public ;
+- les brouillons, à plusieurs en même temps ;
 - la file de relecture et l'heure de publication ;
-- le compteur anonyme, qui garde les totaux du jour ;
-- les photos et leurs crédits au même endroit ;
+- le compteur anonyme et les totaux du jour ;
+- les photos et leurs crédits ;
 - qui a le droit de publier ;
-- la page qui met ce back-office à jour, sans terminal et sans IA.
+- les mises à jour du socle et du Kiosque.
 
-S'il s'arrête, le site déjà publié continue d'être lu.
+Si cette machine est le seul exemplaire du site, son arrêt éteint aussi la lecture. Une copie (export, Pages) reste possible quand les questions d'installation l'ont prévue. `build.ts` n'importe pas le serveur. La machine sert les pages déjà construites.
 
-Deux serveurs, qui ne sont pas le même. Un serveur personnel sert les projets de la collection : le Radar, un journal à soi. Il ne reçoit pas les journaux des clients. Chaque client du Kiosque apporte le sien, et c'est le cas le plus probable : établissement, mutualisé, ordinateur de la rédaction, petit VPS. L'installation est faite pour leur machine. Le Kiosque n'en propose pas une à lui.
+Deux serveurs, qui ne sont pas le même. Un serveur personnel sert les projets de la collection : le Radar, un journal à soi. Il ne reçoit pas les journaux des clients. Chaque client apporte le sien : établissement, mutualisé, ordinateur de la rédaction, petit VPS. Le Kiosque n'en propose pas une à lui.
 
 L'ordre pour une rédaction étudiante :
 
-1. **Pas de serveur.** GitHub Pages, l'espace web de l'établissement, une clé USB, un hébergement qui ne fait que servir des fichiers. C'est le chemin d'installation actuel du Kiosque (`docs/installation.md` : gabarit GitHub, configurateur, Pages). La lecture est entière. L'écriture passe par le dépôt ou par la démo dans le navigateur. Il n'y a pas de back-office à mettre à jour.
-2. **Une machine qu'ils ont déjà.** L'ordinateur de la rédaction, le serveur de l'établissement, une machine à la maison. Un fichier SQLite. C'est le cas normal dès qu'on écrit.
-3. **L'hébergement mutualisé pas cher** qu'ils ont souvent déjà (Hostinger et les offres du même genre, parfois via l'association étudiante). Le socle y tourne en PHP si l'hébergeur a SQLite. Sinon cet hébergement sert les pages statiques, et l'écriture reste dans Git.
+1. **Pas de serveur.** GitHub Pages, l'espace web de l'établissement, une clé USB, un hébergement qui ne fait que servir des fichiers. Chemin actuel du Kiosque (`docs/installation.md`). Les mises à jour du Kiosque passent par `maj-plateforme.yml`.
+2. **Leur serveur, journal entier.** L'ordinateur de la rédaction, le serveur de l'établissement, une machine à la maison, un petit VPS. Les pages publiques et la rédaction sont sur cette machine. Un fichier SQLite.
+3. **L'hébergement mutualisé pas cher** qu'ils ont souvent déjà (Hostinger et les offres du même genre, parfois via l'association étudiante). Le journal entier y tourne si l'hébergeur a PHP et SQLite. Sinon il sert les pages statiques, et l'écriture reste dans Git.
 4. **Cloudflare ou une VM Always Free**, seulement si quelqu'un veut vraiment s'en servir. Ce n'est pas le conseil par défaut. Ce n'est pas la machine SS14. Ce n'est pas les Workers du Radar.
 
 Chiffres relevés le 16 novembre 2026. Ils bougent. La pull request du pilote correspondant les revérifie. Aucune de ces cibles ne demande une carte qui se met à facturer toute seule : le dépassement du forfait Workers gratuit **échoue**, il ne bascule pas sur le payant. On ne crée pas les ressources d'essai (crédit Oracle de 300 $, Workers payant à 5 $ US, Cloudflare Images, forfait Zero Trust payant).
@@ -367,24 +366,24 @@ On modifie un dépôt quand le socle lui retire du travail réel. Le propriétai
 
 ### LE KIOSQUE
 
-- L'installation d'un journal gagne un choix, dans le configurateur et dans `docs/installation.md`. Aujourd'hui le guide va du gabarit GitHub jusqu'à Pages, et il dit déjà que le Kiosque ne fournit pas d'hébergement. On ajoute l'autre branche : « j'ai déjà un endroit » (établissement, mutualisé, ordinateur de la rédaction, petit VPS). Le configurateur écrit la config sans secret et donne la commande à lancer **sur leur machine**, une fois, pour le premier démarrage. Ensuite les mises à jour passent par la page. Il ne propose pas un serveur à nous.
+- La valeur du Kiosque pour un client, c'est le configurateur. Il pose les questions nécessaires, en quelques étapes : le nom, la langue, où le journal est hébergé (leur serveur pour le site entier, ou des pages seules), qui publie. Après ces réponses, le journal est en place. On ne refait pas le questionnaire pour une mise à jour. Le Kiosque ne fournit pas d'hébergement : la machine est la leur. Les secrets ne sont pas dans les réponses.
 - `kiosque.config.ts` gagne un adaptateur `socle`, absent du gabarit. Le défaut reste Sveltia ou la démo, selon le projet.
 - L'import du paquet est dynamique, limité à `sync` et à la page d'admin. `build.ts` ne change pas d'imports. Le test existant reste vert.
 - `packages/core` reste ici. PocketBase reste un stub qui ne se connecte pas.
-- Le dépôt du journal ne contient pas une copie du serveur. La mise à jour est la page du back-office (section 9), aussi dans l'admin du Kiosque.
-- La démo (Le Quorum, PGlite dans le navigateur) a la même page. Le bouton met à jour la copie de la démo, avec la même sauvegarde et les mêmes mots. On voit le geste sans avoir de serveur. La démo n'écrit rien sur une machine distante.
+- Le dépôt du journal ne contient pas une copie du serveur. La page Mise à jour (section 9) avance le socle et le Kiosque.
+- La démo (Le Quorum, PGlite dans le navigateur) a la même page. Le bouton s'applique à la copie du navigateur. Rien n'est envoyé ailleurs.
 - `AGENTS.md`, `CHANGELOG.md`, et la feuille de route du README (jalon 4 déjà fait) sont mis à jour dans la même pull request.
 - Le guide d'une heure est `docs/adopter-le-socle.md` **dans le socle**, lié depuis le Kiosque. Il n'existe pas encore : les commandes n'existent pas. Son sommaire est en section 10.
 
 ### LE-RADAR
 
 - Pas de pull request tant que le compteur n'existe pas dans le socle. Le jour où elle s'ouvre : un clic sur une carte sportive envoie le sport et la page, rien d'autre. L'ordre des cartes ne change pas. L'interrupteur naît éteint. `radar-sports-cta.js` est du shell : s'il change, `npm run sw:bump` fait partie de la branche. La politique de confidentialité ne change pas tant que l'interrupteur n'est pas allumé pour de vrai.
-- La même page de mise à jour est dans le back-office du Radar, même si le Radar n'allume que le compteur. Ce n'est pas une fonction du sport.
+- La même page de mise à jour est dans le Radar, pour le socle, même si le Radar n'allume que le compteur. Ce n'est pas une fonction du sport.
 - La revue du matin et du soir reste la pull request 438. Le socle n'ouvre pas une deuxième revue, et il ne stocke pas ces textes.
 - Worktree propre, à partir de `origin/main`. Pas le checkout détaché de `VisualCode/le-radar`.
 - `AGENTS.md`, `CHANGELOG.md`, `docs/maintenance.md` mis à jour dans cette branche. Rien dans `affiches/`, rien sur les réseaux.
 
-La dépendance est à part : le dépôt du journal ne contient pas le code du serveur. La page de mise à jour avance le programme sur leur machine. Le thème reste une pull request `maj-plateforme.yml`.
+La dépendance est à part : le dépôt du journal ne contient pas le code du serveur. La page avance le socle et, chez un client, le Kiosque. `content/`, `media/`, `theme/tokens.css`, `kiosque.config.ts` et `OWNERS.md` restent au journal. Un journal sans serveur reçoit le Kiosque par `maj-plateforme.yml`.
 
 ## 9. Administration
 
@@ -397,20 +396,24 @@ Livrée avec les modules qui ont une écriture humaine (éditorial d'abord), pas
 
 ### Page Mise à jour
 
-Une page, trois endroits : l'admin du Kiosque, la démo dans le navigateur, le back-office du Radar. Même écran, mêmes mots. Décision du 17 novembre 2026 : ce n'est pas réservé à qui utilise un terminal ou une IA.
+Même écran dans le Kiosque, dans la démo, et dans le Radar.
 
-- Elle dit la version en place, s'il en existe une plus récente sur la même majeure, et trois ou quatre lignes sur ce qui change.
-- Le bouton s'appelle « Mettre à jour ». Avant de l'activer, la page nomme la sauvegarde qu'elle va écrire. Après, elle dit si ça a marché. Si ça échoue, la version d'avant est encore celle qui tourne, et la page le dit.
-- Un lien « Revenir à la sauvegarde » défait la dernière mise à jour. Il ne touche pas aux pages déjà publiées.
+- Chez un client du Kiosque, deux lignes : Socle, Kiosque. Le Radar n'a que la ligne Socle.
+- Chaque ligne dit la version en place, s'il en existe une plus récente sur la même majeure, et trois ou quatre lignes sur ce qui change.
+- Le bouton s'appelle « Mettre à jour ». Avant, la page nomme la sauvegarde. Après, elle dit si ça a marché. Si ça échoue, la version d'avant tourne encore.
+- « Revenir à la sauvegarde » défait la dernière mise à jour de cette ligne. Le contenu du journal (`content/`, `media/`, `theme/tokens.css`, `kiosque.config.ts`, `OWNERS.md`) n'est pas dans la mise à jour.
+- Une mise à jour du Kiosque reconstruit le site sur la machine qui l'héberge.
 - Une version majeure est montrée à part, avec ce qui casse, et un deuxième oui. Le premier bouton ne la lance pas.
-- Quand les rôles existent, le bouton est au responsable. Les autres rôles voient la version, pas le bouton. Tant que le module 1 est éteint, le bouton est à qui peut déjà ouvrir le back-office.
-- Pour savoir s'il existe une version plus récente, la page lit seulement le numéro public de la dernière version. Elle n'envoie pas le contenu du journal. Sans réseau, elle affiche la version en place et dit qu'elle n'a pas pu regarder.
-- Sur un ordinateur, un serveur d'établissement ou un petit VPS, le bouton suffit : le programme se remplace, puis reprend.
-- Sur un hébergement où l'on ne peut qu'envoyer un dossier (souvent le mutualisé PHP), le bouton prépare la sauvegarde et un dossier prêt. La page dit le seul geste qui reste, en français : envoyer ce dossier à l'endroit déjà utilisé. Pas une commande à copier.
-- La démo fait le même écran sur sa base dans le navigateur. Rien n'est envoyé ailleurs.
-- La page ne demande pas d'enregistrer un mot de passe, et elle ne téléverse pas la base vers le dépôt du socle.
+- Quand les rôles existent, le bouton est au responsable. Les autres rôles voient la version. Tant que le module 1 est éteint, le bouton est à qui peut déjà ouvrir la page.
+- Pour savoir s'il existe une version plus récente, la page lit seulement le numéro public. Elle n'envoie pas le contenu du journal. Sans réseau, elle affiche la version en place.
+- Sur leur serveur (ordinateur, établissement, petit VPS), le bouton remplace le programme et, pour la ligne Kiosque, reconstruit le site.
+- Sur un hébergement où l'on ne peut qu'envoyer un dossier (souvent le mutualisé PHP), le bouton prépare la sauvegarde et le dossier, et indique l'endroit déjà utilisé.
+- La démo fait le même écran sur sa base dans le navigateur.
+- La page ne demande pas de mot de passe, et elle n'envoie pas la base vers le dépôt du socle.
 
 ## 10. Guide d'adoption — sommaire
+
+Ce sommaire est pour qui branche le socle. Le chemin d'un client du Kiosque est le configurateur (section 8), pas ce guide.
 
 Le guide réel s'écrit avec la première pull request de code, quand les commandes existent. Il tient en moins d'une heure. Il dira, dans cet ordre :
 
@@ -420,7 +423,7 @@ Le guide réel s'écrit avec la première pull request de code, quand les comman
 4. Allumer un seul module.
 5. Brancher le Kiosque par la config, lancer `sync`, lancer `build`, constater que le build n'a pas appelé le serveur.
 6. Exporter, effacer le serveur, reconstruire le site depuis l'export.
-7. Mettre à jour : ouvrir la page Mise à jour du back-office. Le bouton écrit la sauvegarde, puis change la version. Le guide ne demande pas de commande pour ce geste.
+7. Mettre à jour : la page, ligne Socle et ligne Kiosque. Sauvegarde, puis la nouvelle version. Un journal sans serveur reçoit le Kiosque par `maj-plateforme.yml`.
 
 ## 11. Risques
 
@@ -454,8 +457,8 @@ Après l'accord seulement. Une par une. CI verte avant la suivante. Pas de fusio
 8. Module 4, audience, tests d'absence d'identifiant, rétention 90 jours, résumé hebdomadaire.
 9. Module 5, abonnements. Courriel par le SMTP du projet, push par des clés que le projet génère. Pas de service tiers.
 10. Cible PHP, la même suite HTTP, une fois `/v1` figé par la 1.0.0.
-11. **Intégration Kiosque**, interrupteur éteint, test anti-import dans `build.ts`, docs du dépôt. La page Mise à jour est dans l'admin et dans la démo.
-12. **Intégration Radar, clics**, interrupteur éteint, ordre inchangé, bump du service worker si le shell change. La même page Mise à jour est dans son back-office. Pas les affiches, pas les réseaux, pas la revue de presse.
+11. **Intégration Kiosque**, interrupteur éteint, test anti-import dans `build.ts`, docs du dépôt. Le configurateur pose les questions et installe le journal. La page Mise à jour couvre le socle et le Kiosque, dans l'admin et dans la démo.
+12. **Intégration Radar, clics**, interrupteur éteint, ordre inchangé, bump du service worker si le shell change. La page Mise à jour y couvre le socle. Pas les affiches, pas les réseaux, pas la revue de presse.
 
 La 1.0.0 est posée quand la suite passe sur PGlite, SQLite et D1, et que l'adaptateur passe `runConformanceSuite` du Kiosque épinglé. Avant ça, les versions sont 0.x et peuvent encore casser. On ne demande à personne d'épingler un 0.x en production.
 
@@ -474,5 +477,5 @@ Décisions du 17 novembre 2026, à la relecture :
 
 Précision du même jour :
 
-- La mise à jour du back-office est une page, la même dans le Kiosque, dans la démo et dans le Radar. Un bouton, une sauvegarde avant, un retour si ça échoue. Pas un terminal, pas une IA. Une version 1.x attend ce bouton. Une version majeure attend un oui de plus.
-- Un petit serveur a un avantage dès le premier jour : écrire à plusieurs, la file, le compteur, les crédits, les rôles, et cette page. Le site publié, lui, reste lisible sans lui. Un serveur personnel sert les projets de la collection. Les clients du Kiosque apportent le leur. Le Kiosque n'héberge ni l'un ni l'autre.
+- La page Mise à jour est dans le Kiosque, la démo et le Radar. Chez un client elle couvre le socle et le Kiosque. Sauvegarde avant, retour si ça échoue. Une majeure attend un oui de plus. `content/`, `media/`, les jetons, la config et `OWNERS.md` restent au journal.
+- L'installation client est le configurateur : les questions nécessaires, quelques étapes, puis le journal est en place. Certains hébergent le journal entier sur leur serveur. Un serveur personnel sert la collection. Les clients apportent le leur.
