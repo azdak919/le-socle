@@ -3,6 +3,7 @@ import { createServer, type IncomingHttpHeaders } from "node:http";
 import { pathToFileURL } from "node:url";
 
 import { handleAdmin, type AdminDeps } from "./admin.ts";
+import { handleAudience } from "./audience-http.ts";
 import { emailFromCookie, ensureResponsable } from "./auth.ts";
 import { handleAuth } from "./auth-http.ts";
 import { defaultConfig, loadConfigFile, stringifyConfig, type SocleConfig } from "./config.ts";
@@ -29,6 +30,7 @@ export function createSocleServer(config: SocleConfig, admin?: AdminDeps) {
         ? await emailFromCookie(admin.store, admin.now, headers.cookie)
         : undefined;
       const reviewPath = path.startsWith("/admin/relecture") || path.startsWith("/v1/review");
+      const audiencePath = path.startsWith("/v1/audience") || path.startsWith("/admin/audience");
       const editorialPath = path.startsWith("/admin/articles")
         || path.startsWith("/admin/relecture")
         || path.startsWith("/v1/editorial");
@@ -40,9 +42,11 @@ export function createSocleServer(config: SocleConfig, admin?: AdminDeps) {
           ? await handleReview(method, url, config, admin, rawBody, actor)
         : admin && editorialPath
           ? await handleEditorial(method, url, config, admin, rawBody)
-          : admin && path.startsWith("/admin")
-            ? await handleAdmin(method, url, config, admin, rawBody, actor)
-            : handleRequest(method, url, config);
+          : admin && audiencePath
+            ? await handleAudience(method, url, config, admin, rawBody, actor)
+            : admin && path.startsWith("/admin")
+              ? await handleAdmin(method, url, config, admin, rawBody, actor)
+              : handleRequest(method, url, config);
       response.writeHead(result.status, result.headers);
       response.end(result.body);
     } catch {

@@ -14,6 +14,8 @@ Le module d'identité, éteint par défaut, a trois portes : un lien magique, Gi
 
 Le module de relecture, éteint par défaut, décide : publier, programmer, ou renvoyer. La correction proposée reste à côté du texte. Quand l'heure est passée, la lecture suivante publie l'article. Le site déjà construit ne change pas tout seul.
 
+Le module d'audience, éteint par défaut, compte un nom et un contexte. La date civile est posée à Toronto. `POST /v1/audience/event` n'existe que si le module est allumé. Les totaux sont des sommes. Le détail tient 90 jours, puis une ligne par semaine. Aucune adresse, aucun identifiant de personne. Le poids des cartes sportives ne s'allume pas avec ce compteur.
+
 ```bash
 npm ci
 npm test
