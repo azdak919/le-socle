@@ -90,7 +90,7 @@ L'ordre du bandeau sportif est dans `radar-sports-cta.js` : `renderSportsStrip` 
 
 `SPORTS_POPULARITY` (hockey, football, soccer, …) n'est lu que par `sportsOrderedKeys`, qui n'a aucun appelant. Ce n'est pas l'ordre publié. On ne le « branche » pas. Le signal approuvé viendra en plus, en dernier recours, dans un seau de cartes déjà comparables.
 
-Il n'y a pas de revue humaine du matin ni du soir dans le code. Il y a des crons. Les nouvelles passent à 6 h, 7 h, 9 h, 11 h, 12 h, 13 h, 15 h, 17 h, 19 h et 21 h, heure du Québec, plus un filet horaire. Les sports passent six fois par jour et l'après-midi de fin de semaine, avec un direct toutes les cinq minutes sur certaines plages. `dev/photo-lab/` est un labo local, hors cron.
+La revue du matin et du soir du Radar est déjà une revue de presse, dans la pull request [438](https://github.com/azdak919/le-radar/pull/438), publication éteinte. Deux textes par jour, tirés des articles, des radios et des matchs, avec les liens et les auteurs. Le socle ne la refait pas et ne s'y branche pas. Les robots du fil et des sports continuent à leurs heures. `dev/photo-lab/` est un labo local, hors de ça.
 
 Données répétées, qui restent où elles sont pour l'instant :
 
@@ -103,7 +103,7 @@ Hors de cet outil, et hors des pull requests Radar qui suivront : `affiches/` (l
 
 ## 3. Partage du modèle
 
-**Recommandation : ne pas déplacer `packages/core`.**
+`packages/core` est le dossier du Kiosque qui dit ce qu'est un article, un auteur, une photo. Il reste là. Le socle apprend à lire ces définitions. On ne les déménage pas ici : sinon, pour réafficher un site déjà publié, il faudrait installer le serveur même quand il est éteint. Le site se reconstruit comme aujourd'hui, avec le Kiosque seul.
 
 Le déplacer forcerait chaque journal à dépendre de ce dépôt pour **reconstruire** son site. Le Kiosque s'interdit ça : deux dépendances de production, zéro réseau au build, reconstruction dans dix ans depuis le miroir seul, même si plus personne ne maintient le Kiosque. Un journal installé aujourd'hui doit pouvoir mettre à jour **le serveur** sans que le build change de forme.
 
@@ -130,6 +130,10 @@ Au `sync`, un article `scheduled` entre dans le miroir et le build actuel n'en f
 Crédit : une photo de bibliothèque sans crédit est refusée, comme `validateSharedMedia`. Une image d'article sans crédit est un avertissement, comme `validateMedia`, et une entrée de la file, pas un blocage du miroir.
 
 ## 4. Architecture
+
+SQLite, c'est un seul fichier de base de données posé à côté du projet. Pas un logiciel à maintenir à part. Les brouillons y vivent. Le site publié, lui, reste des pages.
+
+PGlite, c'est la même idée dans le navigateur. Le Kiosque s'en sert déjà pour la démo Le Quorum. Les tests du socle s'en servent aussi, pour ne pas inventer une deuxième démo.
 
 Un seul cœur, en TypeScript effaçable (pas d'`enum`, pas de `namespace`, pas de propriété de paramètre), Node ≥ 22.18. Les modules appellent une interface `SocleStore`. Ils ne parlent pas SQL. Les pilotes portent le SQL.
 
@@ -238,6 +242,12 @@ Avant d'allumer l'interrupteur en production, une personne vérifie qu'aucun ide
 
 ## 6. Cibles gratuites
 
+Ce chapitre dit où **un journal** peut installer **sa** copie, sans payer. Ce n'est pas un branchement sur ce qui existe déjà.
+
+- Pas les Workers déjà en ligne du Radar (météo, titres à l'antenne, traduction, fonds). Ils restent où ils sont. Le socle n'écrit pas dedans.
+- Pas la machine Oracle des parties SS14. On n'y déploie rien, on n'y lit rien, on ne la cite pas comme hébergement de cet outil.
+- Cloudflare et Oracle n'apparaissent ici que comme deux étagères gratuites possibles pour un journal qui n'a pas de serveur à lui. Le chemin normal, c'est le fichier SQLite sur la machine du journal, ou simplement les pages statiques sur une clé ou un hébergement Apache.
+
 Chiffres relevés le 16 novembre 2026. Ils bougent. La pull request du pilote correspondant les revérifie. Aucune de ces cibles ne demande une carte qui se met à facturer toute seule : le dépassement du forfait Workers gratuit **échoue**, il ne bascule pas sur le payant. On ne crée pas les ressources d'essai (crédit Oracle de 300 $, Workers payant à 5 $ US, Cloudflare Images, forfait Zero Trust payant).
 
 ### Cloudflare Workers, forfait gratuit
@@ -314,7 +324,7 @@ Les dépôts privés sont décrits ici au niveau d'un verdict. Pas de secret, pa
 
 ## 8. Ajustements le jour de l'intégration
 
-Seuls le Kiosque et le Radar sont touchés, chacun dans sa pull request, après les modules, interrupteur éteint. Les autres dépôts ne bougent pas.
+On modifie un dépôt quand le socle lui retire du travail réel. Le propriétaire a laissé ce jugement. Au 16 novembre 2026 : le Kiosque oui. Le Radar, plus tard, seulement pour compter des clics sur les cartes sportives, interrupteur éteint, sans changer l'ordre des cartes, et sans toucher à la revue de presse (pull request 438). Les autres dépôts n'ont pas ce travail : les modifier n'apporterait rien. `rate-my-fonctionnaire` a déjà son propre serveur : pas maintenant.
 
 ### LE KIOSQUE
 
@@ -327,10 +337,10 @@ Seuls le Kiosque et le Radar sont touchés, chacun dans sa pull request, après 
 
 ### LE-RADAR
 
-- Première pull request : envoi du clic, interrupteur éteint, aucun changement d'ordre, tests de non-régression sur l'ordre actuel. `radar-sports-cta.js` est du shell : si le fichier change, `npm run sw:bump` fait partie de la branche. Politique de confidentialité **non** modifiée tant que l'interrupteur n'est pas allumé pour de vrai.
-- Deuxième pull request, plus tard : la file du matin et du soir reçoit les écarts que les rapports QC signalent déjà. Les bots continuent d'écrire `news.json`. La file ne devient pas la source du site.
+- Pas de pull request tant que le compteur n'existe pas dans le socle. Le jour où elle s'ouvre : un clic sur une carte sportive envoie le sport et la page, rien d'autre. L'ordre des cartes ne change pas. L'interrupteur naît éteint. `radar-sports-cta.js` est du shell : s'il change, `npm run sw:bump` fait partie de la branche. La politique de confidentialité ne change pas tant que l'interrupteur n'est pas allumé pour de vrai.
+- La revue du matin et du soir reste la pull request 438. Le socle n'ouvre pas une deuxième revue, et il ne stocke pas ces textes.
 - Worktree propre, à partir de `origin/main`. Pas le checkout détaché de `VisualCode/le-radar`.
-- `AGENTS.md`, `CHANGELOG.md`, `docs/maintenance.md` mis à jour dans ces branches. Rien dans `affiches/`, rien sur les réseaux.
+- `AGENTS.md`, `CHANGELOG.md`, `docs/maintenance.md` mis à jour dans cette branche. Rien dans `affiches/`, rien sur les réseaux.
 
 La dépendance est à part : le Radar et le Kiosque épinglent un tag du socle, ils ne copient pas son code. Un projet qui s'arrête peut encore avancer le tag, parce que le serveur n'est pas mêlé au thème.
 
@@ -387,19 +397,16 @@ Après l'accord seulement. Une par une. CI verte avant la suivante. Pas de fusio
 9. Module 5, abonnements. Courriel par le SMTP du projet, push par des clés que le projet génère. Pas de service tiers.
 10. Cible PHP, la même suite HTTP, une fois `/v1` figé par la 1.0.0.
 11. **Intégration Kiosque**, interrupteur éteint, test anti-import dans `build.ts`, docs du dépôt.
-12. **Intégration Radar, clics**, interrupteur éteint, ordre inchangé, bump du service worker si le shell change. Pas les affiches, pas les réseaux.
-13. **Intégration Radar, file du matin et du soir**, interrupteur éteint, les bots restent la source de `news.json`.
+12. **Intégration Radar, clics**, interrupteur éteint, ordre inchangé, bump du service worker si le shell change. Pas les affiches, pas les réseaux, pas la revue de presse.
 
 La 1.0.0 est posée quand la suite passe sur PGlite, SQLite et D1, et que l'adaptateur passe `runConformanceSuite` du Kiosque épinglé. Avant ça, les versions sont 0.x et peuvent encore casser. On ne demande à personne d'épingler un 0.x en production.
 
 Le guide d'adoption (section 10) est écrit à la pull request 1 et complété à chaque module, en français.
 
-## 13. Décisions demandées
+## 13. Ce qui est décidé
 
-1. Le nom `le-socle`.
-2. Laisser le modèle dans le Kiosque, et vérifier le socle contre une copie épinglée, plutôt que de déplacer `packages/core`.
-3. SQLite comme dialecte du serveur (fichier, D1, PHP). PGlite pour la démo et les tests. Pas de Postgres sur la VM dans la version 1.
-4. Le Radar : d'abord les clics, éteints, sans changer l'ordre. La file humaine ensuite, sans retirer les bots.
-5. Les douze autres dépôts : ne pas y toucher. `rate-my-fonctionnaire` seulement plus tard, et seulement sur un oui séparé.
-6. La date du clic posée par le serveur, en heure de Montréal, plutôt qu'envoyée par le navigateur.
-7. Ce dépôt peut rester public. La section 7 nomme les dépôts privés, au niveau d'un verdict. À retirer si ça ne doit pas être lu de dehors.
+Le nom `le-socle` est gardé. Le propriétaire l'a accepté le 16 novembre 2026.
+
+Il a aussi laissé le choix des dépôts à modifier : seulement ceux pour qui c'est utile. Le détail est en section 8.
+
+Le reste de ce document n'est pas une liste de questions. `packages/core` reste dans le Kiosque (section 3). Les brouillons tiennent dans un fichier SQLite. La démo et les tests réutilisent PGlite, déjà dans le Kiosque (section 4). Un clic sportif note le sport et la page ; le serveur ajoute la date du jour à Montréal, pour qu'un téléphone à l'heure fausse n'écrive pas n'importe quel jour (section 5). La section 7 nomme les autres dépôts, une ligne chacun, sans secret : c'est l'inventaire demandé pour savoir où l'outil sert. Cloudflare et Oracle, en section 6, sont des endroits gratuits possibles pour un journal. Ils ne désignent ni les Workers du Radar, ni la machine SS14.
