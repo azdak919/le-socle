@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+
+const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
 import { runMigrate } from "../src/migrate.ts";
 import { openRunningAdmin } from "../src/server.ts";
@@ -75,7 +78,7 @@ test("la commande refuse de migrer sans fichier, puis revient d'un cran", async 
   writeFileSync(config, `${JSON.stringify({ modules: { editorial: true } }, null, 2)}\n`);
   await assert.rejects(exec(process.execPath, [
     "src/cli.ts", "migrate", "--db", db, "--config", config, "--backup", blocked,
-  ], { cwd: "/home/charlestison/VisualCode/le-socle" }));
+  ], { cwd: root }));
   const afterFail = openSqliteFile(db);
   try {
     await afterFail.resume();
@@ -85,7 +88,7 @@ test("la commande refuse de migrer sans fichier, puis revient d'un cran", async 
   }
   const ok = await exec(process.execPath, [
     "src/cli.ts", "migrate", "--db", db, "--config", config, "--backup", backup,
-  ], { cwd: "/home/charlestison/VisualCode/le-socle" });
+  ], { cwd: root });
   assert.match(ok.stdout, /avant\.zip/);
   const files = unzip(readFileSync(backup));
   assert.equal(files.has("manifest.json"), true);
@@ -93,7 +96,7 @@ test("la commande refuse de migrer sans fichier, puis revient d'un cran", async 
   const down = join(dir, "retour.zip");
   await exec(process.execPath, [
     "src/cli.ts", "migrate", "--down", "--db", db, "--config", config, "--backup", down,
-  ], { cwd: "/home/charlestison/VisualCode/le-socle" });
+  ], { cwd: root });
   const store = openSqliteFile(db);
   try {
     await store.resume();
