@@ -13,6 +13,7 @@ import { runMigrate } from "../src/migrate.ts";
 import { openRunningAdmin } from "../src/server.ts";
 import { openSqliteFile, openSqliteMemory } from "../src/sqlite.ts";
 import { ModuleOffError } from "../src/store.ts";
+import { VERSION } from "../src/version.ts";
 import { unzip } from "../src/zip.ts";
 
 const exec = promisify(execFile);
@@ -115,7 +116,8 @@ test("ouvrir la base ne migre pas", async () => {
   try {
     assert.equal(await opened.admin.store.tableReady("export"), false);
     assert.equal(opened.admin.release(), null);
-    assert.equal(opened.admin.version(), "0.0.0");
+    assert.equal(opened.admin.version(), VERSION);
+    assert.equal(opened.admin.version(), "1.0.0");
   } finally {
     await opened.admin.store.close();
   }
