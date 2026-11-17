@@ -2,6 +2,7 @@
 
 ## Non publié
 
+- Module 6, éteint par défaut. Décision de relecture : publier, programmer, renvoyer. Une correction proposée ne réécrit pas l'article. À l'heure, l'article passe à publié. Le site statique n'est pas réécrit.
 - Module 1, éteint par défaut. Trois portes : lien magique, GitHub, Cloudflare Access. Aucun mot de passe. Le jeton n'est stocké qu'en hachage. Le bouton Mettre à jour est au responsable quand le module est allumé. Les courriels des membres sont dans l'archive du journal, pas dans ses pages HTML.
 - Module 3, éteint par défaut. Une photo de banque sans crédit est refusée. Une photo d'article sans crédit reste dans le miroir et entre dans une file. Les octets d'origine sont gardés tels quels.
 - Module 2, éteint par défaut. Adaptateur `socle` contre le Kiosque `8d7b602f42f7`. Articles, auteurs, taxonomies, médias en octets. `scheduledAt` exigé pour le statut programmé. File de relecture : `submittedAt`, `reviewedAt`, `reviewedBy`. Pages français et anglais. Le rôle éditorial n'est pas un contrôle d'accès.

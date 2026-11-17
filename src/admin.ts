@@ -208,9 +208,13 @@ export async function handleAdmin(
   if (path === "/admin" && method === "GET") {
     const downloaded = exportOn ? await wasDownloaded(deps.store) : false;
     const notice = !exportOn || !downloaded ? `<p><strong>${copy.notice}</strong></p>` : "";
-    const writing = config.modules.editorial
-      ? `<p><a href="${withLang("/admin/articles", lang)}">${copy.articlesLink}</a></p><p><a href="${withLang("/admin/relecture", lang)}">${copy.reviewLink}</a></p>`
+    const articlesLink = config.modules.editorial
+      ? `<p><a href="${withLang("/admin/articles", lang)}">${copy.articlesLink}</a></p>`
       : "";
+    const reviewLink = config.modules.editorial || config.modules.review
+      ? `<p><a href="${withLang("/admin/relecture", lang)}">${copy.reviewLink}</a></p>`
+      : "";
+    const writing = `${articlesLink}${reviewLink}`;
     const media = config.modules.media
       ? `<p><a href="${withLang("/admin/medias", lang)}">${copy.mediaLink}</a></p>`
       : "";

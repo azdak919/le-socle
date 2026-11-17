@@ -1,4 +1,5 @@
 import { membersForArchive, restoreMembers } from "./auth.ts";
+import { readCorrections, restoreCorrections } from "./review.ts";
 import type { SocleStore } from "./store.ts";
 import { ModuleOffError } from "./store.ts";
 import { textFile, unzip, zipStore, type ZipFile } from "./zip.ts";
@@ -175,6 +176,8 @@ export async function buildSiteZip(store: SocleStore, now: Date): Promise<Uint8A
   }
   const members = await membersForArchive(store);
   if (members.length > 0) files.push(textFile("auth/members.json", JSON.stringify(members, null, 2)));
+  const corrections = await readCorrections(store);
+  if (corrections.length > 0) files.push(textFile("review/corrections.json", JSON.stringify(corrections, null, 2)));
   return zipStore(files);
 }
 
@@ -249,6 +252,10 @@ export async function restoreZip(store: SocleStore, bytes: Uint8Array): Promise<
   const membersFile = files.get("auth/members.json");
   if (membersFile) {
     await restoreMembers(store, JSON.parse(new TextDecoder().decode(membersFile)) as unknown);
+  }
+  const correctionsFile = files.get("review/corrections.json");
+  if (correctionsFile) {
+    await restoreCorrections(store, JSON.parse(new TextDecoder().decode(correctionsFile)) as unknown);
   }
   return { excludedYears: manifest.excludedYears ?? [], session: null };
 }

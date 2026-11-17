@@ -9,6 +9,7 @@ import { defaultConfig, loadConfigFile, stringifyConfig, type SocleConfig } from
 import { handleEditorial } from "./editorial-http.ts";
 import { handleRequest } from "./health.ts";
 import { handleMedia } from "./media-http.ts";
+import { handleReview } from "./review-http.ts";
 import { sendSmtp, smtpFromEnv } from "./smtp.ts";
 import { openSqliteFile } from "./sqlite.ts";
 import { ModuleOffError } from "./store.ts";
@@ -27,6 +28,7 @@ export function createSocleServer(config: SocleConfig, admin?: AdminDeps) {
       const actor = admin && config.modules.auth
         ? await emailFromCookie(admin.store, admin.now, headers.cookie)
         : undefined;
+      const reviewPath = path.startsWith("/admin/relecture") || path.startsWith("/v1/review");
       const editorialPath = path.startsWith("/admin/articles")
         || path.startsWith("/admin/relecture")
         || path.startsWith("/v1/editorial");
@@ -34,6 +36,8 @@ export function createSocleServer(config: SocleConfig, admin?: AdminDeps) {
         ? await handleAuth(method, url, config, admin, rawBody, headers)
         : admin && path === "/admin/medias"
         ? await handleMedia(method, url, config, admin)
+        : admin && config.modules.review && reviewPath
+          ? await handleReview(method, url, config, admin, rawBody, actor)
         : admin && editorialPath
           ? await handleEditorial(method, url, config, admin, rawBody)
           : admin && path.startsWith("/admin")
