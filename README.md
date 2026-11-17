@@ -8,6 +8,8 @@ Le serveur expose `GET /v1/health`. Les interrupteurs sont éteints. Sous `/v1/`
 
 Le back-office sert la sauvegarde ZIP du journal et la page Mise à jour du programme. Rien ne migre au démarrage. `socle migrate` écrit d'abord une archive, du même format que l'export, et s'arrête si ce fichier ne s'écrit pas.
 
+Le module éditorial, éteint par défaut, parle le contrat de LE KIOSQUE épinglé dans `src/kiosque-pin.ts`. L'adaptateur se teste hors ligne. `GET /v1/editorial/snapshot` n'existe que si le module est allumé.
+
 ```bash
 npm ci
 npm test

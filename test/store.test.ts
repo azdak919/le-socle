@@ -26,6 +26,10 @@ async function conformance(open: () => Promise<SocleStore> | SocleStore): Promis
     assert.equal(await store.get("export", "absent"), null);
     await store.put("export", "a", "2");
     assert.equal(await store.get("export", "a"), "2");
+    await store.delete("export", "absent");
+    await store.delete("export", "a");
+    assert.equal(await store.get("export", "a"), null);
+    await store.put("export", "a", "2");
     assert.deepEqual(await store.list("export"), [{ key: "a", value: "2" }]);
     assert.deepEqual(await store.applied(), ["export"]);
 

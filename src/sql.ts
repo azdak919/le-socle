@@ -62,6 +62,10 @@ export function createModuleStore(db: SqlDb): SocleStore {
         [key, value],
       );
     },
+    async delete(module, key) {
+      assertEnabled(enabled, module);
+      await db.run(`DELETE FROM ${tableName(module)} WHERE key = ?`, [key]);
+    },
     async get(module, key) {
       assertEnabled(enabled, module);
       const row = await db.get<{ value: string }>(

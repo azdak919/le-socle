@@ -21,6 +21,11 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: azdak919/le-kiosque
+          ref: 8d7b602f42f78f75cf441ec477bec43dae62b570
+          path: .kiosque-pin
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -28,6 +33,8 @@ jobs:
       - run: npm ci
       - name: Unit / check
         run: npm test
+        env:
+          KIOSQUE_PIN_DIR: .kiosque-pin
       - name: Upload traces on failure
         if: failure()
         uses: actions/upload-artifact@v4
