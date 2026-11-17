@@ -1,0 +1,17 @@
+{
+  "name": "le-socle",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "GPL-2.0-only",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "test": "node --test 'test/*.test.ts'",
+    "start": "node src/server.ts"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.4"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "modules": {
+    "auth": false,
+    "editorial": false,
+    "media": false,
+    "audience": false,
+    "notify": false,
+    "review": false,
+    "export": false
+  }
+}
