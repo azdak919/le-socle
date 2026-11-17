@@ -4,3 +4,5 @@ socle.sqlite
 socle.sqlite-*
 socle.version
 sauvegardes/
+php/data/*.sqlite
+php/data/*.sqlite-*

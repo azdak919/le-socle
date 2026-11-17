@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Lire [`docs/plan.md`](docs/plan.md) avant d'écrire du code. Le plan est accepté. En place : squelette, pilote D1, archive (module 7), éditorial (module 2, contrat épinglé dans `src/kiosque-pin.ts`), médias et crédits (module 3), identité (module 1), relecture et publication programmée (module 6), audience anonyme (module 4), abonnements (module 5). La version 1.0.0 fige `/v1`. La suite du Kiosque épinglé passe sur SQLite, PGlite et D1. La cible suivante est PHP : le même contrat HTTP, sans démon.
+Lire [`docs/plan.md`](docs/plan.md) avant d'écrire du code. Le plan est accepté. En place : squelette, pilote D1, archive (module 7), éditorial (module 2, contrat épinglé dans `src/kiosque-pin.ts`), médias et crédits (module 3), identité (module 1), relecture et publication programmée (module 6), audience anonyme (module 4), abonnements (module 5). La version 1.0.0 fige `/v1`. La suite du Kiosque épinglé passe sur SQLite, PGlite et D1. PHP sert le même contrat, sans démon : `php/public` est le contrôleur, la base est hors de cette racine. La suite est l'intégration Kiosque, puis le compteur de LE-RADAR.
 
 ## Git
 

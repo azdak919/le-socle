@@ -3,6 +3,7 @@
 ## 1.0.0
 
 - Le contrat `/v1` est celui de cette version. La même suite passe sur `node:sqlite`, PGlite et D1. L'adaptateur passe la suite du Kiosque épinglé.
+- Même contrat en PHP, sans démon. Le contrôleur est `php/public/index.php`. La base SQLite est hors de cette racine. Sans SQLite, l'export statique reste lisible. `SOCLE_UPLOAD_DIR` nomme le dossier déjà utilisé : le bouton prépare la sauvegarde et ce dossier.
 - Module 5, éteint par défaut. Abonnement par courriel ou par push, retrait par un lien. Le courriel part par le SMTP du projet. Le push est signé par des clés que le projet génère. Pas de service tiers. L'adresse est dans l'archive du journal, pas dans ses pages HTML. La clé privée n'y est pas.
 - Module 4, éteint par défaut. `POST /v1/audience/event` compte un nom et un contexte. La date est celle de Toronto. Pas d'adresse ni d'identifiant. Le détail tient 90 jours, puis une ligne de semaine. Le poids sportif ne s'allume pas.
 - Module 6, éteint par défaut. Décision de relecture : publier, programmer, renvoyer. Une correction proposée ne réécrit pas l'article. À l'heure, l'article passe à publié. Le site statique n'est pas réécrit.
