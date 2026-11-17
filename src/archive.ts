@@ -1,3 +1,4 @@
+import { membersForArchive, restoreMembers } from "./auth.ts";
 import type { SocleStore } from "./store.ts";
 import { ModuleOffError } from "./store.ts";
 import { textFile, unzip, zipStore, type ZipFile } from "./zip.ts";
@@ -172,6 +173,8 @@ export async function buildSiteZip(store: SocleStore, now: Date): Promise<Uint8A
     if (!used) continue;
     files.push({ name: path, data: Buffer.from(row.value, "base64") });
   }
+  const members = await membersForArchive(store);
+  if (members.length > 0) files.push(textFile("auth/members.json", JSON.stringify(members, null, 2)));
   return zipStore(files);
 }
 
@@ -242,6 +245,10 @@ export async function restoreZip(store: SocleStore, bytes: Uint8Array): Promise<
   for (const [name, data] of files) {
     if (!name.startsWith("media/")) continue;
     await store.put("export", `media:${name}`, Buffer.from(data).toString("base64"));
+  }
+  const membersFile = files.get("auth/members.json");
+  if (membersFile) {
+    await restoreMembers(store, JSON.parse(new TextDecoder().decode(membersFile)) as unknown);
   }
   return { excludedYears: manifest.excludedYears ?? [], session: null };
 }
