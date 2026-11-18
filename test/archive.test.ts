@@ -120,14 +120,16 @@ test("la sauvegarde complète remet la rédaction en place", async () => {
     await store.migrate(["export", "editorial", "media"]);
     await store.put("editorial", "publication", JSON.stringify({ name: "La Vigie", slug: "la-vigie" }));
     await store.put("editorial", "article:a1", JSON.stringify({ id: "a1", title: "Gardé", status: "published", section: "sports", publishedAt: "2026-11-18T15:00:00.000Z", body: { raw: "x" } }));
-    await store.put("media", "bytes:banque/p1.jpg", "AAAA");
+    await store.put("media", "bytes:media/banque/p1.jpg", "AAAA");
     const zip = await buildSiteZip(store, NOW);
     assert.ok(unzip(zip).has("redaction/donnees.json"));
+    assert.ok(unzip(zip).has("media/banque/p1.jpg"), "la banque de photos est dans le ZIP, même sans citation dans un article");
+    assert.equal(Buffer.from(unzip(zip).get("media/banque/p1.jpg")!).toString("base64"), "AAAA");
     await store.delete("editorial", "article:a1");
-    await store.delete("media", "bytes:banque/p1.jpg");
+    await store.delete("media", "bytes:media/banque/p1.jpg");
     await restoreZip(store, zip);
     assert.equal(JSON.parse((await store.get("editorial", "article:a1"))!).section, "sports");
-    assert.equal(await store.get("media", "bytes:banque/p1.jpg"), "AAAA");
+    assert.equal(await store.get("media", "bytes:media/banque/p1.jpg"), "AAAA");
   } finally {
     await store.close();
   }
