@@ -13,6 +13,7 @@ require_once __DIR__ . '/redaction.php';
 require_once __DIR__ . '/notify.php';
 require_once __DIR__ . '/archive.php';
 require_once __DIR__ . '/admin.php';
+require_once __DIR__ . '/maj.php';
 
 function socle_dispatch(string $method, string $uri, string $path, string $raw): array {
     $app = str_starts_with($path, '/v1') || str_starts_with($path, '/admin');

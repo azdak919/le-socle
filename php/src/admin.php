@@ -164,7 +164,7 @@ function socle_handle_admin(string $method, string $url, array &$config, SocleSt
         return socle_result(303, '', ['location' => socle_with_lang('/admin/sauvegarde', $lang)]);
     }
 
-    if (!$exportOn && $path !== '/admin/mise-a-jour' && $path !== '/admin/mise-a-jour/revenir') {
+    if (!$exportOn && $path !== '/admin/mise-a-jour' && !str_starts_with($path, '/admin/mise-a-jour/')) {
         if ($path === '/admin/sauvegarde' && $method === 'GET') {
             $form = '<p class="note">' . $copy['off'] . '</p><form class="noprint" method="post" action="' . socle_with_lang('/admin/sauvegarde/activer', $lang) . '"><button type="submit">' . $copy['activate'] . '</button></form>';
             return socle_admin_document($lang, $copy['saveTitle'], $form);
@@ -236,6 +236,30 @@ function socle_handle_admin(string $method, string $url, array &$config, SocleSt
         return socle_result(200, socle_json($report), ['content-type' => 'application/json; charset=utf-8']);
     }
 
+    if ($path === '/admin/mise-a-jour' && $method === 'GET' && socle_paquet() !== null) {
+        parse_str((string) (parse_url($url, PHP_URL_QUERY) ?? ''), $query);
+        return socle_paquet_page($lang, socle_may_update($store, $actor, $actorDefined), array_key_exists('verifier', $query), null);
+    }
+
+    if (($path === '/admin/mise-a-jour/paquet' || $path === '/admin/mise-a-jour/paquet/revenir') && $method === 'POST') {
+        if (!socle_may_update($store, $actor, $actorDefined)) return socle_text(403, 'réservé à l’administrateur');
+        if (socle_paquet() === null) return socle_text(409, 'ce paquet ne sait pas se mettre à jour seul');
+        $en = $lang === 'en';
+        try {
+            if ($path === '/admin/mise-a-jour/paquet') {
+                $done = socle_maj_apply();
+                $message = $en ? 'Updated from ' . $done['from'] . ' to ' . $done['to'] . '. Program backup: ' . $done['backup'] . '.'
+                    : 'Mise à jour faite : ' . $done['from'] . ' → ' . $done['to'] . '. Sauvegarde du programme : ' . $done['backup'] . '. Ouvrez le journal et la rédaction pour vérifier ; en cas de souci, revenez à la version précédente ci-dessous.';
+            } else {
+                $done = socle_maj_revert();
+                $message = $en ? 'Back to ' . $done['to'] . '.' : 'Retour fait : la version ' . $done['to'] . ' est revenue. Les articles écrits depuis sont gardés.';
+            }
+        } catch (Throwable $error) {
+            $message = ($en ? 'Nothing changed: ' : 'Rien n’a changé : ') . $error->getMessage() . '.';
+        }
+        return socle_paquet_page($lang, true, false, $message);
+    }
+
     if ($path === '/admin/mise-a-jour' && $method === 'GET') {
         return socle_update_page($lang, $copy, $store, $actor, $actorDefined, $upload, null);
     }
@@ -278,6 +302,49 @@ function socle_handle_admin(string $method, string $url, array &$config, SocleSt
     }
 
     return socle_result(404);
+}
+
+/** Page Mise à jour d'un paquet complet : vérifier, mettre à jour, revenir. */
+function socle_paquet_page(string $lang, bool $allowed, bool $check, ?string $message): array {
+    $en = $lang === 'en';
+    $t = $en
+        ? ['title' => 'Update', 'version' => 'Journal version', 'latest' => 'Latest published version', 'check' => 'Check for a new version', 'uptodate' => 'The journal is up to date.', 'cannot' => 'Could not check', 'news' => 'What is new', 'safe' => 'Before installing, the journal keeps a copy of the program and of the database in donnees/mises-a-jour/. Articles, photos and accounts are not touched.', 'go' => 'Update to', 'back' => 'Go back to version', 'admin' => 'Only the administrator can update.', 'manual' => '<h2>By hand (if the button fails)</h2><ol><li>Download the full backup (Backup page).</li><li>Download the latest package (link below).</li><li>Upload its journal/ folder over this one, without replacing donnees/.</li></ol>', 'download' => 'Download the latest package']
+        : ['title' => 'Mise à jour', 'version' => 'Version du journal', 'latest' => 'Dernière version publiée', 'check' => 'Vérifier s’il y a une nouvelle version', 'uptodate' => 'Le journal est à jour.', 'cannot' => 'Vérification impossible', 'news' => 'Nouveautés', 'safe' => 'Avant d’installer, le journal garde une copie du programme et de la base dans donnees/mises-a-jour/. Les articles, les photos et les comptes ne sont pas touchés.', 'go' => 'Mettre à jour vers la version', 'back' => 'Revenir à la version', 'admin' => 'Seul l’administrateur peut mettre à jour.', 'manual' => '<h2>À la main (si le bouton échoue)</h2><ol><li>Téléchargez la sauvegarde complète (page Sauvegarde).</li><li>Téléchargez le dernier paquet (lien ci-dessous).</li><li>Envoyez son dossier journal/ par-dessus celui-ci, sans remplacer donnees/.</li></ol>', 'download' => 'Télécharger le dernier paquet'];
+    $paquet = socle_paquet() ?? [];
+    $current = socle_paquet_version();
+    $offer = null;
+    $error = null;
+    try {
+        $cache = socle_maj_dir() . '/derniere-version.json';
+        if ($check || is_file($cache)) $offer = socle_maj_offer($check);
+    } catch (Throwable $failure) {
+        $error = $failure->getMessage();
+    }
+    $body = $message !== null ? '<p class="note" role="status">' . socle_escape($message) . '</p>' : '';
+    $current = socle_paquet_version();
+    $body .= '<dl class="fiche"><dt>' . $t['version'] . '</dt><dd>' . socle_escape($current) . '</dd>';
+    if ($offer !== null) $body .= '<dt>' . $t['latest'] . '</dt><dd><a href="' . socle_escape($offer['page']) . '" rel="noopener">' . socle_escape($offer['version']) . '</a></dd>';
+    $body .= '</dl>';
+    if ($error !== null) $body .= '<p class="note">' . $t['cannot'] . ' : ' . socle_escape($error) . '.</p>';
+    if (!$allowed) {
+        $body .= '<p class="aide">' . $t['admin'] . '</p>';
+    } elseif ($offer !== null && socle_version_newer($offer['version'], $current)) {
+        if (trim($offer['notes']) !== '') $body .= '<details><summary>' . $t['news'] . '</summary><pre style="white-space:pre-wrap">' . socle_escape($offer['notes']) . '</pre></details>';
+        $body .= '<p class="aide">' . $t['safe'] . '</p><form class="noprint" method="post" action="' . socle_with_lang('/admin/mise-a-jour/paquet', $lang) . '"><button type="submit">' . $t['go'] . ' ' . socle_escape($offer['version']) . '</button></form>';
+    } else {
+        if ($offer !== null) $body .= '<p class="note">' . $t['uptodate'] . '</p>';
+        $body .= '<form class="noprint" method="get" action="' . socle_with_lang('/admin/mise-a-jour', $lang) . '"><input type="hidden" name="verifier" value="1"><button type="submit" class="secondaire">' . $t['check'] . '</button></form>';
+    }
+    $history = [];
+    try { $history = socle_maj_history(); } catch (Throwable) {}
+    $last = end($history);
+    if ($allowed && is_array($last) && is_string($last['sauvegarde'] ?? null)) {
+        $body .= '<form class="noprint" method="post" action="' . socle_with_lang('/admin/mise-a-jour/paquet/revenir', $lang) . '"><button type="submit" class="secondaire">' . $t['back'] . ' ' . socle_escape((string) ($last['de'] ?? '')) . '</button></form>';
+    }
+    $depot = (string) ($paquet['depot'] ?? '');
+    $file = (string) ($paquet['fichier'] ?? '');
+    $body .= "\n" . $t['manual'] . '<p><a href="https://github.com/' . socle_escape($depot) . '/releases/latest/download/' . socle_escape($file) . '">' . $t['download'] . '</a></p>';
+    return socle_admin_document($lang, $t['title'], $body);
 }
 
 function socle_update_page(string $lang, array $copy, SocleStore $store, ?string $actor, bool $actorDefined, ?string $upload, ?string $prepared): array {
