@@ -151,3 +151,32 @@ test("assistant d'installation : le journal et le compte administrateur en un fo
   assert.match(admin, /await applyKiosqueConfig\(JSON\.parse\(raw\)\)/);
   assert.match(admin, /authCall\('POST', 'installation'/);
 });
+
+test("assistant : exemples en placeholder, jamais de valeur préremplie, champs obligatoires signalés", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  const form = admin.slice(admin.indexOf("function assistantForm()"), admin.indexOf("function bindAssistant()"));
+  const inputs = form.match(/<input [^>]*>/g) || [];
+  for (const input of inputs) {
+    if (/type="(checkbox|file|color)"/.test(input)) continue;
+    assert.match(input, /placeholder="[^"]+"/, `exemple pâle pour ${input}`);
+    assert.doesNotMatch(input, /\svalue=/, `aucune valeur préremplie pour ${input}`);
+  }
+  for (const example of ["La Vigie", "Cégep de Sainte-Foy", "redaction@exemple.ca"]) assert.ok(form.includes(`placeholder="${example}"`), example);
+  assert.match(form, /novalidate/);
+  assert.match(admin, /if \(!flagInvalidFields\(form\)\) return;/);
+  assert.match(admin, /'Ce champ est obligatoire\.'/);
+});
+
+test("aperçu du mât avant d'enregistrer : ordinateur et mobile, clair et sombre", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  const css = readFileSync(join(ASSETS, "admin.css"), "utf8");
+  const preview = admin.slice(admin.indexOf("function mastPreview("), admin.indexOf("const LOGO_TYPES"));
+  for (const frame of ["frame('desktop', 'light'", "frame('desktop', 'dark'", "frame('mobile', 'light'", "frame('mobile', 'dark'"]) assert.ok(preview.includes(frame), frame);
+  // Assistant, réglages et banque de photos montrent l'image choisie avant tout envoi.
+  assert.match(admin, /<div data-mast-preview/);
+  assert.match(admin, /bindMastPreview\(document\.getElementById\('logo-preview'\)/);
+  assert.match(admin, /id="photo-file-preview"/);
+  assert.match(admin, /URL\.createObjectURL\(chosen\)/);
+  assert.match(css, /\.mast-preview/);
+  assert.match(css, /\.field-error/);
+});

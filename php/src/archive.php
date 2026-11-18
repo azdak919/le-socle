@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 const SOCLE_FILE_NAMES = ['kiosque.config.ts', 'theme/tokens.css', 'OWNERS.md'];
 const SOCLE_SEASONS = ['automne', 'hiver', 'ete'];
+/** Modules recopiés tels quels dans la sauvegarde complète (`redaction/donnees.json`). */
+const SOCLE_BACKUP_MODULES = ['editorial', 'media'];
 const SOCLE_SECRET_LINE = '/(token|password|secret|api[_-]?key|authorization)\s*[:=]/i';
 
 function socle_default_years(DateTimeImmutable $now): array {
@@ -163,6 +165,9 @@ function socle_build_site_zip(SocleStore $store, DateTimeImmutable $now): string
         if (!$used) continue;
         $files[] = ['name' => $path, 'data' => base64_decode($row['value'], true) ?: ''];
     }
+    // La rédaction entière (fiche du journal, articles avec photos et signatures,
+    // sections, banque de photos) : c'est elle qu'une restauration remet en place.
+    $files[] = socle_text_file('redaction/donnees.json', socle_json(socle_backup_rows($store)));
     $members = socle_members_for_archive($store);
     if ($members !== []) $files[] = socle_text_file('auth/members.json', socle_json_pretty($members));
     $corrections = socle_read_corrections($store);
@@ -170,6 +175,39 @@ function socle_build_site_zip(SocleStore $store, DateTimeImmutable $now): string
     $subscriptions = socle_subscriptions_for_archive($store);
     if ($subscriptions !== []) $files[] = socle_text_file('notify/subscriptions.json', socle_json_pretty($subscriptions));
     return socle_zip_store($files);
+}
+
+/** Lignes des modules de la rédaction, pour `redaction/donnees.json`. */
+function socle_backup_rows(SocleStore $store): array {
+    $modules = [];
+    foreach (SOCLE_BACKUP_MODULES as $module) {
+        $rows = [];
+        foreach (socle_rows($store, $module) as $row) $rows[] = ['key' => (string) $row['key'], 'value' => (string) $row['value']];
+        $modules[$module] = $rows;
+    }
+    return ['format' => 'socle-sauvegarde', 'version' => 1, 'modules' => $modules];
+}
+
+/** Remet les lignes de `redaction/donnees.json` ; ce qui a été écrit depuis reste. */
+function socle_restore_rows(SocleStore $store, mixed $value): int {
+    if (!is_array($value) || ($value['format'] ?? '') !== 'socle-sauvegarde' || !is_array($value['modules'] ?? null)) {
+        throw new RuntimeException('redaction/donnees.json illisible');
+    }
+    $count = 0;
+    foreach (SOCLE_BACKUP_MODULES as $module) {
+        $rows = $value['modules'][$module] ?? [];
+        if (!is_array($rows)) continue;
+        foreach ($rows as $row) {
+            if (!is_array($row) || !is_string($row['key'] ?? null) || !is_string($row['value'] ?? null) || $row['key'] === '') continue;
+            try {
+                $store->put($module, $row['key'], $row['value']);
+                $count += 1;
+            } catch (ModuleOff) {
+                break;
+            }
+        }
+    }
+    return $count;
 }
 
 function socle_b64url_decode_std(string $value): string {
@@ -238,6 +276,7 @@ function socle_restore_zip(SocleStore $store, string $bytes): array {
         if (!str_starts_with($name, 'media/')) continue;
         $store->put('export', 'media:' . $name, base64_encode($data));
     }
+    if (isset($files['redaction/donnees.json'])) socle_restore_rows($store, json_decode($files['redaction/donnees.json'], true));
     if (isset($files['auth/members.json'])) socle_restore_members($store, json_decode($files['auth/members.json'], true));
     if (isset($files['review/corrections.json'])) socle_restore_corrections($store, json_decode($files['review/corrections.json'], true));
     if (isset($files['notify/subscriptions.json'])) socle_restore_subscriptions($store, json_decode($files['notify/subscriptions.json'], true));

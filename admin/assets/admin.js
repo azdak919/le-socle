@@ -173,21 +173,100 @@ function readAsDataUrl(file) {
   });
 }
 
+/**
+ * Aperçu du mât avant d’enregistrer : le logo (ou le nom) tel que le site l’affichera,
+ * sur ordinateur et sur mobile, en thème clair et sombre. Les tailles suivent le thème
+ * (logo de 82 px de haut au plus sur ordinateur, réduit de moitié dans le cadre mobile).
+ */
+function mastPreview({ src = '', name = '', color = '#6c2163', sections = [] } = {}) {
+  const title = name || 'Nom du journal';
+  const tabs = (sections.length ? sections : ['Campus', 'Culture', 'Sports']).slice(0, 4);
+  const longDate = new Intl.DateTimeFormat('fr-CA', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
+  const date = longDate.charAt(0).toUpperCase() + longDate.slice(1);
+  const frame = (device, theme, label) => `<figure class="mast-preview" data-device="${device}" data-theme="${theme}" style="--mast-accent:${esc(theme === 'dark' ? darkVariant(color) : color)}">
+    <div class="mast-preview-screen"><small class="mast-preview-date">${esc(date)}</small>
+    <div class="mast-preview-brand">${src ? `<img class="mast-preview-logo" src="${esc(src)}" alt="${esc(title)}">` : `<strong class="mast-preview-name">${esc(title)}</strong>`}</div>
+    <nav class="mast-preview-nav">${tabs.map((tab, index) => `<span${index === 0 ? ' class="current"' : ''}>${esc(tab)}</span>`).join('')}</nav></div>
+    <figcaption>${label}</figcaption></figure>`;
+  return `<div class="mast-previews" role="group" aria-label="Aperçu du mât avant d’enregistrer">
+    <p class="mast-previews-title">Aperçu du mât${src ? '' : ' (sans logo, le nom s’affiche en texte)'}</p>
+    ${frame('desktop', 'light', 'Ordinateur, thème clair')}${frame('desktop', 'dark', 'Ordinateur, thème sombre')}
+    ${frame('mobile', 'light', 'Mobile, clair')}${frame('mobile', 'dark', 'Mobile, sombre')}
+    <p class="media-quality mast-previews-note">Rien n’est enregistré tant que vous n’avez pas validé le formulaire. Si le logo disparaît sur fond sombre, choisissez une version avec un fond ou un contour clair.</p></div>`;
+}
+
+const LOGO_TYPES = ['image/svg+xml', 'image/png', 'image/webp', 'image/jpeg'];
+
+/** Relie un champ de fichier à l’aperçu du mât ; renvoie la fonction qui redessine l’aperçu. */
+function bindMastPreview(container, { file, name, color, sections = () => [], current = '', maxBytes = 0 }) {
+  let url = '';
+  const draw = () => {
+    const chosen = file.files[0];
+    let warning = '';
+    if (url) { URL.revokeObjectURL(url); url = ''; }
+    if (chosen && !LOGO_TYPES.includes(chosen.type)) warning = 'Format non pris en charge : choisissez un PNG, JPEG, WebP ou SVG.';
+    else if (chosen && maxBytes && chosen.size > maxBytes) warning = `Ce fichier pèse ${Math.ceil(chosen.size / 1000)} ko : la limite est de ${Math.round(maxBytes / 1000)} ko.`;
+    // Un <img> n’exécute jamais le contenu d’un SVG : l’aperçu est sans risque avant le nettoyage.
+    if (chosen && !warning) url = URL.createObjectURL(chosen);
+    container.innerHTML = `${warning ? `<p class="notice" role="alert">${esc(warning)}</p>` : ''}${mastPreview({ src: url || (chosen ? '' : current), name: name(), color: color(), sections: sections() })}`;
+  };
+  file.addEventListener('change', draw);
+  draw();
+  return draw;
+}
+
+/** Signale les champs obligatoires vides (ou mal remplis) près du champ lui-même. */
+function flagInvalidFields(form) {
+  let first = null;
+  for (const field of form.querySelectorAll('input, select, textarea')) {
+    if (field.type === 'file' || field.type === 'checkbox' || field.disabled || field.closest('[hidden]')) continue;
+    field.setCustomValidity(field.required && !String(field.value).trim() ? 'Ce champ est obligatoire.' : '');
+    const label = field.closest('label') || field.parentElement;
+    label.querySelector(':scope > .field-error')?.remove();
+    field.removeAttribute('aria-invalid');
+    if (field.checkValidity()) continue;
+    field.setAttribute('aria-invalid', 'true');
+    const message = document.createElement('small');
+    message.className = 'field-error';
+    message.id = `${field.name || 'champ'}-erreur`;
+    message.textContent = field.validity.valueMissing || field.validity.customError ? 'Ce champ est obligatoire.' : field.validationMessage;
+    field.setAttribute('aria-describedby', message.id);
+    label.append(message);
+    first ||= field;
+  }
+  if (first) first.focus();
+  return !first;
+}
+
+/** Retire le signalement dès que la personne corrige le champ. */
+function bindRequiredFlags(form) {
+  form.addEventListener('input', (event) => {
+    const field = event.target;
+    if (field.getAttribute?.('aria-invalid') !== 'true') return;
+    field.setCustomValidity('');
+    if (!field.checkValidity() || (field.required && !String(field.value).trim())) return;
+    field.removeAttribute('aria-invalid');
+    (field.closest('label') || field.parentElement).querySelector(':scope > .field-error')?.remove();
+  });
+}
+
 function assistantForm() {
   return `<section class="panel assistant" style="max-width:40rem"><h2>Installer le journal</h2>
 <p>Ce journal est neuf. Remplissez ce formulaire une fois : le site et la rédaction seront prêts. Tout se change ensuite dans « Configuration ».</p>
-<form id="login-form" class="grid">
+<form id="login-form" class="grid" novalidate>
 <fieldset class="field full"><legend>Le journal</legend>
-<label>Nom du journal<input name="nom" required maxlength="80" placeholder="Le Phare"></label>
-<label>Établissement<input name="etablissement" maxlength="120" placeholder="Cégep de…"></label>
-<label>Organisme responsable du journal (facultatif)<input name="organisme" maxlength="120" placeholder="Association étudiante du cégep"></label>
-<label>Courriel de la rédaction, affiché sur le site<input name="contact" type="email" placeholder="redaction@…"></label>
-<label>Signature (facultatif)<input name="signature" maxlength="120" placeholder="Le journal étudiant du cégep"></label>
-<label>Sections, séparées par des virgules<input name="sections" value="Campus, Culture, Sports"></label>
+<p class="muted">Les exemples en gris pâle disparaissent quand vous écrivez ; un champ laissé vide n’enregistre rien. Les champs marqués « obligatoire » doivent être remplis.</p>
+<label>Nom du journal (obligatoire)<input name="nom" required maxlength="80" placeholder="La Vigie"></label>
+<label>Établissement (facultatif)<input name="etablissement" maxlength="120" placeholder="Cégep de Sainte-Foy"></label>
+<label>Organisme responsable du journal (facultatif)<input name="organisme" maxlength="120" placeholder="Association étudiante du Cégep de Sainte-Foy"></label>
+<label>Courriel de la rédaction, affiché sur le site (facultatif)<input name="contact" type="email" placeholder="redaction@exemple.ca"></label>
+<label>Signature (facultatif)<input name="signature" maxlength="120" placeholder="Le journal étudiant du Cégep de Sainte-Foy"></label>
+<label>Sections, séparées par des virgules (obligatoire)<input name="sections" required placeholder="Campus, Culture, Sports"></label>
 </fieldset>
 <fieldset class="field full"><legend>Apparence</legend>
 <label>Couleur principale<input name="couleur" type="color" value="#6c2163"></label>
 <label>Logo (facultatif : PNG, JPEG, WebP ou SVG, 500 ko au plus)<input name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label>
+<div data-mast-preview class="full"></div>
 </fieldset>
 <fieldset class="field full"><legend>Options</legend>
 <label><input name="radio" type="checkbox"> Afficher la radio étudiante (barre de LE-RADAR sous le mât)</label>
@@ -197,8 +276,8 @@ function assistantForm() {
 </fieldset>
 <fieldset class="field full"><legend>Compte administrateur</legend>
 <p class="muted">Ce compte ajoute ensuite l’équipe (auteurs, photographes, réviseurs…). Son courriel n’est pas affiché sur le site. Notez le mot de passe en lieu sûr.</p>
-<label>Courriel<input name="email" type="email" autocomplete="username" required></label>
-<label>Mot de passe (10 caractères ou plus)<input name="password" type="password" autocomplete="new-password" minlength="10" required></label>
+<label>Courriel (obligatoire)<input name="email" type="email" autocomplete="username" required placeholder="vous@exemple.ca"></label>
+<label>Mot de passe (obligatoire, 10 caractères ou plus)<input name="password" type="password" autocomplete="new-password" minlength="10" required placeholder="10 caractères ou plus"></label>
 </fieldset>
 <div class="actions full"><button class="primary">Installer le journal</button></div>
 <p id="login-error" class="notice" role="alert" hidden></p></form></section>`;
@@ -219,12 +298,23 @@ function bindAssistant() {
       list.innerHTML = `<option value="">Choisir une station</option>${items.map((item) => `<option value="${esc(item.id)}">${esc([item.name, item.institution].filter(Boolean).join(' — '))}</option>`).join('')}`;
     }).catch(() => {});
   });
+  const preview = form.querySelector('[data-mast-preview]');
+  const showPreview = bindMastPreview(preview, {
+    file: form.elements.logo,
+    name: () => form.elements.nom.value.trim(),
+    color: () => form.elements.couleur.value,
+    sections: () => String(form.elements.sections.value).split(',').map((item) => item.trim()).filter(Boolean),
+    maxBytes: 500_000,
+  });
+  for (const input of [form.elements.nom, form.elements.couleur, form.elements.sections]) input.addEventListener('input', showPreview);
+  bindRequiredFlags(form);
   form.onsubmit = async (event) => {
     event.preventDefault();
     const data = new FormData(form);
     const error = document.getElementById('login-error');
     const button = form.querySelector('button.primary');
     error.hidden = true;
+    if (!flagInvalidFields(form)) return;
     try {
       const file = form.elements.logo.files[0];
       if (file && file.size > 500_000) throw new Error('Le logo dépasse 500 ko : choisissez une image plus légère.');
@@ -576,7 +666,7 @@ function photoDetails(form) {
 function mediaLibrary() {
   const own = (bundle.media || []).filter(ownPhoto).length;
   return `<section class="panel"><div class="toolbar"><div><h2>Photos</h2><p>La banque du journal : vos photos, réutilisables dans tous les articles et le mât, avec leur crédit. ${onSocle() ? 'Elles sont gardées sur le serveur du journal.' : 'En démonstration, elles restent dans ce navigateur. Les photos libres du Quorum montrent de vrais campus, pas l’établissement fictif du journal.'}</p></div></div>
-    <details class="photo-add" ${own ? '' : 'open'}><summary>Ajouter une photo à la banque</summary><form id="photo-form" class="grid"><div class="field full"><label>Photo JPEG, PNG ou WebP, 8 Mo au plus<input name="file" type="file" accept="image/jpeg,image/png,image/webp" required></label></div>${photoFields()}<div class="actions full"><button class="primary" type="submit">Ajouter à la banque</button></div></form><p class="media-quality">Sans crédit, une photo ne va pas dans la banque. Vérifiez que vous avez le droit de la publier.</p></details>
+    <details class="photo-add" ${own ? '' : 'open'}><summary>Ajouter une photo à la banque</summary><form id="photo-form" class="grid"><div class="field full"><label>Photo JPEG, PNG ou WebP, 8 Mo au plus<input name="file" type="file" accept="image/jpeg,image/png,image/webp" required></label><div id="photo-file-preview"></div></div>${photoFields()}<div class="actions full"><button class="primary" type="submit">Ajouter à la banque</button></div></form><p class="media-quality">Sans crédit, une photo ne va pas dans la banque. Vérifiez que vous avez le droit de la publier.</p></details>
     ${mediaFilters()}<div class="media-grid">${mediaCards()}</div></section>`;
 }
 
@@ -611,6 +701,18 @@ async function imageSize(file) {
 
 function bindMediaLibrary() {
   const form = document.getElementById('photo-form');
+  let previewUrl = '';
+  form.elements.file.addEventListener('change', async () => {
+    const chosen = form.elements.file.files[0];
+    const box = document.getElementById('photo-file-preview');
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = '';
+    if (!chosen) { box.innerHTML = ''; return; }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(chosen.type)) { box.innerHTML = '<p class="notice" role="alert">Format non pris en charge : choisissez un JPEG, PNG ou WebP.</p>'; return; }
+    previewUrl = URL.createObjectURL(chosen);
+    const size = await imageSize(chosen).catch(() => ({}));
+    box.innerHTML = `<p class="media-quality">Aperçu avant l’ajout${size.width ? ` : ${size.width} × ${size.height} px` : ''}, ${Math.ceil(chosen.size / 1000)} ko${chosen.size > 8_000_000 ? ' — trop lourd, 8 Mo au plus' : ''}.</p>${cropFrames({ src: previewUrl }, 'photo')}`;
+  });
   form.onsubmit = async (event) => {
     event.preventDefault();
     const file = form.elements.file.files[0];
@@ -1079,16 +1181,17 @@ function settings() {
   const masthead = publication.masthead || {};
   const governance = publication.governance || {};
   const missing = missingSettings(publication);
-  return `<section class="panel"><div class="toolbar"><h2>Configuration du journal</h2>${importButton()}</div>${missing.length ? `<p class="notice" role="status">À remplir avant de publier : ${esc(missing.join(', '))}.</p>` : ''}<form id="settings-form" class="grid">
-    <div class="field"><label>Nom<input name="name" required value="${esc(publication.name)}"></label></div>
+  return `<section class="panel"><div class="toolbar"><h2>Configuration du journal</h2>${importButton()}</div>${missing.length ? `<p class="notice" role="status">À remplir avant de publier : ${esc(missing.join(', '))}.</p>` : ''}<form id="settings-form" class="grid" novalidate>
+    <p class="media-quality full">Les exemples en gris pâle disparaissent quand vous écrivez ; ils ne sont jamais enregistrés.</p>
+    <div class="field"><label>Nom (obligatoire)<input name="name" required placeholder="La Vigie" value="${esc(publication.name)}"></label></div>
     <fieldset class="field full"><legend>Adresse, organisme et contacts</legend>
       <label>Adresse du site public<input name="siteUrl" type="url" placeholder="https://votre-organisation.github.io/votre-journal/" value="${esc(publication.siteUrl || '')}"></label>
-      <label>Nom court du journal, utilisé dans les adresses<input name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" value="${esc(publication.slug === 'mon-journal' ? slugify(publication.name || '') : publication.slug || '')}"></label><small>Lettres minuscules, chiffres et tirets, par exemple la-boussole.</small>
-      <label>Organisme ou personne responsable<input name="owner" placeholder="Association étudiante du cégep" value="${esc(governance.owner || '')}"></label>
+      <label>Nom court du journal, utilisé dans les adresses (obligatoire)<input name="slug" required placeholder="la-vigie" pattern="[a-z0-9]+(-[a-z0-9]+)*" value="${esc(publication.slug === 'mon-journal' ? slugify(publication.name || '') : publication.slug || '')}"></label><small>Lettres minuscules, chiffres et tirets, par exemple la-boussole.</small>
+      <label>Organisme ou personne responsable<input name="owner" placeholder="Association étudiante du Cégep de Sainte-Foy" value="${esc(governance.owner || '')}"></label>
       <label>Courriel de la rédaction<input name="contact" type="email" placeholder="redaction@exemple.ca" value="${esc(governance.contact || '')}"></label>
       <label>Dépôt GitHub du journal, facultatif<input name="repo" placeholder="organisation/journal" value="${esc(governance.repo || '')}"></label>
       <label><input name="noindex" type="checkbox" ${publication.noindex ? 'checked' : ''}> Cacher le journal des moteurs de recherche (journal d’essai ou fictif)</label><label><input name="fictif" type="checkbox" ${publication.fictif ? 'checked' : ''}> Afficher le bandeau « Journal étudiant fictif »</label>
-    </fieldset><div class="field"><label>Signature<input name="tagline" value="${esc(publication.tagline || '')}"></label></div><div class="field"><label>Institution<input name="institution" value="${esc(publication.institution || '')}"></label></div><div class="field"><label>Typographie<select name="typography"><option value="modern-accessible">Moderne accessible</option><option value="editorial-classic" ${publication.theme?.typography === 'editorial-classic' ? 'selected' : ''}>Éditoriale classique</option><option value="institutional" ${publication.theme?.typography === 'institutional' ? 'selected' : ''}>Institutionnelle</option></select></label></div>
+    </fieldset><div class="field"><label>Signature<input name="tagline" placeholder="Le journal étudiant du Cégep de Sainte-Foy" value="${esc(publication.tagline || '')}"></label></div><div class="field"><label>Institution<input name="institution" placeholder="Cégep de Sainte-Foy" value="${esc(publication.institution || '')}"></label></div><div class="field"><label>Typographie<select name="typography"><option value="modern-accessible">Moderne accessible</option><option value="editorial-classic" ${publication.theme?.typography === 'editorial-classic' ? 'selected' : ''}>Éditoriale classique</option><option value="institutional" ${publication.theme?.typography === 'institutional' ? 'selected' : ''}>Institutionnelle</option></select></label></div>
     <div class="field"><label>Fuseau horaire<select name="timeZone"><option value="America/Toronto" ${publication.timeZone !== 'America/Blanc-Sablon' ? 'selected' : ''}>Heure de l’Est — majorité du Québec</option><option value="America/Blanc-Sablon" ${publication.timeZone === 'America/Blanc-Sablon' ? 'selected' : ''}>Heure de l’Atlantique — Blanc-Sablon</option></select></label></div>
     <div class="field"><label>Couleur principale<input name="accent" type="color" value="${esc(publication.theme?.accent || '#6c2163')}"></label></div><div class="field"><label>Couleur sombre<input name="accentDark" type="color" value="${esc(publication.theme?.accentDark || '#cf7ec1')}"></label></div><div id="admin-contrast" class="notice full" role="status"></div>
     <fieldset class="field full"><legend>Mât illustré</legend><label><input name="backgroundsEnabled" type="checkbox" ${masthead.backgrounds?.enabled !== false ? 'checked' : ''}> Afficher les images de fond</label><label>Ajouter mes propres images<input id="background-files" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><div class="actions"><button type="button" data-action="choose-masthead-media">Choisir une photo</button><button type="button" data-action="clear-backgrounds">Retirer toutes les images</button></div><p>${masthead.backgrounds?.images?.length || 0} image(s) enregistrée(s). Un nouvel envoi les ajoute à la rotation.</p><label>Cadrage horizontal<input name="mastheadFocalX" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.x ?? 50}"></label><label>Cadrage vertical<input name="mastheadFocalY" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.y ?? 50}"></label><label>Assombrir l’image derrière le titre<input name="overlayStrength" type="range" min="0" max="0.9" step="0.05" value="${masthead.overlayStrength ?? 0.55}"></label><label>Alignement du titre<select name="textAlignment"><option value="left">Gauche</option><option value="center" ${masthead.textAlignment === 'center' ? 'selected' : ''}>Centre</option><option value="right" ${masthead.textAlignment === 'right' ? 'selected' : ''}>Droite</option></select></label><div id="masthead-crop-preview">${cropFrames(masthead.backgrounds?.images?.[0], 'masthead')}</div></fieldset>
@@ -1099,7 +1202,7 @@ function settings() {
       <label><input name="autoStockPhoto" type="checkbox" ${publication.media?.autoStockPhoto ? 'checked' : ''}> Proposer une photo libre si aucune n’est fournie</label>
       <small>Le Kiosque choisit, dans la banque du journal, la photo la plus proche du titre et du texte. Une photo choisie ou téléversée manuellement n’est jamais remplacée. Désactivez pour exiger une photo soumise à chaque article.</small>
     </fieldset>
-    <div class="field full"><label>Logo local (SVG, PNG, WebP ou JPEG)<input id="logo-file" type="file" accept="image/svg+xml,image/png,image/webp,image/jpeg"></label><label>Texte alternatif<input name="logoAlt" value="${esc(publication.logo?.alt || publication.name)}"></label><small>Vérifiez vos droits d’utilisation pour chaque image téléversée.</small></div>
+    <div class="field full"><label>Logo local (SVG, PNG, WebP ou JPEG)<input id="logo-file" type="file" accept="image/svg+xml,image/png,image/webp,image/jpeg"></label><label>Texte alternatif<input name="logoAlt" placeholder="${esc(publication.name || 'La Vigie')}" value="${esc(publication.logo?.alt || '')}"></label><small>Vide : le nom du journal sert de texte alternatif. Vérifiez vos droits d’utilisation pour chaque image téléversée.</small><div id="logo-preview"></div></div>
     <div class="actions full"><button class="primary">Enregistrer</button><button type="button" data-action="recommended-theme">Réinitialiser le thème recommandé</button></div></form></section>`;
 }
 
@@ -1248,7 +1351,22 @@ function render() {
     let darkTouched = Boolean(bundle.publication.theme?.accentDark) && bundle.publication.theme.accentDark !== darkVariant(bundle.publication.theme?.accent || '#6c2163');
     form.elements.accentDark.addEventListener('input', () => { darkTouched = true; });
     form.elements.accent.addEventListener('input', () => { if (!darkTouched) form.elements.accentDark.value = darkVariant(form.elements.accent.value); });
-    form.onsubmit = async (event) => { event.preventDefault(); const data = new FormData(form); const publication = structuredClone(bundle.publication); publication.name = data.get('name').trim(); publication.tagline = data.get('tagline').trim(); publication.institution = data.get('institution').trim(); publication.timeZone = data.get('timeZone'); publication.siteUrl = data.get('siteUrl').trim(); publication.slug = slugify(data.get('slug')) || publication.slug; publication.governance = { ...publication.governance, owner: data.get('owner').trim(), contact: data.get('contact').trim(), repo: data.get('repo').trim() }; publication.noindex = data.has('noindex'); publication.fictif = data.has('fictif'); publication.theme = { accent: data.get('accent'), accentDark: data.get('accentDark'), typography: data.get('typography') }; publication.radio = { ...publication.radio, enabled: data.has('radioEnabled'), station: String(data.get('station') || '').trim().toLowerCase(), theme: 'dark', position: 'top' }; delete publication.radio.stream; delete publication.radio.name; delete publication.radio.frequency; delete publication.radio.website; publication.media = { ...publication.media, autoStockPhoto: data.has('autoStockPhoto') }; const localities = data.get('weatherLocalities').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4); const priorImages = clearMastheadImages ? [] : (publication.masthead?.backgrounds?.images || []); const selected = selectedMasthead ? { ...selectedMasthead, focalPoint: { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } } : null; publication.masthead = { backgrounds: { enabled: data.has('backgroundsEnabled'), images: selected ? [selected, ...priorImages.filter((item) => item.id !== selected.id)] : priorImages }, weather: { enabled: data.has('weatherEnabled'), localities }, tools: { pomodoro: data.has('pomodoro'), solitaire: data.has('solitaire') }, overlayStrength: Math.min(0.9, Math.max(0, Number(data.get('overlayStrength')))), textAlignment: data.get('textAlignment') }; for (const file of document.getElementById('background-files').files) publication.masthead.backgrounds.images.push({ ...await readArticleImage(file, { alt: `Arrière-plan du journal ${publication.name}` }), focalPoint: { x: 50, y: 50 } }); const logoFile = document.getElementById('logo-file').files[0]; if (logoFile) publication.logo = await readLogo(logoFile, data.get('logoAlt').trim()); else if (publication.logo) publication.logo.alt = data.get('logoAlt').trim() || publication.name; await backend.savePublication(publication); await refresh(); notify('Configuration enregistrée.'); render(); };
+    const showLogo = bindMastPreview(document.getElementById('logo-preview'), {
+      file: document.getElementById('logo-file'),
+      current: bundle.publication.logo?.src ? mediaSrc(bundle.publication.logo) : '',
+      name: () => form.elements.name.value.trim(),
+      color: () => form.elements.accent.value,
+      sections: () => [...bundle.taxonomies.sections].sort((a, b) => (a.order || 0) - (b.order || 0)).map((item) => item.name),
+      maxBytes: 2 * 1024 * 1024,
+    });
+    form.elements.name.addEventListener('input', showLogo); form.elements.accent.addEventListener('input', showLogo);
+    document.getElementById('background-files').addEventListener('change', (event) => {
+      const chosen = event.target.files[0];
+      if (!chosen) return;
+      document.getElementById('masthead-crop-preview').innerHTML = cropFrames({ src: URL.createObjectURL(chosen), focalPoint: { x: Number(form.elements.mastheadFocalX.value), y: Number(form.elements.mastheadFocalY.value) } }, 'masthead');
+    });
+    bindRequiredFlags(form);
+    form.onsubmit = async (event) => { event.preventDefault(); if (!flagInvalidFields(form)) { notify('Remplissez les champs signalés.'); return; } const data = new FormData(form); const publication = structuredClone(bundle.publication); publication.name = data.get('name').trim(); publication.tagline = data.get('tagline').trim(); publication.institution = data.get('institution').trim(); publication.timeZone = data.get('timeZone'); publication.siteUrl = data.get('siteUrl').trim(); publication.slug = slugify(data.get('slug')) || publication.slug; publication.governance = { ...publication.governance, owner: data.get('owner').trim(), contact: data.get('contact').trim(), repo: data.get('repo').trim() }; publication.noindex = data.has('noindex'); publication.fictif = data.has('fictif'); publication.theme = { accent: data.get('accent'), accentDark: data.get('accentDark'), typography: data.get('typography') }; publication.radio = { ...publication.radio, enabled: data.has('radioEnabled'), station: String(data.get('station') || '').trim().toLowerCase(), theme: 'dark', position: 'top' }; delete publication.radio.stream; delete publication.radio.name; delete publication.radio.frequency; delete publication.radio.website; publication.media = { ...publication.media, autoStockPhoto: data.has('autoStockPhoto') }; const localities = data.get('weatherLocalities').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4); const priorImages = clearMastheadImages ? [] : (publication.masthead?.backgrounds?.images || []); const selected = selectedMasthead ? { ...selectedMasthead, focalPoint: { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } } : null; publication.masthead = { backgrounds: { enabled: data.has('backgroundsEnabled'), images: selected ? [selected, ...priorImages.filter((item) => item.id !== selected.id)] : priorImages }, weather: { enabled: data.has('weatherEnabled'), localities }, tools: { pomodoro: data.has('pomodoro'), solitaire: data.has('solitaire') }, overlayStrength: Math.min(0.9, Math.max(0, Number(data.get('overlayStrength')))), textAlignment: data.get('textAlignment') }; for (const file of document.getElementById('background-files').files) publication.masthead.backgrounds.images.push({ ...await readArticleImage(file, { alt: `Arrière-plan du journal ${publication.name}` }), focalPoint: { x: 50, y: 50 } }); const logoFile = document.getElementById('logo-file').files[0]; if (logoFile) publication.logo = await readLogo(logoFile, data.get('logoAlt').trim()); else if (publication.logo) publication.logo.alt = data.get('logoAlt').trim() || publication.name; await backend.savePublication(publication); await refresh(); notify('Configuration enregistrée.'); render(); };
     main.querySelector('[data-action="clear-backgrounds"]').onclick = () => { selectedMasthead = null; clearMastheadImages = true; form.elements.backgroundsEnabled.checked = false; document.getElementById('masthead-crop-preview').innerHTML = cropFrames(null, 'masthead'); notify('Les images seront retirées à l’enregistrement.'); };
     main.querySelector('[data-action="recommended-theme"]').onclick = () => { form.elements.typography.value = 'modern-accessible'; form.elements.accent.value = '#6c2163'; form.elements.accentDark.value = '#cf7ec1'; };
   }
