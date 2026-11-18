@@ -5,7 +5,7 @@
  * - `navigateur` : la démo (Le Quorum). Les données restent dans ce
  *   navigateur (SQLite par sql.js, gardé dans IndexedDB). Le Kiosque construit
  *   cette page dans son site.
- * - `serveur` : un vrai journal. Le socle sert cette page sous `/admin/`
+ * - `serveur` : un vrai journal. Le socle sert cette page sous `/redaction/`
  *   et l'admin écrit par `/v1/redaction/`, à la même adresse.
  *
  * JavaScript simple (pas de TypeScript) : Node ne retire pas les types d'un
@@ -131,15 +131,15 @@ export function adminPage(options) {
   });
 }
 
-/** La page du mode serveur, servie par le socle sous `/admin/` (même adresse que l'API). */
+/** La page du mode serveur, servie par le socle sous `/redaction/` (même adresse que l'API). */
 export function serverPage() {
   return adminPage({
     mode: 'serveur',
     publicationName: 'votre journal',
     lang: 'fr-CA',
     publicBasePath: '',
-    adminBasePath: '/admin',
-    assetsBase: '/admin/assets',
+    adminBasePath: '/redaction',
+    assetsBase: '/redaction/assets',
     apiBase: '',
     updateHref: '/admin/mise-a-jour',
     saveHref: '/admin/sauvegarde',

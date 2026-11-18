@@ -7,8 +7,8 @@ LE SOCLE — installation sur un hébergement PHP (serveur du cégep, hébergeur
 2. Déposez le dossier « socle » tel quel sur le serveur (gestionnaire de fichiers ou FTP),
    à la racine de l'espace web ou dans un sous-dossier. Le programme détecte le
    préfixe tout seul.
-3. Ouvrez https://votre-journal.com/socle/admin/ (adaptez le chemin si le dossier
-   n'est pas nommé socle, ou s'il est à la racine : https://votre-journal.com/admin/)
+3. Ouvrez https://votre-journal.com/socle/redaction/ (adaptez le chemin si le dossier
+   n'est pas nommé socle, ou s'il est à la racine : https://votre-journal.com/redaction/)
    et créez tout de suite le compte administrateur (courriel + mot de passe de
    10 caractères ou plus). Tant que ce compte n'existe pas, la première personne
    qui ouvre la page peut le créer.

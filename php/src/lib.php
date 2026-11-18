@@ -751,8 +751,8 @@ function socle_with_base(array $result, string $base): array {
     if (str_starts_with($type, 'text/html')) {
         $body = preg_replace('#\b(href|action|src)="/(?!/)#', '$1="' . $base . '/', $result['body']) ?? $result['body'];
         $body = str_replace(
-            ['"adminBasePath":"/admin"', '"assetsBase":"/admin/assets"', '"apiBase":""', '"publicBasePath":""', '"assetsBase":"/assets/editorial"'],
-            ['"adminBasePath":"' . $base . '/admin"', '"assetsBase":"' . $base . '/admin/assets"', '"apiBase":"' . $base . '"', '"publicBasePath":"' . $base . '"', '"assetsBase":"' . $base . '/assets/editorial"'],
+            ['"adminBasePath":"/redaction"', '"assetsBase":"/redaction/assets"', '"apiBase":""', '"publicBasePath":""', '"assetsBase":"/assets/editorial"'],
+            ['"adminBasePath":"' . $base . '/redaction"', '"assetsBase":"' . $base . '/redaction/assets"', '"apiBase":"' . $base . '"', '"publicBasePath":"' . $base . '"', '"assetsBase":"' . $base . '/assets/editorial"'],
             $body,
         );
         $result['body'] = $body;

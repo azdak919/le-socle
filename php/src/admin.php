@@ -133,7 +133,7 @@ function socle_handle_admin(string $method, string $url, array &$config, SocleSt
     if ($path === '/admin' && $method === 'GET') {
         // Une seule admin : avec le module éditorial, c'est la rédaction.
         parse_str((string) (parse_url($url, PHP_URL_QUERY) ?? ''), $query);
-        if ($config['modules']['editorial'] && !array_key_exists('outils', $query)) return socle_result(303, '', ['location' => '/admin/']);
+        if ($config['modules']['editorial'] && !array_key_exists('outils', $query)) return socle_result(303, '', ['location' => '/redaction/']);
         $downloaded = $exportOn ? socle_was_downloaded($store) : false;
         $notice = !$exportOn || !$downloaded ? '<p><strong>' . $copy['notice'] . '</strong></p>' : '';
         $articlesLink = $config['modules']['editorial']
@@ -514,7 +514,7 @@ function socle_admin_gate(string $method, string $path, array $config, SocleStor
         return socle_redaction_local() ? null : socle_text(403, "Sans le module auth, l'administration ne s'ouvre que depuis la machine du socle.");
     }
     if ($actor === null || $actor === '') {
-        if ($method === 'GET' && $config['modules']['editorial']) return socle_result(303, '', ['location' => '/admin/', 'cache-control' => 'no-store']);
+        if ($method === 'GET' && $config['modules']['editorial']) return socle_result(303, '', ['location' => '/redaction/', 'cache-control' => 'no-store']);
         return socle_text(401, 'Connexion requise.');
     }
     $role = socle_role_of($store, $actor);

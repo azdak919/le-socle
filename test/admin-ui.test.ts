@@ -51,7 +51,7 @@ test("admin/serveur.html est à jour (npm run ui)", () => {
   assert.equal(readFileSync(join(ROOT, "admin", "serveur.html"), "utf8"), serverPage());
   const html = serverPage();
   assert.match(html, /"mode":"socle"/);
-  assert.match(html, /src="\/admin\/assets\/admin\.js"/);
+  assert.match(html, /src="\/redaction\/assets\/admin\.js"/);
   assert.match(html, /href="\/admin\/mise-a-jour"/);
   assert.doesNotMatch(html, /pglite|sql-wasm|seedUrl/);
 });
@@ -67,17 +67,16 @@ test("mode navigateur : la même page, pour la démo", () => {
   assert.match(html, /href="\/demo\/admin\/mise-a-jour\/"/);
 });
 
-test("/admin/ : page, fichiers, refus", () => {
+test("/redaction/ : page, fichiers, refus", () => {
   assert.equal(serveRedactionPage("/ailleurs", "GET"), null);
   assert.equal(serveRedactionPage("/admin/sauvegarde", "GET"), null);
   assert.equal(serveRedactionPage("/redaction", "GET")?.status, 301);
-  assert.equal(serveRedactionPage("/redaction/", "GET")?.headers?.location, "/admin/");
+  assert.equal(serveRedactionPage("/redaction/", "GET")?.headers?.location, undefined);
   assert.equal(serveRedactionPage("/redaction/", "POST")?.status, 405);
   assert.equal(serveRedactionPage("/redaction/assets/demo-backend.js", "GET")?.status, 404);
   assert.equal(serveRedactionPage("/redaction/assets/../page.js", "GET")?.status, 404);
   assert.equal(serveRedactionPage("/redaction/autre", "GET")?.status, 404);
-  assert.equal(serveRedactionPage("/redaction/assets/admin.css", "GET")?.status, 301);
-  const css = serveRedactionPage("/admin/assets/admin.css", "GET");
+  const css = serveRedactionPage("/redaction/assets/admin.css", "GET");
   assert.equal(css?.headers["content-type"], "text/css; charset=utf-8");
   assert.equal(css?.headers["x-content-type-options"], "nosniff");
 });
@@ -91,7 +90,7 @@ test("le serveur ne sert l'admin que si editorial est allumé", async () => {
     const address = server.address();
     assert.ok(address && typeof address === "object");
     try {
-      const response = await fetch(`http://127.0.0.1:${address.port}/admin/`);
+      const response = await fetch(`http://127.0.0.1:${address.port}/redaction/`);
       assert.equal(response.status, expected);
       if (on) assert.match(await response.text(), /Rédaction/);
     } finally {

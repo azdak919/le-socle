@@ -3,7 +3,7 @@
  * nomme leur dossier. Même règle que la cible PHP (`socle_serve_static`) :
  * pas de `..`, pas de barre oblique inverse, pas d'octet nul, et le fichier
  * réel doit rester sous la racine (un lien symbolique ne fait pas sortir).
- * C'est ce qui permet de servir l'admin du Kiosque (`/admin/`) depuis la
+ * C'est ce qui permet de servir l'admin du Kiosque (`/redaction/`) depuis la
  * même origine que l'API : la session reste un témoin SameSite=Lax.
  */
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";

@@ -1,7 +1,7 @@
 # Journal
 
 ## Non publié
-- Le paquet complet s’installe à la racine du domaine (votre-journal.com) : le ZIP n’enveloppe plus les fichiers dans un dossier `journal/`. Un sous-dossier reste possible, le préfixe est détecté tout seul. L’espace de rédaction est à `/admin/` ; `/redaction/` y redirige. La mise à jour en un clic accepte l’ancien ZIP (dossier `journal/`) comme le nouveau (fichiers à la racine).
+- Le paquet complet s’installe à la racine du domaine (votre-journal.com) : le ZIP n’enveloppe plus les fichiers dans un dossier `journal/`. Un sous-dossier reste possible, le préfixe est détecté tout seul. L’espace de rédaction reste à `/redaction/` ; `/admin` y redirige. Sauvegarde et Mise à jour restent sous `/admin/sauvegarde` et `/admin/mise-a-jour`. La mise à jour en un clic accepte l’ancien ZIP (dossier `journal/`) comme le nouveau (fichiers à la racine).
 - Mode vivant : le programme sert `feed.xml` et `sitemap.xml` à partir des articles publiés. Une adresse inconnue, ou un article sans page publique, reçoit un vrai HTTP 404 (la coquille du site, pour que le navigateur affiche « Page introuvable »). Si le journal est caché des moteurs, le flux RSS reste servi, mais `robots.txt` n’annonce pas le plan du site.
 - Configuration : écran Sports (équipes du cégep, résultats et prochain match, saisis à la main). L’adresse du site public est détectée automatiquement et un avis apparaît si elle ne correspond plus à l’emplacement actuel.
 - Dans les textes visibles, le nom s’écrit « Le Socle ».

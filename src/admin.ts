@@ -325,7 +325,7 @@ export async function handleAdmin(
   if (path === "/admin" && method === "GET") {
     // Une seule admin : avec le module éditorial, c'est la rédaction. Ces pages
     // restent le recours sans JavaScript, atteintes depuis elle.
-    if (config.modules.editorial && !parsed.searchParams.has("outils")) return { status: 303, body: "", headers: { location: "/admin/" } };
+    if (config.modules.editorial && !parsed.searchParams.has("outils")) return { status: 303, body: "", headers: { location: "/redaction/" } };
     const downloaded = exportOn ? await wasDownloaded(deps.store) : false;
     const notice = !exportOn || !downloaded ? `<p><strong>${copy.notice}</strong></p>` : "";
     const articlesLink = config.modules.editorial

@@ -39,7 +39,7 @@ test("paquet complet : le site du journal servi par le socle PHP", { skip: !hasP
   const work = mkdtempSync(join(tmpdir(), "socle-complet-"));
   const site = join(work, "site");
   const shell = (title: string) => `<!doctype html><html><head><title>${title}</title><link rel="stylesheet" href="/assets/theme.css"></head><body><a href="/sports/">Sports</a>`
-    + `<script>window.KIOSQUE_EDITORIAL={"mode":"socle-vivant","apiBase":"","publicBasePath":"","adminBasePath":"/admin","assetsBase":"/assets/editorial"};</script></body></html>`;
+    + `<script>window.KIOSQUE_EDITORIAL={"mode":"socle-vivant","apiBase":"","publicBasePath":"","adminBasePath":"/redaction","assetsBase":"/assets/editorial"};</script></body></html>`;
   mkdirSync(join(site, "assets", "editorial"), { recursive: true });
   writeFileSync(join(site, "index.html"), shell("Accueil"));
   writeFileSync(join(site, "404.html"), shell("Coquille"));
@@ -60,7 +60,7 @@ test("paquet complet : le site du journal servi par le socle PHP", { skip: !hasP
   assert.ok(!names.includes("journal/index.php"), "le ZIP du paquet complet n'enveloppe plus les fichiers dans journal/");
   // Le mode d'emploi installe à la racine du domaine, pas dans un dossier journal/.
   const lisezmoi = readFileSync(join(host, "LISEZMOI.txt"), "utf8");
-  assert.match(lisezmoi, /\/admin\//);
+  assert.match(lisezmoi, /\/redaction\//);
   assert.doesNotMatch(lisezmoi, /kiosque\.config\.ts|socle\/redaction|www\/journal\//);
   writeFileSync(join(work, "routeur.php"), `<?php
 $uri = $_SERVER['REQUEST_URI'] ?? '/';
@@ -106,8 +106,8 @@ return true;
     assert.equal((await call(`${base}/assets/absent.css`)).status, 404, "un fichier absent reste introuvable");
     assert.equal((await call(`${base}/assets/theme.css`)).text, "body{}");
     assert.match((await call(`${base}/robots.txt`)).text, /Allow: \//);
-    assert.equal((await call(`${base}/admin/`)).status, 200);
-    assert.equal((await call(`${base}/redaction/`, { redirect: "manual" })).status, 301);
+    assert.equal((await call(`${base}/redaction/`)).status, 200);
+    assert.equal((await call(`${base}/admin`, { redirect: "manual" })).status, 303);
     // Installation, puis publication marquée noindex.
     const json = { "content-type": "application/json" };
     const install = await call(`${base}/v1/auth/installation`, { method: "POST", headers: json, body: JSON.stringify({ email: "admin@journal.example", password: "un long secret" }) });

@@ -361,46 +361,29 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
 }
 
 /**
- * L'espace de rédaction sous `/admin/` : la page `admin/serveur.html` et
+ * L'espace de rédaction sous `/redaction/` : la page `admin/serveur.html` et
  * ses fichiers `admin/assets/`, à la racine du dépôt. Même règle que Node
- * (`src/redaction-page.ts`). L'ancienne adresse `/redaction/` redirige ici.
- * Les pages Sauvegarde et Mise à jour restent à `/admin/sauvegarde` et
- * `/admin/mise-a-jour`. `null` : ce chemin n'est pas l'espace de rédaction.
+ * (`src/redaction-page.ts`). `/admin` (sans sous-page) redirige vers
+ * `/redaction/` quand le module éditorial est allumé. Les pages Sauvegarde
+ * et Mise à jour restent à `/admin/sauvegarde` et `/admin/mise-a-jour`.
+ * `null` : ce chemin n'est pas l'espace de rédaction.
  */
 const SOCLE_REDACTION_ASSETS = [
     'admin.js', 'admin.css', 'runtime.js', 'util.js', 'export.js',
     'stock-photo-match.js', 'marked.esm.js', 'socle-backend.js',
 ];
 
-function socle_reserved_admin(string $path): bool {
-    return preg_match('#^/admin/(sauvegarde|mise-a-jour|medias|articles|relecture|audience|abonnements)(/|$)#', $path) === 1;
-}
-
 function socle_serve_redaction_page(string $path, string $method): ?array {
-    $write = $method !== 'GET' && $method !== 'HEAD';
-    if ($path === '/redaction' || $path === '/redaction/') {
-        return $write ? socle_result(405, '', ['allow' => 'GET, HEAD']) : socle_result(301, '', ['location' => '/admin/']);
-    }
-    if (str_starts_with($path, '/redaction/')) {
-        if ($write) return socle_result(405, '', ['allow' => 'GET, HEAD']);
-        if (str_starts_with($path, '/redaction/assets/')) {
-            $name = substr($path, strlen('/redaction/assets/'));
-            if (in_array($name, SOCLE_REDACTION_ASSETS, true)) return socle_result(301, '', ['location' => '/admin/assets/' . $name]);
-        }
-        return socle_result(404);
-    }
-    if ($path !== '/admin' && !str_starts_with($path, '/admin/')) return null;
-    if (socle_reserved_admin($path)) return null;
-    if ($path !== '/admin' && $path !== '/admin/' && !str_starts_with($path, '/admin/assets/')) return null;
-    if ($write) return socle_result(405, '', ['allow' => 'GET, HEAD']);
-    if ($path === '/admin') return socle_result(301, '', ['location' => '/admin/']);
+    if ($path !== '/redaction' && !str_starts_with($path, '/redaction/')) return null;
+    if ($method !== 'GET' && $method !== 'HEAD') return socle_result(405, '', ['allow' => 'GET, HEAD']);
+    if ($path === '/redaction') return socle_result(301, '', ['location' => '/redaction/']);
     $dir = dirname(__DIR__, 2) . '/admin';
-    if ($path === '/admin/') {
+    if ($path === '/redaction/') {
         $file = $dir . '/serveur.html';
         $type = 'text/html; charset=utf-8';
     } else {
-        $name = substr($path, strlen('/admin/assets/'));
-        if (!str_starts_with($path, '/admin/assets/') || !in_array($name, SOCLE_REDACTION_ASSETS, true)) return socle_result(404);
+        $name = substr($path, strlen('/redaction/assets/'));
+        if (!str_starts_with($path, '/redaction/assets/') || !in_array($name, SOCLE_REDACTION_ASSETS, true)) return socle_result(404);
         $file = $dir . '/assets/' . $name;
         $type = str_ends_with($name, '.css') ? 'text/css; charset=utf-8' : 'text/javascript; charset=utf-8';
     }
