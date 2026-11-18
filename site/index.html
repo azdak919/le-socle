@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="fr-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Le Socle — espace de rédaction des journaux étudiants</title>
+  <meta name="description" content="Le Socle (Système Ouvert de Collaboration en Ligne pour l’Édition) est l’espace de rédaction des journaux étudiants : rôles, banque de photos, sauvegardes et mise à jour en un clic. Chaque journal installe sa propre copie.">
+  <meta name="theme-color" content="#6c2163">
+  <link rel="stylesheet" href="assets/vitrine.css">
+</head>
+<body>
+  <a class="skip-link" href="#contenu">Aller au contenu</a>
+  <header class="site-head">
+    <div class="wrap site-head__inner">
+      <a class="wordmark" href="./">Le Socle <small>Espace de rédaction</small></a>
+      <nav class="nav-main" aria-label="Navigation principale">
+        <a href="#roles">Rôles</a>
+        <a href="#fonctions">Fonctions</a>
+        <a href="https://azdak919.github.io/le-kiosque/">Le Kiosque</a>
+        <a class="btn" href="https://github.com/azdak919/le-kiosque/releases/latest/download/kiosque-journal.zip">Télécharger le paquet</a>
+        <details class="nav-toggle">
+          <summary class="btn btn--outline">Menu</summary>
+          <div class="nav-panel">
+            <a href="#roles">Rôles</a>
+            <a href="#fonctions">Fonctions</a>
+            <a href="https://azdak919.github.io/le-kiosque/">Le Kiosque</a>
+            <a href="https://github.com/azdak919/le-kiosque/releases/latest/download/kiosque-journal.zip">Télécharger le paquet</a>
+          </div>
+        </details>
+      </nav>
+    </div>
+  </header>
+
+  <main id="contenu">
+    <div class="wrap hero">
+      <p class="kicker">Interface d’administration · Licence GPL</p>
+      <h1>L’espace de rédaction, <em>chez le journal</em>.</h1>
+      <p class="sigle">Système Ouvert de Collaboration en Ligne pour l’Édition</p>
+      <p class="lede">On y écrit les articles, on gère les photos, les rôles, les sauvegardes et les mises à jour. Chaque journal installe sa propre copie, sans aucun serveur central.</p>
+      <div class="cta-row">
+        <a class="btn btn--lg" href="https://github.com/azdak919/le-kiosque/releases/latest/download/kiosque-journal.zip">Télécharger le paquet du Kiosque</a>
+        <a class="btn btn--lg btn--outline" href="https://azdak919.github.io/le-kiosque/demo/">Voir la démonstration</a>
+        <a class="btn btn--lg btn--ghost" href="https://azdak919.github.io/le-kiosque/guide/">Lire le guide</a>
+      </div>
+      <p class="note">Le Socle est le programme de l’espace de rédaction. Dans le cas le plus simple, il arrive déjà dans le paquet complet du Kiosque.</p>
+    </div>
+
+    <div class="wrap">
+      <figure class="frame">
+        <img src="assets/captures/tableau-de-bord.jpg" width="1280" height="900" alt="Tableau de bord de l’espace de rédaction de La Vigie, avec le nombre d’articles et le rôle Administrateur." loading="eager">
+        <figcaption>Le tableau de bord, sur La Vigie, journal fictif utilisé pour un essai d’installation.</figcaption>
+      </figure>
+    </div>
+
+    <section id="roles" class="block">
+      <div class="wrap">
+        <p class="kicker">L’équipe</p>
+        <h2>Des rôles clairs, appliqués par le serveur.</h2>
+        <p class="intro">Ce que le navigateur affiche ne suffit pas : le serveur applique les droits. Un auteur ou un chef de pupitre peut être limité à certaines rubriques ; hors de celles-ci, même un brouillon est refusé.</p>
+        <div class="features">
+          <article><h3>Auteur</h3><p>Écrit ses articles et les met en révision. Ne publie pas.</p></article>
+          <article><h3>Photographe</h3><p>Gère la banque de photos (ajout, crédit, licence, retrait). N’écrit pas d’articles.</p></article>
+          <article><h3>Réviseur</h3><p>Relit, publie et retire tous les articles.</p></article>
+          <article><h3>Chef de pupitre</h3><p>Relit, publie et retire les articles de ses rubriques seulement.</p></article>
+          <article><h3>Éditeur</h3><p>Tout le contenu, plus les sections et la configuration.</p></article>
+          <article><h3>Administrateur</h3><p>Tout, plus l’équipe, la sauvegarde et les mises à jour.</p></article>
+        </div>
+        <div class="gallery">
+          <figure class="shot shot--tall">
+            <img src="assets/captures/equipe-roles.jpg" width="1088" height="939" alt="Liste des comptes : administrateur, autrice limitée à des rubriques, chef de pupitre et photographe." loading="lazy">
+            <figcaption>Les comptes de l’équipe, avec restriction par rubrique.</figcaption>
+          </figure>
+          <figure class="shot shot--tall">
+            <img src="assets/captures/banque-photos.jpg" width="1280" height="1269" alt="Banque de photos avec crédit et licence sous chaque image." loading="lazy">
+            <figcaption>La banque de photos : le crédit est obligatoire, la licence s’affiche sur le site.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="fonctions" class="block">
+      <div class="wrap">
+        <p class="kicker">Le travail quotidien</p>
+        <h2>Écrire, relire, protéger le journal.</h2>
+        <p class="intro">L’éditeur enregistre ce que l’on voit. On peut prévisualiser un article dans le thème, sans le publier. Une sauvegarde complète tient dans un fichier ZIP, à garder hors du serveur ; la même page restaure une archive. Quand une version est publiée, la page Mise à jour la propose en un clic.</p>
+        <div class="gallery">
+          <figure class="shot shot--tall">
+            <img src="assets/captures/editeur-article.jpg" width="1400" height="1893" alt="Formulaire de rédaction d’un article, avec le bouton Prévisualiser sans publier." loading="lazy">
+            <figcaption>L’éditeur d’article.</figcaption>
+          </figure>
+          <figure class="shot shot--tall">
+            <img src="assets/captures/sauvegarde.jpg" width="1280" height="900" alt="Page Sauvegarde : télécharger la sauvegarde complète, archives par année ou par session, et restaurer une archive." loading="lazy">
+            <figcaption>La page Sauvegarde, réservée à l’administrateur.</figcaption>
+          </figure>
+          <figure class="shot shot--tall">
+            <img src="assets/captures/assistant-installation.jpg" width="1280" height="1226" alt="Assistant d’installation du journal, champs encore vides." loading="lazy">
+            <figcaption>L’assistant d’installation, à la première visite.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="wrap">
+        <p class="kicker">Comment l’obtenir</p>
+        <h2>D’abord le paquet du Kiosque.</h2>
+        <p class="intro">Le chemin recommandé est le paquet complet de la plateforme : un fichier ZIP, un assistant dans le navigateur, le site public et l’espace de rédaction ensemble. Le Socle peut aussi tourner seul, en PHP, avec Node, ou dans un Worker Cloudflare. Le guide d’adoption est dans le dépôt.</p>
+        <div class="band">
+          <div>
+            <h2>Installer un journal.</h2>
+            <p>Le guide d’une page s’adresse à un étudiant qui n’a jamais rien installé. La démonstration Le Quorum montre le site public et, en mode démonstration, l’espace de rédaction.</p>
+          </div>
+          <div class="cta-row" style="justify-content:flex-start;margin-top:0">
+            <a class="btn btn--lg" href="https://azdak919.github.io/le-kiosque/guide/">Lire le guide</a>
+            <a class="btn btn--lg btn--outline" href="https://azdak919.github.io/le-kiosque/">La plateforme</a>
+          </div>
+        </div>
+        <p class="legal">Le logiciel est sous <a href="https://github.com/azdak919/le-socle/blob/main/LICENSE">licence GPL version&nbsp;2 seulement</a>. Les articles et les photos appartiennent au journal. Les composants tiers sont listés dans <a href="https://github.com/azdak919/le-socle/blob/main/THIRD_PARTY.md">THIRD_PARTY.md</a>.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-foot">
+    <div class="wrap">
+      <p><strong>Le Socle</strong> — espace de rédaction des journaux étudiants.</p>
+      <p>
+        <a href="https://github.com/azdak919/le-socle">Code source</a>
+        · <a href="https://azdak919.github.io/le-kiosque/">Le Kiosque</a>
+        · <a href="https://github.com/azdak919/le-socle/blob/main/THIRD_PARTY.md">Crédits</a>
+      </p>
+    </div>
+  </footer>
+</body>
+</html>
