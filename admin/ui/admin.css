@@ -112,6 +112,29 @@
 .crop-tablet img { @apply md:h-40; }
 .crop-mobile img { @apply md:h-44; }
 .crop-preview figcaption { @apply mt-1 text-xs text-muted-foreground; }
+
+/* Aperçu du mât (logo) avant d’enregistrer : ordinateur et mobile, clair et sombre. */
+.mast-previews { @apply grid gap-3 mt-3 items-start; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.mast-previews-title, .mast-previews-note { grid-column: 1 / -1; @apply m-0; }
+.mast-previews-title { @apply text-sm font-medium; }
+.mast-preview { @apply m-0 min-w-0; }
+.mast-preview[data-device="mobile"] { max-width: 15rem; }
+.mast-preview-screen { --mast-bg: #f6f6f4; --mast-ink: #16181c; --mast-muted: #5f636b; --mast-rule: #16181c; @apply rounded-md ring-1 ring-foreground/15 overflow-hidden; background: var(--mast-bg); color: var(--mast-ink); padding: 12px 16px 0; }
+.mast-preview[data-theme="dark"] .mast-preview-screen { --mast-bg: #181a1e; --mast-ink: #f1f2f4; --mast-muted: #a3a8b0; --mast-rule: #f1f2f4; }
+.mast-preview-date { display: block; font-size: 0.7rem; color: var(--mast-muted); }
+.mast-preview-brand { display: flex; align-items: center; min-height: 64px; padding: 8px 0 10px; border-bottom: 1px solid var(--mast-rule); }
+.mast-preview-logo { display: block; width: auto; height: auto; max-height: 82px; max-width: min(320px, 100%); }
+.mast-preview[data-device="mobile"] .mast-preview-logo { max-height: 41px; max-width: 70%; }
+.mast-preview-name { font-family: Georgia, "Times New Roman", serif; font-size: 2rem; line-height: 1.1; overflow-wrap: anywhere; }
+.mast-preview[data-device="mobile"] .mast-preview-name { font-size: 1.35rem; }
+.mast-preview[data-device="mobile"] .mast-preview-brand { min-height: 44px; }
+.mast-preview-nav { display: flex; gap: 14px; font-size: 0.75rem; padding: 7px 0 8px; overflow: hidden; white-space: nowrap; }
+.mast-preview-nav .current { box-shadow: inset 0 -2px 0 var(--mast-accent); }
+.mast-preview figcaption { @apply mt-1 text-xs text-muted-foreground; }
+@media (max-width: 640px) { .mast-previews { grid-template-columns: minmax(0, 1fr); } }
+/* Champ obligatoire vide ou mal rempli : signalé près du champ. */
+[aria-invalid="true"] { @apply ring-2 ring-destructive border-destructive; }
+.field-error { display: block; @apply mt-1 text-sm font-medium text-destructive; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .actions { @apply flex flex-wrap gap-2 mt-5; }
 .notice { @apply block rounded-lg border border-border bg-accent/60 px-4 py-3 text-sm mb-5; }

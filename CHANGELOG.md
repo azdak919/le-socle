@@ -1,6 +1,7 @@
 # Journal
 
 ## Non publié
+- Assistant d’installation et Configuration : chaque champ à écrire montre un exemple en gris pâle (« La Vigie », « Cégep de Sainte-Foy », « redaction@exemple.ca »…) qui disparaît quand on écrit et n’est jamais enregistré ; les sections ne sont plus préremplies. Les champs obligatoires portent la mention « obligatoire » ; vides, ils sont encadrés en rouge avec « Ce champ est obligatoire. » juste à côté, et rien n’est envoyé. Aperçu immédiat du logo choisi, avant d’enregistrer, tel qu’il paraîtra dans le mât : ordinateur et mobile, thème clair et sombre, avec le nom, la couleur et les sections tapés. La banque de photos et les images du mât montrent aussi la photo choisie (cadrages ordinateur, tablette, mobile) avant l’envoi.
 - Version 1.2.1.
 - Assistant d’installation : courriel de la rédaction demandé à part ; le courriel du compte administrateur n’est plus affiché dans le pied de page du site.
 - Version 1.2.0 : paquet complet (site vivant servi par le socle PHP), assistant d’installation, mise à jour en un clic.
