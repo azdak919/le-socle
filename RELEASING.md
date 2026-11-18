@@ -37,7 +37,7 @@ documentation, CI) : l'issue le dit.
 3. **Nouveautés rédigées** dans `CHANGELOG.md`, rubrique « Non publié », en
    français clair, du point de vue de la rédaction (pas de noms de fichiers
    quand des mots suffisent).
-4. **PR de version** : `npm version X.Y.Z --no-git-tag-version` (met
+4. **PR de version** : `npm version X.Y.Z --no-git-tag-version`, le même numéro dans `src/version.ts` (met
    `package.json` et `package-lock.json` à jour) et une ligne
    « Version X.Y.Z. » en tête de « Non publié » dans `CHANGELOG.md`. CI verte,
    fusion locale signée, comme toute PR.
