@@ -1,0 +1,17 @@
+LE SOCLE — installation sur un hébergement PHP (serveur du cégep, hébergeur mutualisé)
+
+1. Il faut PHP 8.1 ou plus avec SQLite (pdo_sqlite) et un serveur Apache ou LiteSpeed
+   (les fichiers .htaccess) : c'est le cas chez presque tous les hébergeurs mutualisés.
+   Sur nginx seul, les .htaccess sont ignorés : demandez au service informatique de
+   fermer socle/donnees/ et socle/php/ et d'envoyer le reste à socle/index.php.
+2. Déposez le dossier « socle » tel quel sur le serveur (gestionnaire de fichiers ou FTP),
+   par exemple dans public_html/journal/socle/.
+3. Ouvrez https://votre-site/journal/socle/redaction/ et créez tout de suite le compte
+   de la personne responsable (courriel + mot de passe de 10 caractères ou plus).
+   Tant que ce compte n'existe pas, la première personne qui ouvre la page peut le créer.
+4. Dans la rédaction : Configuration → « Importer le fichier du configurateur ».
+5. Mettez l'adresse du socle (https://votre-site/journal/socle) dans kiosque.config.ts
+   de votre dépôt GitHub : la publication récupère alors les articles et les photos.
+
+Les données (articles, photos, comptes) sont dans socle/donnees/. Ce dossier est fermé au
+public. Sauvegarde : dans la rédaction, Sauvegarde → Télécharger le site.

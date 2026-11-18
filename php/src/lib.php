@@ -476,6 +476,35 @@ function socle_serve_static(string $urlPath): array {
     return socle_result(200, $bytes, ['content-type' => socle_static_type($real)]);
 }
 
+/** Dossier du front (`/journal/socle`), vide à la racine du domaine. */
+function socle_base_path(string $scriptName): string {
+    $dir = str_replace('\\', '/', dirname($scriptName));
+    $dir = rtrim($dir, '/.');
+    return $dir === '' ? '' : $dir;
+}
+
+/** Remet le sous-dossier dans les redirections et les liens des pages HTML. */
+function socle_with_base(array $result, string $base): array {
+    if ($base === '') return $result;
+    foreach ($result['headers'] as $name => $value) {
+        if (strtolower((string) $name) === 'location' && is_string($value) && str_starts_with($value, '/') && !str_starts_with($value, '//')) {
+            $result['headers'][$name] = $base . $value;
+        }
+    }
+    $type = '';
+    foreach ($result['headers'] as $name => $value) if (strtolower((string) $name) === 'content-type') $type = (string) $value;
+    if (str_starts_with($type, 'text/html')) {
+        $body = preg_replace('#\b(href|action|src)="/(?!/)#', '$1="' . $base . '/', $result['body']) ?? $result['body'];
+        $body = str_replace(
+            ['"adminBasePath":"/redaction"', '"assetsBase":"/redaction/assets"', '"apiBase":""'],
+            ['"adminBasePath":"' . $base . '/redaction"', '"assetsBase":"' . $base . '/redaction/assets"', '"apiBase":"' . $base . '"'],
+            $body,
+        );
+        $result['body'] = $body;
+    }
+    return $result;
+}
+
 function socle_emit(array $result, string $method): void {
     header_remove('Content-Type');
     header_remove('X-Powered-By');
