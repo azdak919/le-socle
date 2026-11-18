@@ -10,9 +10,11 @@
  *   `media` l'est aussi) ;
  * - `auth` éteint : seul un appel local (127.0.0.1, ::1) passe. Un socle sans
  *   comptes n'accepte pas d'écriture venue d'Internet ;
- * - `auth` allumé : il faut une session et un rôle. Publier, programmer,
- *   archiver, supprimer et toucher à la publication demandent un réviseur,
- *   un éditeur ou l’administrateur ;
+ * - `auth` allumé : il faut une session et un rôle (droits dans `roles.ts`).
+ *   Publier, programmer, archiver demandent un réviseur, un éditeur,
+ *   l’administrateur, ou un chef de pupitre dans ses rubriques ; un auteur
+ *   restreint n'écrit que dans ses rubriques ; un photographe ne touche
+ *   qu'à la banque de photos ;
  * - chaque écriture exige `content-type: application/json` : un formulaire
  *   d'un autre site ne peut pas l'envoyer sans permission (pas de CORS ici,
  *   l'admin est servie par le socle lui-même).
@@ -21,7 +23,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { AdminDeps } from "./admin.ts";
-import { roleOf, type OrgRole } from "./auth.ts";
+import { roleOf, scopeOf, type OrgRole } from "./auth.ts";
 import type { SocleConfig } from "./config.ts";
 import {
   EditorialError,
@@ -31,13 +33,13 @@ import {
   type SocleArticle,
 } from "./editorial.ts";
 import { MediaError, readBytes, saveArticleImage, saveLibrary, type LibraryAsset } from "./media.ts";
+import { inScope, isEditor, managesBank, publishesIn, writesArticles, type Scope } from "./roles.ts";
 import { ModuleOffError } from "./store.ts";
 
 type Result = { status: number; body: string | Uint8Array; headers: Record<string, string> };
 
 const JSON_TYPE = "application/json; charset=utf-8";
 const KINDS = ["author", "section", "category", "tag"] as const;
-const EDITORS: OrgRole[] = ["reviseur", "editeur", "administrateur"];
 const PUBLIC_STATUSES = ["published", "scheduled", "archived", "retracted"];
 const MAX_BYTES = 8 * 1024 * 1024;
 const IMAGE_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
@@ -86,6 +88,15 @@ async function library(store: AdminDeps["store"]): Promise<LibraryAsset[]> {
 async function readAll<T>(store: AdminDeps["store"], prefix: string): Promise<T[]> {
   const rows = await store.list("editorial");
   return rows.filter((row) => row.key.startsWith(prefix)).map((row) => JSON.parse(row.value) as T);
+}
+
+/** La rubrique (section) est-elle permise ? On la reconnaît par identifiant ou nom court. */
+async function sectionsAllow(deps: AdminDeps, scope: Scope, section: string | undefined): Promise<boolean> {
+  if (!scope.length) return true;
+  if (!section) return false;
+  const known = await readAll<{ id?: string; slug?: string }>(deps.store, "section:");
+  const match = known.find((item) => item.id === section || item.slug === section);
+  return inScope(scope, match?.id ?? section, match?.slug);
 }
 
 export async function redactionState(config: SocleConfig, deps: AdminDeps, role: OrgRole | null) {
@@ -152,6 +163,7 @@ export async function handleRedaction(
 
   // Qui parle ?
   let role: OrgRole | null = null;
+  let scope: Scope = [];
   if (actor === undefined) {
     if (!local) return fail(403, "Sans le module auth, la rédaction ne s'ouvre que depuis la machine du socle.");
     role = "administrateur";
@@ -159,11 +171,12 @@ export async function handleRedaction(
     if (!actor) return fail(401, "Connexion requise.");
     role = await roleOf(deps.store, actor);
     if (!role) return fail(403, "Ce compte n'a pas de rôle dans la rédaction.");
+    if (role === "auteur" || role === "chef-pupitre") scope = await scopeOf(deps.store, actor);
   }
-  const editor = EDITORS.includes(role);
+  const editor = isEditor(role);
 
   if (method === "GET" && path === "/v1/redaction/etat") {
-    return json(200, await redactionState(config, deps, role));
+    return json(200, { ...(await redactionState(config, deps, role)), sections: scope });
   }
   if (method === "GET" && path === "/v1/redaction/fichier") {
     const src = parsed.searchParams.get("src") ?? "";
@@ -198,10 +211,13 @@ export async function handleRedaction(
       const input = (body.article ?? {}) as Record<string, unknown>;
       const publication = await readPublication(deps.store);
       if (!publication) return fail(409, "Créez d'abord la publication.");
+      if (!writesArticles(role)) return fail(403, "Un compte photographe gère la banque de photos ; il n'écrit pas d'articles.");
       const existing = (await readArticles(deps.store)).find((item) => item.id === input.id);
       const article = articleFrom(input, existing, publication.slug, now);
+      const allowedHere = await sectionsAllow(deps, scope, article.section) && (!existing || await sectionsAllow(deps, scope, existing.section));
+      if (!editor && !allowedHere) return fail(403, "Cet article est hors de vos rubriques : choisissez une de vos rubriques.");
       const touchesPublic = PUBLIC_STATUSES.includes(article.status) || (existing && PUBLIC_STATUSES.includes(existing.status));
-      if (touchesPublic && !editor) return fail(403, "Publier ou programmer demande un réviseur, un éditeur ou l’administrateur.");
+      if (touchesPublic && !publishesIn(role, allowedHere)) return fail(403, "Publier ou programmer demande un réviseur, un éditeur, l’administrateur, ou le chef de pupitre de la rubrique.");
       const clash = (await readArticles(deps.store)).find((item) => item.slug === article.slug && item.id !== article.id);
       if (clash) return fail(409, `L'adresse « ${article.slug} » est déjà prise par un autre article.`);
       return json(200, { article: await saveArticle(deps.store, article, now) });
@@ -210,6 +226,7 @@ export async function handleRedaction(
       const kind = text(body.kind, 20) as (typeof KINDS)[number];
       if (!KINDS.includes(kind)) return fail(400, "Genre inconnu.");
       if (kind !== "author" && !editor) return fail(403, "Les sections, catégories et étiquettes demandent un éditeur.");
+      if (kind === "author" && role === "photographe") return fail(403, "Un compte photographe ne gère pas les signatures.");
       const input = (body.entity ?? {}) as Record<string, unknown>;
       const id = text(input.id, 80) || randomUUID();
       const name = text(input.name, 200);
@@ -221,10 +238,14 @@ export async function handleRedaction(
       return json(200, { entity });
     }
     if (path === "/v1/redaction/supprimer") {
-      if (!editor) return fail(403, "Supprimer demande un éditeur.");
       const kind = text(body.kind, 20);
       const id = text(body.id, 80);
       if (!id || ![...KINDS, "article"].includes(kind)) return fail(400, "Genre ou identifiant invalide.");
+      if (!editor) {
+        const target = kind === "article" ? (await readArticles(deps.store)).find((item) => item.id === id) : undefined;
+        const pupitre = role === "chef-pupitre" && target !== undefined && await sectionsAllow(deps, scope, target.section);
+        if (!pupitre) return fail(403, "Supprimer demande un éditeur, ou le chef de pupitre de la rubrique.");
+      }
       await deps.store.delete("editorial", `${kind}:${id}`);
       return json(200, { ok: true });
     }
@@ -244,6 +265,7 @@ export async function handleRedaction(
     }
     if (path === "/v1/redaction/photo") {
       if (!config.modules.media) return fail(404, "Le module media est éteint.");
+      if (body.bank === false && !writesArticles(role)) return fail(403, "Un compte photographe ajoute ses photos à la banque.");
       const input = (body.asset ?? {}) as Record<string, unknown>;
       const data = typeof body.data === "string" ? body.data.replace(/^data:[^,]*,/, "") : "";
       const bytes = new Uint8Array(Buffer.from(data, "base64"));
@@ -285,6 +307,7 @@ export async function handleRedaction(
     }
     if (path === "/v1/redaction/photo/fiche") {
       if (!config.modules.media) return fail(404, "Le module media est éteint.");
+      if (!managesBank(role)) return fail(403, "Modifier la fiche d'une photo demande un photographe, un réviseur, un éditeur ou l’administrateur.");
       const input = (body.asset ?? {}) as Record<string, unknown>;
       const id = text(input.id, 80);
       const raw = id ? await deps.store.get("media", `library:${id}`) : null;
@@ -310,7 +333,7 @@ export async function handleRedaction(
     }
     if (path === "/v1/redaction/photo/supprimer") {
       if (!config.modules.media) return fail(404, "Le module media est éteint.");
-      if (!editor) return fail(403, "Retirer une photo de la banque demande un éditeur.");
+      if (!managesBank(role)) return fail(403, "Retirer une photo de la banque demande un photographe ou un éditeur.");
       const id = text(body.id, 80);
       const raw = id ? await deps.store.get("media", `library:${id}`) : null;
       if (!raw) return fail(404, "Photo absente de la banque.");

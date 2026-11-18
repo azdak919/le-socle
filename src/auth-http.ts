@@ -91,12 +91,13 @@ export async function handleAuth(
     }
     if (path === "/v1/auth/membres" && method === "POST") {
       const body = objectBody(rawBody);
-      const keys = body ? Object.keys(body).sort().join(",") : "";
-      if (!body || (keys !== "email,role" && keys !== "email,password,role")) throw new AuthError("demande refusée");
+      const allowed = ["email", "password", "role", "sections"];
+      if (!body || Object.keys(body).some((key) => !allowed.includes(key))) throw new AuthError("demande refusée");
+      if (body.sections !== undefined && !Array.isArray(body.sections)) throw new AuthError("demande refusée");
       if (typeof body.email !== "string" || typeof body.role !== "string") throw new AuthError("demande refusée");
       if (body.password !== undefined && deps.auth?.mode !== "motdepasse") throw new AuthError("demande refusée");
       const actor = await emailFromCookie(deps.store, deps.now, headers.cookie);
-      await saveMember(deps.store, actor, body.email, body.role, body.password as string | undefined);
+      await saveMember(deps.store, actor, body.email, body.role, body.password as string | undefined, body.sections);
       return { status: 204, body: "", headers: {} };
     }
     return { status: 404, body: "", headers: {} };
