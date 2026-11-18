@@ -36,8 +36,10 @@ ensuite les autres membres.
    se rejoue sans effet. Sur une base qui sert déjà, d'abord la sauvegarde :
    `wrangler d1 export DB --remote --output sauvegarde.sql`.
 4. Dans Cloudflare Zero Trust, créer une application Access sur
-   `/redaction/` et `/v1/` (sauf `/v1/health`), puis recopier l'équipe et
-   l'étiquette AUD dans `wrangler.toml`.
+   `/redaction/`, `/v1/redaction/` et `/v1/auth/`, puis recopier l'équipe et
+   l'étiquette AUD dans `wrangler.toml`. Laisser ouverts `/v1/health` et
+   `/v1/editorial/snapshot` : ils ne donnent que ce qui est déjà public
+   (articles publiés), et la construction du site les lit.
 5. `wrangler deploy`.
 
 Pour essayer sans compte : `wrangler d1 execute DB --local --file
@@ -47,5 +49,8 @@ le même chemin dans Miniflare, avec une fausse équipe Access.
 ## Avec un site sur GitHub Pages
 
 Le site du Kiosque peut rester sur GitHub Pages ; le Worker garde la base et
-l'admin. La rédaction s'ouvre à l'adresse du Worker (`/redaction/`), sur la
+l'admin. Dans `kiosque.config.ts`, la source devient
+`{ adapter: 'socle', options: { baseUrl: 'https://<adresse du Worker>' } }` ;
+`kiosque sync` lit les articles publiés, puis la construction habituelle
+publie le site statique. La rédaction s'ouvre à l'adresse du Worker (`/redaction/`), sur la
 même origine que son API : pas de partage d'origine à régler.
