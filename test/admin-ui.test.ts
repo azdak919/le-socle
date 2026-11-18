@@ -141,3 +141,13 @@ test("la démo en mode navigateur tourne sur sql.js copié tel quel, sans PGlite
   db.run(toSqlite("INSERT INTO kiosque_meta(key, value) VALUES ('seeded', $1::jsonb) ON CONFLICT (key) DO UPDATE SET value = excluded.value"), [JSON.stringify({ version: 3 })]);
   assert.equal(JSON.parse(String(db.exec("SELECT value FROM kiosque_meta WHERE key = 'seeded'")[0].values[0][0])).version, 3);
 });
+
+test("assistant d'installation : le journal et le compte administrateur en un formulaire", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  for (const field of ["nom", "etablissement", "organisme", "sections", "couleur", "logo", "radio", "station", "noindex", "email", "password"]) {
+    assert.match(admin, new RegExp(`name="${field}"`), `champ ${field} de l'assistant`);
+  }
+  // La fiche passe par la même porte que le fichier du configurateur.
+  assert.match(admin, /await applyKiosqueConfig\(JSON\.parse\(raw\)\)/);
+  assert.match(admin, /authCall\('POST', 'installation'/);
+});

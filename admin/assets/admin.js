@@ -64,6 +64,11 @@ function missingSettings(publication) {
 async function importKiosqueConfig(file) {
   let data;
   try { data = JSON.parse(await file.text()); } catch { throw new Error('Ce fichier n’est pas lisible.'); }
+  return applyKiosqueConfig(data);
+}
+
+/** Même fiche que le configurateur : sert aussi à l’assistant d’installation. */
+async function applyKiosqueConfig(data) {
   if (data?.format !== 'kiosque-config') throw new Error('Ce fichier n’est pas le kiosque-config.json du configurateur.');
   const journal = data.journal || {}, look = data.apparence || {}, options = data.options || {}, people = data.gouvernance || {};
   const publication = structuredClone(bundle.publication);
@@ -148,6 +153,121 @@ async function authCall(method, path, body) {
   return text ? JSON.parse(text) : null;
 }
 
+/**
+ * Assistant d’installation (premier passage, mode mot de passe) : le journal
+ * et le compte administrateur en un seul formulaire, sans configurateur ni
+ * fichier à importer. La fiche est écrite au format du configurateur, gardée
+ * le temps de recharger la page avec la session, puis appliquée.
+ */
+const ASSISTANT_KEY = 'kiosque-assistant';
+// Paquet complet : le site du journal est servi par ce même socle (site/).
+let siteVivant = false;
+
+function readAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('Le logo ne peut pas être lu.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function assistantForm() {
+  return `<section class="panel assistant" style="max-width:40rem"><h2>Installer le journal</h2>
+<p>Ce journal est neuf. Remplissez ce formulaire une fois : le site et la rédaction seront prêts. Tout se change ensuite dans « Configuration ».</p>
+<form id="login-form" class="grid">
+<fieldset class="field full"><legend>Le journal</legend>
+<label>Nom du journal<input name="nom" required maxlength="80" placeholder="Le Phare"></label>
+<label>Établissement<input name="etablissement" maxlength="120" placeholder="Cégep de…"></label>
+<label>Organisme responsable du journal (facultatif)<input name="organisme" maxlength="120" placeholder="Association étudiante du cégep"></label>
+<label>Signature (facultatif)<input name="signature" maxlength="120" placeholder="Le journal étudiant du cégep"></label>
+<label>Sections, séparées par des virgules<input name="sections" value="Campus, Culture, Sports"></label>
+</fieldset>
+<fieldset class="field full"><legend>Apparence</legend>
+<label>Couleur principale<input name="couleur" type="color" value="#6c2163"></label>
+<label>Logo (facultatif : PNG, JPEG, WebP ou SVG, 500 ko au plus)<input name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label>
+</fieldset>
+<fieldset class="field full"><legend>Options</legend>
+<label><input name="radio" type="checkbox"> Afficher la radio étudiante (barre de LE-RADAR sous le mât)</label>
+<label data-station hidden>Station<select name="station" id="assistant-stations"><option value="">Choisir une station</option></select></label>
+<label><input name="noindex" type="checkbox" checked> Cacher le journal des moteurs de recherche (conseillé pendant les essais)</label>
+</fieldset>
+<fieldset class="field full"><legend>Compte administrateur</legend>
+<p class="muted">Ce compte ajoute ensuite l’équipe (auteurs, photographes, réviseurs…). Notez le mot de passe en lieu sûr.</p>
+<label>Courriel<input name="email" type="email" autocomplete="username" required></label>
+<label>Mot de passe (10 caractères ou plus)<input name="password" type="password" autocomplete="new-password" minlength="10" required></label>
+</fieldset>
+<div class="actions full"><button class="primary">Installer le journal</button></div>
+<p id="login-error" class="notice" role="alert" hidden></p></form></section>`;
+}
+
+function bindAssistant() {
+  const form = document.getElementById('login-form');
+  const radio = form.elements.radio;
+  const stationLabel = form.querySelector('[data-station]');
+  radio.addEventListener('change', () => {
+    stationLabel.hidden = !radio.checked;
+    const list = form.querySelector('#assistant-stations');
+    if (!radio.checked || list.dataset.loaded) return;
+    list.dataset.loaded = '1';
+    // Seulement si la radio est cochée : sinon rien ne part vers le-radar.ca.
+    fetch('https://le-radar.ca/radios.json', { credentials: 'omit' }).then((r) => (r.ok ? r.json() : [])).then((data) => {
+      const items = (Array.isArray(data) ? data : (data?.stations || [])).filter((item) => item?.id);
+      list.innerHTML = `<option value="">Choisir une station</option>${items.map((item) => `<option value="${esc(item.id)}">${esc([item.name, item.institution].filter(Boolean).join(' — '))}</option>`).join('')}`;
+    }).catch(() => {});
+  });
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    const data = new FormData(form);
+    const error = document.getElementById('login-error');
+    const button = form.querySelector('button.primary');
+    error.hidden = true;
+    try {
+      const file = form.elements.logo.files[0];
+      if (file && file.size > 500_000) throw new Error('Le logo dépasse 500 ko : choisissez une image plus légère.');
+      const logo = file ? await readAsDataUrl(file) : '';
+      const nom = String(data.get('nom')).trim();
+      const fiche = {
+        format: 'kiosque-config',
+        journal: { nom, slug: slugify(nom), etablissement: String(data.get('etablissement') || '').trim(), signature: String(data.get('signature') || '').trim(), adresse: `${location.origin}${socleRoot()}/` },
+        apparence: { couleur: data.get('couleur'), logo, logoAlt: nom },
+        options: { radio: Boolean(data.get('radio')), station: String(data.get('station') || ''), noindex: Boolean(data.get('noindex')) },
+        gouvernance: (() => {
+          const organisme = String(data.get('organisme') || '').trim() || String(data.get('etablissement') || '').trim() || nom;
+          return { proprietaire: organisme, organisme, contact: String(data.get('email')).trim() };
+        })(),
+        sections: String(data.get('sections') || '').split(',').map((name) => name.trim()).filter(Boolean).slice(0, 12).map((name, index) => ({ nom: name, slug: slugify(name), ordre: index + 1 })),
+      };
+      if (fiche.options.radio && !fiche.options.station) throw new Error('Choisissez une station, ou décochez la radio.');
+      button.disabled = true;
+      button.textContent = 'Installation…';
+      await authCall('POST', 'installation', { email: String(data.get('email')).trim(), password: data.get('password') });
+      sessionStorage.setItem(ASSISTANT_KEY, JSON.stringify(fiche));
+      location.reload();
+    } catch (failure) {
+      button.disabled = false;
+      button.textContent = 'Installer le journal';
+      error.hidden = false;
+      error.textContent = failure.message;
+    }
+  };
+}
+
+/** Après l’installation : applique la fiche de l’assistant, une seule fois. */
+async function finishAssistant() {
+  const raw = sessionStorage.getItem(ASSISTANT_KEY);
+  if (!raw) return false;
+  sessionStorage.removeItem(ASSISTANT_KEY);
+  try {
+    await applyKiosqueConfig(JSON.parse(raw));
+    notify('Le journal est installé. Écrivez le premier article, puis ajoutez l’équipe dans « Auteurs ».', 8000);
+    return true;
+  } catch (error) {
+    notify(`Le compte est créé, mais la fiche du journal n’a pas pu être enregistrée : ${error.message} Remplissez « Configuration ».`, 10000);
+    return false;
+  }
+}
+
 /** Écran de connexion (ou de première installation) quand le socle demande une session. */
 async function loginScreen() {
   let state = null;
@@ -155,6 +275,11 @@ async function loginScreen() {
   const mode = state?.mode;
   if (mode === 'motdepasse') {
     const first = !state.installed;
+    if (first) {
+      main.innerHTML = assistantForm();
+      bindAssistant();
+      return;
+    }
     main.innerHTML = `<section class="panel" style="max-width:32rem"><h2>${first ? 'Installer la rédaction' : 'Se connecter'}</h2><p>${first ? 'Ce socle est neuf. Créez le compte administrateur du journal : il pourra ensuite ajouter l’équipe. Faites-le tout de suite après la mise en ligne.' : 'Entrez le courriel et le mot de passe que l’administrateur du journal vous a donnés.'}</p><form id="login-form" class="grid"><div class="field full"><label>Courriel<input name="email" type="email" autocomplete="username" required></label></div><div class="field full"><label>Mot de passe${first ? ' (10 caractères ou plus)' : ''}<input name="password" type="password" autocomplete="${first ? 'new-password' : 'current-password'}" minlength="${first ? 10 : 1}" required></label></div><div class="actions full"><button class="primary">${first ? 'Créer le compte et ouvrir la rédaction' : 'Se connecter'}</button></div><p id="login-error" class="notice" role="alert" hidden></p></form></section>`;
     document.getElementById('login-form').onsubmit = async (event) => {
       event.preventDefault();
@@ -347,7 +472,7 @@ function dashboard() {
     <div class="grid stats"><article><h3>${counts.draft}</h3><p>Brouillons, invisibles du public.</p></article><article><h3>${counts['in-review']}</h3><p>Articles en révision, invisibles du public.</p></article><article><h3>${counts.published}</h3><p>Articles publiés dans le journal.</p></article>${counts.scheduled ? `<article><h3>${counts.scheduled}</h3><p>Articles programmés, publiés à leur heure.</p></article>` : ''}<article><h3>${bundle.authors.length}</h3><p>Signatures éditoriales, sans compte ni mot de passe.</p></article></div>
     <div class="actions"><button class="primary" data-action="new-article">Créer un article</button><a class="button" href="${config.publicBasePath}/">Voir le journal</a></div>
     ${onSocle() && missingSettings(bundle.publication).length ? `<div class="notice" role="status" style="margin-top:2rem"><p><strong>Avant la première publication</strong> : il manque ${esc(missingSettings(bundle.publication).join(', '))}. Sans ces renseignements, le site public refuse le contenu.</p><div class="actions">${importButton()}<button data-action="settings-view">Remplir la configuration</button></div></div>` : ''}
-    ${onSocle() ? `<p class="notice" style="margin-top:2rem">Branchée sur le socle${bundle.role ? ` — votre rôle : <strong>${esc(ACCOUNT_LABELS[bundle.role] || bundle.role)}</strong>` : ''}. Le journal publié se reconstruit à la prochaine synchronisation.${authOn() ? ' <button data-action="logout">Se déconnecter</button>' : ''}</p>` : `<h3 style="margin-top:2rem">Données d’exemple</h3><label><input id="demo-visible" type="checkbox" ${bundle.demoVisible !== false ? 'checked' : ''}> Afficher les exemples publiés sur le site</label>
+    ${onSocle() ? `<p class="notice" style="margin-top:2rem">Branchée sur le socle${bundle.role ? ` — votre rôle : <strong>${esc(ACCOUNT_LABELS[bundle.role] || bundle.role)}</strong>` : ''}. ${siteVivant ? 'Le site du journal montre un article dès qu’il est publié.' : 'Le journal publié se reconstruit à la prochaine synchronisation.'}${authOn() ? ' <button data-action="logout">Se déconnecter</button>' : ''}</p>` : `<h3 style="margin-top:2rem">Données d’exemple</h3><label><input id="demo-visible" type="checkbox" ${bundle.demoVisible !== false ? 'checked' : ''}> Afficher les exemples publiés sur le site</label>
     <div class="actions"><button data-action="remove-demo">Supprimer les exemples non modifiés</button><button data-action="reset-demo">Restaurer Le Quorum</button></div>`}
   </section>`;
 }
@@ -1133,10 +1258,13 @@ document.querySelectorAll('.admin-nav [data-view]').forEach((link) => link.addEv
 window.addEventListener('hashchange', () => setView(location.hash.slice(1)));
 setView(location.hash.slice(1));
 
+if (onSocle()) siteVivant = await fetch(`${socleRoot()}/kiosque-vivant.json`, { cache: 'no-store' }).then((r) => r.ok).catch(() => false);
+
 try {
   backend = await getBackend();
   backend.subscribe(async () => { await refresh(); if (!main.querySelector('form')) render(); });
   await refresh();
+  if (await finishAssistant()) location.hash = 'dashboard';
   render();
 } catch (error) {
   if (onSocle() && error.status === 401) await loginScreen();
