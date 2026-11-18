@@ -39,7 +39,7 @@ export const PUBLICATION = {
 
 /**
  * Le parcours de l'admin du Kiosque, en ordre : la même suite tourne sur
- * chaque pilote (SQLite, PGlite, D1), sur le vrai serveur Node, et sur PHP.
+ * chaque pilote (SQLite, D1), sur le vrai serveur Node, et sur PHP.
  */
 export async function scenario(call: Call): Promise<string[]> {
   const seen: string[] = [];

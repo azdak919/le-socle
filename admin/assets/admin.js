@@ -33,7 +33,7 @@ function contrastRatio(hex, other = '#ffffff') {
 }
 
 function source(kind, id) {
-  return { backend: backend?.id || 'demo-pglite', backendId: id, fetchedAt: new Date().toISOString() };
+  return { backend: backend?.id || 'demo-navigateur', backendId: id, fetchedAt: new Date().toISOString() };
 }
 
 /** En mode socle, l'admin écrit sur le serveur ; sinon dans ce navigateur. */

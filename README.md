@@ -4,7 +4,7 @@ Outil de back-end libre, sous GPL-2.0-only, que **chaque projet installe et fait
 
 Le plan est **[`docs/plan.md`](docs/plan.md)**. Le guide court est **[`docs/adoption.md`](docs/adoption.md)**.
 
-Le serveur expose `GET /v1/health`. Les interrupteurs sont éteints. Sous `/v1/`, aucune autre route tant qu'un module n'est pas allumé. La version 1.0.0 fige ce contrat. Le stockage et l'adaptateur du Kiosque passent la même suite sur `node:sqlite`, PGlite et D1 (Miniflare, en local).
+Le serveur expose `GET /v1/health`. Les interrupteurs sont éteints. Sous `/v1/`, aucune autre route tant qu'un module n'est pas allumé. La version 1.0.0 fige ce contrat. Le stockage et l'adaptateur du Kiosque passent la même suite sur `node:sqlite` et D1 (Miniflare, en local). La démo en mode navigateur tourne sur SQLite compilé par sql.js (MIT), gardé dans IndexedDB.
 
 PHP sert le même contrat, sans démon. Le contrôleur est `php/public/index.php`. La base est `php/data/socle.sqlite`, hors de la racine web. Sans SQLite, les pages déjà exportées restent servies. Sur un hébergement qui reçoit un dossier, `SOCLE_UPLOAD_DIR` nomme l'endroit déjà utilisé.
 

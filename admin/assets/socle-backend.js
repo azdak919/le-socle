@@ -1,5 +1,5 @@
 /**
- * Même interface que DemoBackendPGlite, mais chaque geste part au socle par
+ * Même interface que DemoBackendNavigateur, mais chaque geste part au socle par
  * `/v1/redaction/` (même adresse que la page : le cookie de session suit,
  * sans CORS). Rien n'est gardé dans le navigateur, sauf la dernière lecture.
  */

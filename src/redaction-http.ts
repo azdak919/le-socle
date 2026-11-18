@@ -2,7 +2,7 @@
  * API de rédaction, en JSON, pour l'administration du Kiosque.
  *
  * L'admin du Kiosque est la seule interface d'écriture : la même page parle à
- * PGlite dans la démo et à ce module chez un vrai journal. Les pages HTML de
+ * sql.js dans la démo et à ce module chez un vrai journal. Les pages HTML de
  * `/admin` restent le recours sans JavaScript.
  *
  * Règles :
