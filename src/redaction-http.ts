@@ -256,7 +256,7 @@ export async function handleRedaction(
       const focal = (input.focalPoint ?? {}) as { x?: unknown; y?: unknown };
       const clamp = (value: unknown) => Math.min(100, Math.max(0, Number.isFinite(Number(value)) ? Number(value) : 50));
       if (body.bank === false) {
-        const image = { id, kind: "image" as const, src, alt: text(input.alt, 500), credit: text(input.credit, 200) || undefined, source: { backend: "socle", backendId: id, fetchedAt: now } };
+        const image = { id, kind: "image" as const, src, alt: text(input.alt, 500), credit: text(input.credit, 200) || undefined, license: text(input.license, 100) || undefined, licenseUrl: text(input.licenseUrl, 500) || undefined, source: { backend: "socle", backendId: id, fetchedAt: now } };
         await saveArticleImage(deps.store, image, bytes);
         return json(200, { asset: image });
       }
