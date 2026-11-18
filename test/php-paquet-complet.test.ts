@@ -56,6 +56,10 @@ test("paquet complet : le site du journal servi par le socle PHP", { skip: !hasP
     writeFileSync(target, data);
   }
   assert.ok(names.includes("journal/index.php") && names.includes("journal/site/404.html") && names.includes("journal/paquet.json"), names.join(" "));
+  // Le mode d'emploi parle du dossier journal/, pas du socle seul ni de kiosque.config.ts.
+  const lisezmoi = readFileSync(join(host, "journal/LISEZMOI.txt"), "utf8");
+  assert.match(lisezmoi, /journal\/redaction\//);
+  assert.doesNotMatch(lisezmoi, /kiosque\.config\.ts|socle\/redaction/);
   writeFileSync(join(work, "routeur.php"), `<?php
 $uri = $_SERVER['REQUEST_URI'] ?? '/';
 if (str_starts_with($uri, '/journal')) {
