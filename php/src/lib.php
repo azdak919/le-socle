@@ -381,10 +381,12 @@ function socle_text(int $status, string $body): array {
 
 function socle_admin_document(string $lang, string $title, string $body): array {
     $copy = $lang === 'en'
-        ? ['html' => 'en', 'skip' => 'Skip to content', 'back' => 'Back', 'other' => 'Français', 'otherLang' => 'fr']
-        : ['html' => 'fr', 'skip' => 'Aller au contenu', 'back' => 'Retour', 'other' => 'English', 'otherLang' => 'en'];
+        ? ['html' => 'en', 'skip' => 'Skip to content', 'back' => 'Dashboard', 'brandSub' => 'Newsroom', 'office' => 'Back office', 'save' => 'Backup', 'update' => 'Update', 'other' => 'Français', 'otherLang' => 'fr']
+        : ['html' => 'fr', 'skip' => 'Aller au contenu', 'back' => 'Tableau de bord', 'brandSub' => 'Rédaction', 'office' => 'Back-office', 'save' => 'Sauvegarde', 'update' => 'Mise à jour', 'other' => 'English', 'otherLang' => 'en'];
     $other = socle_with_lang('/admin', $copy['otherLang']);
     $back = socle_with_lang('/admin', $lang);
+    $saveCurrent = $title === $copy['save'] ? ' aria-current="page"' : '';
+    $updateCurrent = $title === $copy['update'] ? ' aria-current="page"' : '';
     $html = '<!DOCTYPE html>
 <html lang="' . $copy['html'] . '">
 <head>
@@ -392,29 +394,67 @@ function socle_admin_document(string $lang, string $title, string $body): array 
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>' . $title . '</title>
 <style>
-  body { font-family: sans-serif; line-height: 1.45; color: #111; background: #fff; }
-  a:focus, button:focus, input:focus { outline: 3px solid #111; outline-offset: 2px; }
+  :root { --primary: #6d2350; --fg: #1f1a1d; --muted: #6b6468; --border: #e9e3e6; --bg: #fdfcfd; --card: #fff; --accent: #f8eff4; --radius: 0.625rem; color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Inter, "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 15px; line-height: 1.5; color: var(--fg); background: var(--bg); }
+  a { color: var(--primary); }
+  a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
   .skip { position: absolute; left: -999px; }
-  .skip:focus { left: 0.5rem; top: 0.5rem; background: #fff; }
+  .skip:focus { left: 0.5rem; top: 0.5rem; background: #fff; padding: 0.5rem; z-index: 2; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; padding: 0.75rem 1.25rem; background: #fff; border-bottom: 1px solid var(--border); }
+  .brand { display: flex; align-items: center; gap: 0.6rem; color: var(--fg); text-decoration: none; }
+  .brand .logo { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 0.5rem; background: var(--primary); color: #fff; font-weight: 700; }
+  .brand strong { display: block; font-size: 0.9rem; line-height: 1.2; }
+  .brand small { display: block; color: var(--muted); font-size: 0.75rem; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-left: auto; }
+  .tabs a { padding: 0.4rem 0.7rem; border-radius: 0.5rem; color: var(--fg); text-decoration: none; font-size: 0.875rem; }
+  .tabs a:hover { background: var(--accent); }
+  .tabs a[aria-current="page"] { background: var(--accent); color: var(--primary); font-weight: 600; }
+  main { max-width: 52rem; margin: 1.5rem auto; padding: 0 1rem; page: letter; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) + 4px); padding: 1.25rem 1.5rem 1.5rem; }
+  h1 { margin: 0 0 1rem; font-size: 1.5rem; letter-spacing: -0.02em; }
+  h2 { margin: 1.5rem 0 0.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border); font-size: 1.05rem; }
+  h1 + h2 { margin-top: 0; padding-top: 0; border-top: 0; }
+  p { margin: 0.5rem 0; }
+  ol { margin: 0.5rem 0; padding-left: 1.25rem; } li { margin: 0.25rem 0; }
+  .muted, .aide { color: var(--muted); font-size: 0.875rem; }
+  .fiche { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1rem; margin: 0.5rem 0; }
+  .fiche dt { color: var(--muted); }
+  .fiche dd { margin: 0; font-weight: 600; }
+  .note { background: var(--accent); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem 1rem; }
+  label { display: inline-flex; align-items: center; gap: 0.4rem; margin: 0.15rem 1rem 0.15rem 0; }
+  ul.liens { list-style: none; padding: 0; margin: 0.5rem 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  button, .bouton { display: inline-flex; align-items: center; min-height: 2.25rem; padding: 0.45rem 0.9rem; border: 1px solid var(--border); border-radius: 0.5rem; background: #fff; color: var(--fg); font: inherit; font-size: 0.875rem; font-weight: 500; text-decoration: none; cursor: pointer; }
+  button:hover, .bouton:hover { background: var(--accent); }
+  button[type="submit"]:not(.secondaire), .bouton.principal { background: var(--primary); border-color: var(--primary); color: #fff; }
+  input[type="file"] { font: inherit; font-size: 0.875rem; max-width: 100%; }
+  form { margin: 0.75rem 0; }
   @page letter { size: letter; }
   @page legal { size: legal; }
   @page tabloid { size: tabloid; }
   @page a4 { size: A4; }
   @page a3 { size: A3; }
-  main { page: letter; }
-  @media print { nav, .noprint { display: none; } }
+  @media (max-width: 40rem) { .tabs { margin-left: 0; width: 100%; } main { margin-top: 1rem; padding: 0 0.6rem; } .panel { padding: 1rem; } }
+  @media print { nav, .noprint, .bar { display: none; } .panel { border: 0; padding: 0; } }
 </style>
 </head>
 <body>
 <a class="skip" href="#contenu">' . $copy['skip'] . '</a>
+<header class="bar noprint">
+<a class="brand" href="' . $back . '"><span class="logo" aria-hidden="true">K</span><span><strong>Le Kiosque</strong><small>' . $copy['brandSub'] . '</small></span></a>
+<nav class="tabs" aria-label="' . $copy['office'] . '">
+<a href="' . $back . '">' . $copy['back'] . '</a>
+<a href="' . socle_with_lang('/admin/sauvegarde', $lang) . '"' . $saveCurrent . '>' . $copy['save'] . '</a>
+<a href="' . socle_with_lang('/admin/mise-a-jour', $lang) . '"' . $updateCurrent . '>' . $copy['update'] . '</a>
+<a href="' . $other . '" hreflang="' . $copy['otherLang'] . '">' . $copy['other'] . '</a>
+</nav>
+</header>
 <main id="contenu">
+<div class="panel">
 <h1>' . $title . '</h1>
 ' . $body . '
+</div>
 </main>
-<nav class="noprint">
-<p><a href="' . $back . '">' . $copy['back'] . '</a></p>
-<p><a href="' . $other . '" hreflang="' . $copy['otherLang'] . '">' . $copy['other'] . '</a></p>
-</nav>
 </body>
 </html>';
     return socle_result(200, $html, ['content-type' => 'text/html; charset=utf-8']);
