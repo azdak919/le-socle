@@ -13,6 +13,8 @@ foreach ([
     'SOCLE_AUTH_MODE' => 'motdepasse',
     'SOCLE_CONFIG' => __DIR__ . '/donnees/socle.config.json',
     'SOCLE_DB' => __DIR__ . '/donnees/socle.sqlite',
+    // Paquet complet : le site du journal est servi depuis site/.
+    'SOCLE_STATIC' => is_dir(__DIR__ . '/site') ? __DIR__ . '/site' : '',
 ] as $name => $value) {
     if (getenv($name) === false || getenv($name) === '') putenv($name . '=' . $value);
 }
