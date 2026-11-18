@@ -311,3 +311,27 @@ function socle_update_page(string $lang, array $copy, SocleStore $store, ?string
 ' . $revert . $place . "\n" . $copy['latest'];
     return socle_admin_document($lang, $copy['updateTitle'], $body);
 }
+
+/**
+ * Porte des pages /admin, miroir de src/admin-gate.ts : avec auth, une
+ * session et un rôle ; la sauvegarde à l’administrateur ; le formulaire
+ * d’article sans JavaScript aux réviseurs, éditeurs et à l’administrateur.
+ * Sans auth : seulement depuis la machine du socle.
+ */
+function socle_admin_gate(string $method, string $path, array $config, SocleStore $store, ?string $actor, bool $defined): ?array {
+    if ($path !== '/admin' && !str_starts_with($path, '/admin/')) return null;
+    if (!$defined) {
+        return socle_redaction_local() ? null : socle_text(403, "Sans le module auth, l'administration ne s'ouvre que depuis la machine du socle.");
+    }
+    if ($actor === null || $actor === '') {
+        if ($method === 'GET' && $config['modules']['editorial']) return socle_result(303, '', ['location' => '/redaction/', 'cache-control' => 'no-store']);
+        return socle_text(401, 'Connexion requise.');
+    }
+    $role = socle_role_of($store, $actor);
+    if ($role === null) return socle_text(403, "Ce compte n'a pas de rôle dans la rédaction.");
+    if (str_starts_with($path, '/admin/sauvegarde') && $role !== 'administrateur') return socle_text(403, 'réservé à l’administrateur');
+    if (str_starts_with($path, '/admin/articles') && $method !== 'GET' && !in_array($role, ['reviseur', 'editeur', 'administrateur'], true)) {
+        return socle_text(403, 'Publier sans JavaScript demande un réviseur, un éditeur ou l’administrateur ; passez par la rédaction.');
+    }
+    return null;
+}

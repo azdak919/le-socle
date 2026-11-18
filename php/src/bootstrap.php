@@ -44,6 +44,8 @@ function socle_dispatch(string $method, string $uri, string $path, string $raw):
         $photo = socle_public_media($method, $path, $config, $store);
         if ($photo !== null) return $photo;
     }
+    $gate = socle_admin_gate($method, $path, $config, $store, $actor, $actorDefined);
+    if ($gate !== null) return $gate;
     if (str_starts_with($path, '/v1/redaction/')) return socle_handle_redaction($method, $uri, $config, $store, $raw, $actor, $actorDefined);
     if (str_starts_with($path, '/v1/auth')) {
         return socle_handle_auth($method, $uri, $config, $store, $raw, is_string($cookie) ? $cookie : null, is_string($access) ? $access : null, $smtp);

@@ -325,7 +325,13 @@ test("le bouton de mise à jour est au responsable seulement quand l'identité e
     const base = `http://127.0.0.1:${address.port}`;
     try {
       const anon = await fetch(`${base}/admin/mise-a-jour`, { method: "POST", body: "confirm=1" });
-      assert.equal(anon.status, 403);
+      assert.equal(anon.status, 401, "sans session : connexion requise");
+      const anonZip = await fetch(`${base}/admin/sauvegarde/site.zip`, { redirect: "manual" });
+      assert.ok([303, 401].includes(anonZip.status), "sans session, aucune archive");
+      const anonRestore = await fetch(`${base}/admin/sauvegarde/restaurer`, { method: "POST", headers: { "content-type": "application/zip" }, body: "PK" });
+      assert.equal(anonRestore.status, 401, "sans session, aucune restauration");
+      const benZip = await fetch(`${base}/admin/sauvegarde/site.zip`, { headers: { cookie: benCookie } });
+      assert.equal(benZip.status, 403, "la sauvegarde est à l’administrateur");
       assert.equal(deps.version(), "0.0.0");
       assert.deepEqual(readdirSync(deps.backupDir), []);
 
