@@ -17,6 +17,12 @@ export class PublicSocleBackend {
   async #load(force = false) {
     if (!force && this.#snapshot && Date.now() - this.#at < 60_000) return this.#snapshot;
     const response = await fetch(`${this.apiBase}/v1/editorial/snapshot`, { headers: { accept: 'application/json' }, cache: 'no-store' });
+    // Journal pas encore installé : le socle n'a pas de fiche à montrer.
+    if (response.status === 400 || response.status === 409) {
+      this.#snapshot = { publication: { id: 'journal', slug: 'journal', name: 'Journal en préparation', tagline: 'L’équipe installe le journal.', theme: { accent: '#6c2163' } }, articles: [], authors: [], taxonomies: { sections: [], categories: [], tags: [] } };
+      this.#at = Date.now();
+      return this.#snapshot;
+    }
     if (!response.ok) throw new Error(`Le journal ne répond pas (${response.status}).`);
     this.#snapshot = await response.json();
     this.#at = Date.now();
@@ -30,7 +36,9 @@ export class PublicSocleBackend {
       publication: { ...publication, theme: { ...(publication.theme ?? {}) } },
       articles: (snapshot.articles ?? []).filter((item) => item.status === 'published' || item.status === 'archived'),
       authors: snapshot.authors ?? [],
-      taxonomies: snapshot.taxonomies ?? { sections: [], categories: [], tags: [] },
+      // Les sections dans l'ordre choisi par la rédaction (↑ ↓), pas celui du stockage.
+      taxonomies: Object.fromEntries(Object.entries(snapshot.taxonomies ?? { sections: [], categories: [], tags: [] })
+        .map(([kind, list]) => [kind, [...(list ?? [])].sort((a, b) => (Number(a.order) || 999) - (Number(b.order) || 999))])),
       media: snapshot.media ?? [],
       syncedAt: snapshot.syncedAt ?? new Date().toISOString(),
     });
