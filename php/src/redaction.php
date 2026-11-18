@@ -322,3 +322,38 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
     }
     return socle_result(404);
 }
+
+/**
+ * L'admin de rédaction sous `/redaction/` : la page `admin/serveur.html` et
+ * ses fichiers `admin/assets/`, à la racine du dépôt. Même règle que Node
+ * (`src/redaction-page.ts`). `null` : ce chemin n'est pas l'admin.
+ */
+const SOCLE_REDACTION_ASSETS = [
+    'admin.js', 'admin.css', 'runtime.js', 'util.js', 'export.js',
+    'stock-photo-match.js', 'marked.esm.js', 'socle-backend.js',
+];
+
+function socle_serve_redaction_page(string $path, string $method): ?array {
+    if ($path !== '/redaction' && !str_starts_with($path, '/redaction/')) return null;
+    if ($method !== 'GET' && $method !== 'HEAD') return socle_result(405, '', ['allow' => 'GET, HEAD']);
+    if ($path === '/redaction') return socle_result(301, '', ['location' => '/redaction/']);
+    $dir = dirname(__DIR__, 2) . '/admin';
+    if ($path === '/redaction/') {
+        $file = $dir . '/serveur.html';
+        $type = 'text/html; charset=utf-8';
+    } else {
+        $name = substr($path, strlen('/redaction/assets/'));
+        if (!str_starts_with($path, '/redaction/assets/') || !in_array($name, SOCLE_REDACTION_ASSETS, true)) return socle_result(404);
+        $file = $dir . '/assets/' . $name;
+        $type = str_ends_with($name, '.css') ? 'text/css; charset=utf-8' : 'text/javascript; charset=utf-8';
+    }
+    $bytes = is_file($file) ? file_get_contents($file) : false;
+    if ($bytes === false) return socle_result(404);
+    return socle_result(200, $bytes, [
+        'content-type' => $type,
+        'x-content-type-options' => 'nosniff',
+        'referrer-policy' => 'same-origin',
+        'x-frame-options' => 'DENY',
+        'cache-control' => 'no-cache',
+    ]);
+}

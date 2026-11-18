@@ -12,6 +12,7 @@ import { handleRequest } from "./health.ts";
 import { handleMedia } from "./media-http.ts";
 import { handleNotify } from "./notify-http.ts";
 import { handleRedaction } from "./redaction-http.ts";
+import { serveRedactionPage } from "./redaction-page.ts";
 import { handleReview } from "./review-http.ts";
 import { serveStatic } from "./static.ts";
 import { sendSmtp, smtpFromEnv } from "./smtp.ts";
@@ -42,7 +43,10 @@ export function createSocleServer(config: SocleConfig, admin?: AdminDeps) {
       // un en-tête de transfert suffit pour ne plus se croire « local ».
       const forwarded = Boolean(headers["x-forwarded-for"] || headers.forwarded || headers["x-real-ip"] || headers["cf-connecting-ip"]);
       const local = isLoopback(request.socket.remoteAddress) && !forwarded;
-      const result = admin && path.startsWith("/v1/redaction/")
+      const page = admin && config.modules.editorial ? serveRedactionPage(path, method) : null;
+      const result = page
+        ? page
+        : admin && path.startsWith("/v1/redaction/")
         ? await handleRedaction(method, url, config, admin, rawBody, headers, actor, local)
         : admin && path.startsWith("/v1/auth")
         ? await handleAuth(method, url, config, admin, rawBody, headers)

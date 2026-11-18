@@ -12,7 +12,9 @@ Le back-office sert la sauvegarde ZIP du journal et la page Mise à jour du prog
 
 Le module éditorial, éteint par défaut, parle le contrat de LE KIOSQUE épinglé dans `src/kiosque-pin.ts`. L'adaptateur se teste hors ligne. `GET /v1/editorial/snapshot` n'existe que si le module est allumé.
 
-L'admin du Kiosque écrit par `/v1/redaction/`, qui n'existe que si `editorial` est allumé. La banque de photos (avec crédit obligatoire) s'y ajoute si `media` l'est. Sans `auth`, cette API ne répond qu'à la machine du socle. `SOCLE_STATIC` sert le site construit et l'admin sous `/redaction/`, à la même adresse que l'API.
+L'admin de rédaction (articles, photos, auteurs, rubriques, configuration) vit dans ce dépôt, sous `admin/`. Elle a deux modes : **navigateur** pour la démo (les données restent dans le navigateur) et **serveur** pour un vrai journal. En mode serveur, le socle la sert lui-même sous `/redaction/` et elle écrit par `/v1/redaction/`, à la même adresse. Les deux n'existent que si `editorial` est allumé. La banque de photos (avec crédit obligatoire) s'y ajoute si `media` l'est. Sans `auth`, cette API ne répond qu'à la machine du socle. Une nouvelle version du socle apporte donc aussi la nouvelle admin. `SOCLE_STATIC` sert le site construit, à la même adresse.
+
+La feuille de style de l'admin se compile avec `npm run ui` (source `admin/ui/admin.css`, Tailwind CSS et Basecoat). Le même geste réécrit `admin/serveur.html`.
 
 Le module d'identité, éteint par défaut, a trois portes : un lien magique, GitHub, ou Cloudflare Access. Il ne garde pas de mot de passe. Le jeton de session est haché. `POST /v1/auth/lien` n'existe que si le module est allumé. Tant qu'il est éteint, le bouton de mise à jour reste à qui ouvre la page. Allumé, le bouton est au responsable.
 

@@ -59,6 +59,7 @@ async function startPhp(work: string, env: Record<string, string>): Promise<{ ur
   mkdirSync(tree, { recursive: true });
   cpSync(join(REPO, "php"), join(tree, "php"), { recursive: true });
   cpSync(join(REPO, "package.json"), join(tree, "package.json"));
+  cpSync(join(REPO, "admin"), join(tree, "admin"), { recursive: true });
   const port = await freePort();
   const podman = usePodman();
   const mapped: Record<string, string> = {};
@@ -688,6 +689,15 @@ test("l'API de rédaction PHP suit le même parcours que Node", async () => {
     assert.deepEqual(fromPhp, fromNode);
     const proxied = await fetch(php.url + "/v1/redaction/etat", { headers: { "x-forwarded-for": "203.0.113.9" } });
     assert.equal(proxied.status, 403);
+    // L'admin elle-même : mêmes octets, mêmes refus, en PHP et en Node.
+    for (const path of ["/redaction/", "/redaction/assets/admin.js", "/redaction/assets/admin.css", "/redaction/assets/socle-backend.js", "/redaction/assets/demo-backend.js", "/redaction/assets/inconnu.js", "/redaction/assets/%2e%2e/page.js"]) {
+      const [a, b] = await Promise.all([fetch(php.url + path, { redirect: "manual" }), fetch(`http://127.0.0.1:${nodePort}` + path, { redirect: "manual" })]);
+      assert.equal(a.status, b.status, path);
+      if (a.status === 200) assert.equal(a.headers.get("content-type"), b.headers.get("content-type"), path);
+      assert.equal(Buffer.compare(Buffer.from(await a.arrayBuffer()), Buffer.from(await b.arrayBuffer())), 0, path);
+    }
+    assert.equal((await fetch(php.url + "/redaction/")).status, 200);
+    assert.equal((await fetch(php.url + "/redaction/assets/demo-backend.js")).status, 404);
   } finally {
     await closeServer(node);
     await nodeStore.close();
