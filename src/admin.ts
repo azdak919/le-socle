@@ -393,7 +393,7 @@ ${copy.latest}`);
 
   if (path === "/admin/mise-a-jour" && method === "POST") {
     if (!(await mayUpdate(deps.store, actor))) {
-      return { status: 403, body: "réservé au responsable", headers: { "content-type": "text/plain; charset=utf-8" } };
+      return { status: 403, body: "réservé à l’administrateur", headers: { "content-type": "text/plain; charset=utf-8" } };
     }
     const offered = deps.release();
     if (!offered) return { status: 409, body: "rien à mettre à jour", headers: { "content-type": "text/plain; charset=utf-8" } };
@@ -415,7 +415,7 @@ ${copy.latest}`);
 
   if (path === "/admin/mise-a-jour/revenir" && method === "POST") {
     if (!(await mayUpdate(deps.store, actor))) {
-      return { status: 403, body: "réservé au responsable", headers: { "content-type": "text/plain; charset=utf-8" } };
+      return { status: 403, body: "réservé à l’administrateur", headers: { "content-type": "text/plain; charset=utf-8" } };
     }
     const saved = readProgramBackup(deps.backupDir);
     if (!saved) return { status: 409, body: COPY[lang].noBackup, headers: { "content-type": "text/plain; charset=utf-8" } };

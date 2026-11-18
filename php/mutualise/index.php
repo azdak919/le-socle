@@ -4,7 +4,7 @@ declare(strict_types=1);
 /*
  * Le Socle — point d'entrée pour un hébergement mutualisé (serveur du cégep,
  * hébergeur PHP). Déposez le dossier `socle/` tel quel, ouvrez
- * https://votre-site/…/socle/redaction/ et créez le compte responsable.
+ * https://votre-site/…/socle/redaction/ et créez le compte administrateur.
  *
  * Choix par défaut, chacun remplaçable par une variable d'environnement :
  * connexion par mot de passe, données dans `donnees/` (protégé).

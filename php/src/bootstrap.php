@@ -29,7 +29,7 @@ function socle_dispatch(string $method, string $uri, string $path, string $raw):
     if ($store === null) return $app ? socle_result(404) : socle_serve_static($uri);
     if ($config['modules']['auth']) {
         try {
-            socle_ensure_responsable($store, socle_env('SOCLE_RESPONSABLE'));
+            socle_ensure_administrateur($store, socle_env('SOCLE_ADMINISTRATEUR') ?? socle_env('SOCLE_RESPONSABLE'));
         } catch (ModuleOff) {
         }
     }

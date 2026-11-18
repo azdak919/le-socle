@@ -98,7 +98,7 @@ export async function handleNotify(
     }
     if (path === "/admin/abonnements/envoi" && method === "POST") {
       const allowed = await mayUpdate(deps.store, config.modules.auth ? (actor ?? null) : undefined);
-      if (!allowed) return { status: 403, body: "réservé au responsable", headers: TEXT };
+      if (!allowed) return { status: 403, body: "réservé à l’administrateur", headers: TEXT };
       const text = postedText(rawBody);
       if (text === null) throw new NotifyError("demande refusée");
       const sent = await deliver(deps, text);

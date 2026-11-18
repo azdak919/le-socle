@@ -38,7 +38,7 @@ export async function mayReview(store: SocleStore, actor: string | null | undefi
   if (actor === undefined) return true;
   if (!actor) return false;
   const role = await roleOf(store, actor);
-  return role === "reviseur" || role === "editeur" || role === "responsable";
+  return role === "reviseur" || role === "editeur" || role === "administrateur";
 }
 
 export async function decide(

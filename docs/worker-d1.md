@@ -21,7 +21,7 @@ Derrière Cloudflare, aucune requête n'est « de la machine du socle ». La
 rédaction demande donc le module `auth`. La porte prévue est Cloudflare
 Access : Access vérifie la personne, le Worker vérifie la signature du
 jeton (clés de l'équipe, audience, émetteur, échéance), puis ouvre une
-session. Le responsable est nommé par `SOCLE_RESPONSABLE` ; il invite
+session. L’administrateur est nommé par `SOCLE_ADMINISTRATEUR` (ancien nom `SOCLE_RESPONSABLE` encore lu) ; il invite
 ensuite les autres membres.
 
 ## Installer, pas à pas

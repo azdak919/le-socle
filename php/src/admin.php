@@ -241,7 +241,7 @@ function socle_handle_admin(string $method, string $url, array &$config, SocleSt
     }
 
     if ($path === '/admin/mise-a-jour' && $method === 'POST') {
-        if (!socle_may_update($store, $actor, $actorDefined)) return socle_text(403, 'réservé au responsable');
+        if (!socle_may_update($store, $actor, $actorDefined)) return socle_text(403, 'réservé à l’administrateur');
         $offered = socle_release();
         if ($offered === null) return socle_text(409, 'rien à mettre à jour');
         $params = socle_form($raw);
@@ -265,7 +265,7 @@ function socle_handle_admin(string $method, string $url, array &$config, SocleSt
     }
 
     if ($path === '/admin/mise-a-jour/revenir' && $method === 'POST') {
-        if (!socle_may_update($store, $actor, $actorDefined)) return socle_text(403, 'réservé au responsable');
+        if (!socle_may_update($store, $actor, $actorDefined)) return socle_text(403, 'réservé à l’administrateur');
         $saved = socle_read_program_backup(socle_backup_dir());
         if ($saved === null) return socle_text(409, $copy['noBackup']);
         $previous = socle_installed_version();

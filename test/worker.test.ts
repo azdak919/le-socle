@@ -154,7 +154,7 @@ test("Worker D1 : santé, page de rédaction, connexion Access, parcours complet
     const etat = await call("GET", "/v1/redaction/etat");
     assert.equal(etat.status, 200);
     assert.equal(etat.json.publication.slug, PUBLICATION.slug);
-    assert.equal(etat.json.role, "responsable");
+    assert.equal(etat.json.role, "administrateur");
   } finally {
     await mf.dispose();
     await rm(dir, { recursive: true, force: true });

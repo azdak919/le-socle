@@ -16,7 +16,7 @@ L'admin de rédaction (articles, photos, auteurs, rubriques, configuration) vit 
 
 La feuille de style de l'admin se compile avec `npm run ui` (source `admin/ui/admin.css`, Tailwind CSS et Basecoat). Le même geste réécrit `admin/serveur.html`.
 
-Le module d'identité, éteint par défaut, a trois portes : un lien magique, GitHub, ou Cloudflare Access. Il ne garde pas de mot de passe. Le jeton de session est haché. `POST /v1/auth/lien` n'existe que si le module est allumé. Tant qu'il est éteint, le bouton de mise à jour reste à qui ouvre la page. Allumé, le bouton est au responsable.
+Le module d'identité, éteint par défaut, a trois portes : un lien magique, GitHub, ou Cloudflare Access. Il ne garde pas de mot de passe. Le jeton de session est haché. `POST /v1/auth/lien` n'existe que si le module est allumé. Tant qu'il est éteint, le bouton de mise à jour reste à qui ouvre la page. Allumé, le bouton est à l’administrateur.
 
 Le module de relecture, éteint par défaut, décide : publier, programmer, ou renvoyer. La correction proposée reste à côté du texte. Quand l'heure est passée, la lecture suivante publie l'article. Le site déjà construit ne change pas tout seul.
 

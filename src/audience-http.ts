@@ -34,7 +34,7 @@ export async function handleAudience(
     }
     if (path === "/admin/audience/noms" && method === "POST") {
       const allowed = await mayUpdate(deps.store, config.modules.auth ? (actor ?? null) : undefined);
-      if (!allowed) return { status: 403, body: "réservé au responsable", headers: TEXT };
+      if (!allowed) return { status: 403, body: "réservé à l’administrateur", headers: TEXT };
       const name = postedName(rawBody);
       if (!name) throw new AudienceError("demande refusée");
       await allowName(deps.store, name);

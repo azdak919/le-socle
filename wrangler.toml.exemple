@@ -20,7 +20,7 @@ database_id = "<identifiant de la base D1>"
 
 [vars]
 SOCLE_CONFIG = '{"modules":{"auth":true,"editorial":true,"media":true}}'
-SOCLE_RESPONSABLE = "<adresse du responsable>"
+SOCLE_ADMINISTRATEUR = "<adresse de l’administrateur>"
 SOCLE_AUTH_MODE = "access"
 SOCLE_ACCESS_TEAM = "<équipe>.cloudflareaccess.com"
 SOCLE_ACCESS_AUD = "<étiquette AUD de l'application Access>"
