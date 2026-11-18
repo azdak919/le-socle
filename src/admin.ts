@@ -308,6 +308,12 @@ function readProgramBackup(dir: string): ProgramBackup | null {
 
 const SEASONS = ["automne", "hiver", "ete"] as const;
 
+/** `/admin` et les pages sous `/admin/…`, avec ou sans barre finale. */
+export function canonicalAdminPath(path: string): string {
+  if (path !== "/admin" && !path.startsWith("/admin/")) return path;
+  return path.endsWith("/") && path.length > 1 ? path.slice(0, -1) : path;
+}
+
 export async function handleAdmin(
   method: string,
   url: string,
@@ -317,7 +323,7 @@ export async function handleAdmin(
   actor?: string | null,
 ): Promise<Result> {
   const parsed = new URL(url, "http://127.0.0.1");
-  const path = parsed.pathname;
+  const path = canonicalAdminPath(parsed.pathname);
   const lang = langOf(parsed);
   const copy = COPY[lang];
   const exportOn = config.modules.export;

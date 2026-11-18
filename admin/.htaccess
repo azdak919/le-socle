@@ -1,0 +1,4 @@
+# Le dossier admin/ est sur le disque (page et fichiers de la rédaction).
+# Sans cette consigne, Apache, voyant un dossier, renvoie /admin vers
+# /admin/ et peut servir le dossier (page introuvable) au lieu du programme.
+DirectorySlash Off

@@ -1,6 +1,7 @@
 # Journal
 
 ## Non publié
+- `/admin` et `/admin/` mènent à l’espace de rédaction (`/redaction/`), à la racine du domaine ou dans un sous-dossier, que l’on soit connecté ou non. Les pages Sauvegarde et Mise à jour acceptent une barre finale. Sur un hébergeur Apache, le dossier `admin/` présent sur le disque ne produit plus une page introuvable.
 - Version 1.3.1.
 - Le ZIP du paquet complet, à l’adresse fixe, contient de nouveau un seul dossier (`kiosque-journal/`), avec le fichier `INSTALLER-A-LA-RACINE.txt` : son contenu s’installe là où le site est déjà. L’installateur accepte aussi un ZIP plat (fichiers à la racine) et l’ancien dossier `journal/` des sauvegardes. Un journal en 0.2.x peut ainsi se mettre à jour en un clic. Un test rejoue l’installateur réel de la 0.2.1 (Socle 1.2.2).
 - Page Mise à jour : les nouveautés de la Release sont lues en entier (elles étaient coupées à 2 000 caractères, au milieu d’un mot, et la partie « Espace de rédaction » disparaissait).

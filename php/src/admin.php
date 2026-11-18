@@ -123,8 +123,14 @@ function socle_admin_copy(string $lang): array {
     ];
 }
 
+/** `/admin` et les pages sous `/admin/…`, avec ou sans barre finale. */
+function socle_canonical_admin_path(string $path): string {
+    if ($path !== '/admin' && !str_starts_with($path, '/admin/')) return $path;
+    return str_ends_with($path, '/') && $path !== '/' ? substr($path, 0, -1) : $path;
+}
+
 function socle_handle_admin(string $method, string $url, array &$config, SocleStore $store, string $raw, ?string $actor, bool $actorDefined): array {
-    $path = socle_request_path($url);
+    $path = socle_canonical_admin_path(socle_request_path($url));
     $lang = socle_lang($url);
     $copy = socle_admin_copy($lang);
     $exportOn = (bool) $config['modules']['export'];

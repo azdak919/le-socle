@@ -2,7 +2,8 @@
  * Paquet PHP pour hébergement mutualisé : déposé dans un sous-dossier
  * (/journal/socle/), il crée ses tables, propose l'installation du compte
  * responsable, puis la rédaction et les photos publiques marchent sous ce
- * préfixe. Le routeur imite le .htaccess (tout vers index.php).
+ * préfixe. Le routeur imite le .htaccess (tout vers index.php), y compris
+ * `/admin/` et les pages /admin avec une barre finale.
  */
 import assert from "node:assert/strict";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
@@ -48,6 +49,11 @@ test("paquet PHP mutualisé : sous-dossier, installation, équipe, rédaction", 
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, data);
   }
+  const rootHtaccess = readFileSync(join(host, "journal/socle/.htaccess"), "utf8");
+  const adminHtaccess = readFileSync(join(host, "journal/socle/admin/.htaccess"), "utf8");
+  assert.match(rootHtaccess, /DirectorySlash Off/);
+  assert.match(adminHtaccess, /DirectorySlash Off/);
+
   writeFileSync(join(work, "routeur.php"), `<?php
 $uri = $_SERVER['REQUEST_URI'] ?? '/';
 if (str_starts_with($uri, '/journal/socle')) {
@@ -107,6 +113,12 @@ return true;
     const zoeCookie = String(zoe.headers.get("set-cookie")).split(";")[0];
     assert.equal(JSON.parse((await call(`${base}/v1/auth/etat`, { headers: { cookie: zoeCookie } })).text).role, "administrateur");
     assert.equal((await call(`${base}/v1/auth/membres`, { headers: { cookie: zoeCookie } })).status, 200);
+    // Sans session, /admin et /admin/ (et les pages avec barre finale) mènent à la rédaction.
+    for (const path of ["/admin", "/admin/", "/admin/sauvegarde/", "/admin/mise-a-jour/"]) {
+      const anon = await call(`${base}${path}`, { redirect: "manual" });
+      assert.equal(anon.status, 303, path);
+      assert.equal(anon.headers.get("location"), "/journal/socle/redaction/", path);
+    }
     // Sans session, les pages /admin ne donnent rien : ni archive, ni restauration, ni article.
     const anonZip = await call(`${base}/admin/sauvegarde/site.zip`, { redirect: "manual" });
     assert.equal(anonZip.status, 303);
@@ -180,9 +192,15 @@ return true;
     assert.equal((await fetch(`${base}/admin/sauvegarde/auto/${auto}`, { headers: { cookie: chef } })).status, 403);
     const reused = await call(`${base}/admin/sauvegarde/restaurer`, { method: "POST", headers: { "content-type": "application/json", cookie }, body: JSON.stringify({ jeton }) });
     assert.equal(reused.status, 400);
-    const admin = await call(`${base}/admin`, { headers: { cookie }, redirect: "manual" });
-    assert.equal(admin.status, 303);
-    assert.equal(admin.headers.get("location"), "/journal/socle/redaction/");
+    for (const path of ["/admin", "/admin/"]) {
+      const admin = await call(`${base}${path}`, { headers: { cookie }, redirect: "manual" });
+      assert.equal(admin.status, 303, path);
+      assert.equal(admin.headers.get("location"), "/journal/socle/redaction/", path);
+    }
+    for (const path of ["/admin/sauvegarde", "/admin/sauvegarde/", "/admin/mise-a-jour", "/admin/mise-a-jour/"]) {
+      const page = await call(`${base}${path}`, { headers: { cookie }, redirect: "manual" });
+      assert.equal(page.status, 200, path);
+    }
   } finally {
     child.kill();
   }

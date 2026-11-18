@@ -47,6 +47,7 @@ add("donnees/.htaccess", readFileSync(join(m, "deny.htaccess")));
 add("php/.htaccess", readFileSync(join(m, "deny.htaccess")));
 walk(join(root, "php", "src"), "php/src/");
 add("admin/serveur.html", readFileSync(join(root, "admin", "serveur.html")));
+add("admin/.htaccess", readFileSync(join(root, "admin", ".htaccess")));
 // sql.js ne sert qu'à la démonstration dans le navigateur : pas sur un serveur.
 walk(join(root, "admin", "assets"), "admin/assets/", (name) => /^sql-wasm|^sqljs-db|^demo-backend/.test(name));
 add("LICENSE", readFileSync(join(root, "LICENSE")));
