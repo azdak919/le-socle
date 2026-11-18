@@ -3,4 +3,4 @@
  * chargement : le Worker (Cloudflare) n'a pas de système de fichiers. Un test
  * vérifie qu'elle suit package.json.
  */
-export const VERSION: string = "1.2.3";
+export const VERSION: string = "1.3.0";
