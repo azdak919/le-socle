@@ -151,9 +151,21 @@ function socle_install_program(array $files): void {
 }
 
 /**
- * Lit un ZIP de paquet et rend ses fichiers prêts à installer.
- * Deux formes acceptées : fichiers à la racine du ZIP (paquet actuel) ou
- * un seul dossier enveloppant (anciens paquets « journal/ », sauvegardes).
+ * Fichier marqueur d’un paquet enveloppé dans un dossier (`kiosque-journal/`) :
+ * son contenu s’installe à la racine du site déjà en place, pas dans un
+ * sous-dossier. Il n’est pas recopié sur le site.
+ */
+const SOCLE_PAQUET_MARQUEUR = 'INSTALLER-A-LA-RACINE.txt';
+
+function socle_paquet_keep(string $relative): bool {
+    return $relative !== '' && !str_starts_with($relative, 'donnees/') && $relative !== SOCLE_PAQUET_MARQUEUR;
+}
+
+/**
+ * Lit un ZIP de paquet et rend ses fichiers prêts à installer là où le site
+ * est déjà. Deux formes acceptées : fichiers à la racine du ZIP, ou un seul
+ * dossier enveloppant (paquet actuel `kiosque-journal/` avec le marqueur
+ * INSTALLER-A-LA-RACINE.txt, anciens paquets `journal/`, sauvegardes).
  */
 function socle_paquet_files(string $zip): array {
     $entries = socle_unzip($zip);
@@ -162,7 +174,7 @@ function socle_paquet_files(string $zip): array {
         $files = [];
         foreach ($entries as $name => $data) {
             $relative = (string) $name;
-            if ($relative === '' || str_starts_with($relative, 'donnees/')) continue;
+            if (!socle_paquet_keep($relative)) continue;
             $files[$relative] = $data;
         }
         return $files;
@@ -179,7 +191,7 @@ function socle_paquet_files(string $zip): array {
     $files = [];
     foreach ($entries as $name => $data) {
         $relative = substr((string) $name, strlen($root) + 1);
-        if ($relative === '' || str_starts_with($relative, 'donnees/')) continue;
+        if (!socle_paquet_keep($relative)) continue;
         $files[$relative] = $data;
     }
     return $files;
