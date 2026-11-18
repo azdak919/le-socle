@@ -180,3 +180,18 @@ test("aperçu du mât avant d'enregistrer : ordinateur et mobile, clair et sombr
   assert.match(css, /\.mast-preview/);
   assert.match(css, /\.field-error/);
 });
+
+test("rédaction pour néophytes : mots simples, états vides, erreurs lisibles", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  const backend = readFileSync(join(ASSETS, "socle-backend.js"), "utf8");
+  const php = readFileSync(join(import.meta.dirname, "../php/src/admin.php"), "utf8");
+  // Pas de « socle » dans les messages montrés à la rédaction.
+  assert.doesNotMatch(admin, /'Le socle ne répond pas\.'|Le socle a refusé|Ce socle a déjà/);
+  assert.doesNotMatch(backend, /Le socle a refusé|Connectez-vous au socle/);
+  assert.match(backend, /'un article publié doit être signé': 'Pour publier, cochez au moins une signature/);
+  for (const empty of ["Aucun article pour l’instant", "La banque est vide", "Aucune signature pour l’instant"]) assert.ok(admin.includes(empty), empty);
+  assert.match(admin, /document\.body\.classList\.add\('signed-out'\)/);
+  // Pages sans JavaScript : champ de restauration étiqueté, confirmation, et plus de page blanche au rechargement.
+  assert.match(php, /<label>Archive à restaurer \(ZIP\) <input type="file"/);
+  assert.match(php, /'\/admin\/mise-a-jour\/paquet\/revenir'\) && \$method === 'GET'\)/);
+});

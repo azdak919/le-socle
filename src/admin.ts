@@ -62,11 +62,11 @@ const COPY = {
     sessionsHelp: "Seulement les articles de la session choisie, sans photos ni réglages.",
     restored: "Archive restaurée. Rechargez la rédaction pour voir le contenu.",
     restoreFailed: "La restauration a échoué : vérifiez que c’est bien un ZIP téléchargé sur cette page.",
-    savePrefs: "Enregistrer",
+    savePrefs: "Garder ce choix d’années",
     downloadSite: "Télécharger la sauvegarde complète",
     sessionOf: "Session",
     articlesOnly: "articles seulement",
-    restoreHint: "<h2>Restaurer une archive</h2><p class=\"aide\">Choisissez un ZIP téléchargé sur cette page. Une archive de session ne remplace que ses articles.</p><form class=\"noprint\" id=\"restaurer\"><input type=\"file\" name=\"archive\" accept=\".zip,application/zip\" required> <button type=\"submit\">Restaurer</button></form><p id=\"restaurer-etat\" role=\"status\"></p>",
+    restoreHint: "<h2>Restaurer une archive</h2><p class=\"aide\">Choisissez un ZIP téléchargé sur cette page. Une archive de session ne remplace que ses articles.</p><form class=\"noprint\" id=\"restaurer\"><label>Archive à restaurer (ZIP) <input type=\"file\" name=\"archive\" accept=\".zip,application/zip\" required></label> <button type=\"submit\" data-confirm=\"La restauration remplace le contenu actuel par celui de cette archive. Continuer?\">Restaurer</button></form><p id=\"restaurer-etat\" role=\"status\"></p>",
     updateTitle: "Mise à jour",
     line: "Socle",
     installed: "Version en place",
@@ -112,7 +112,7 @@ const COPY = {
     downloadSite: "Download the full backup",
     sessionOf: "Session",
     articlesOnly: "articles only",
-    restoreHint: "<h2>Restore an archive</h2><p class=\"aide\">Choose a ZIP downloaded from this page. A session archive only replaces its articles.</p><form class=\"noprint\" id=\"restaurer\"><input type=\"file\" name=\"archive\" accept=\".zip,application/zip\" required> <button type=\"submit\">Restore</button></form><p id=\"restaurer-etat\" role=\"status\"></p>",
+    restoreHint: "<h2>Restore an archive</h2><p class=\"aide\">Choose a ZIP downloaded from this page. A session archive only replaces its articles.</p><form class=\"noprint\" id=\"restaurer\"><label>Archive to restore (ZIP) <input type=\"file\" name=\"archive\" accept=\".zip,application/zip\" required></label> <button type=\"submit\" data-confirm=\"Restoring replaces the current content with this archive. Continue?\">Restore</button></form><p id=\"restaurer-etat\" role=\"status\"></p>",
     updateTitle: "Update",
     line: "Socle",
     installed: "Installed version",
@@ -325,7 +325,7 @@ export async function handleAdmin(
 <h2>${copy.sessionsTitle}</h2>
 <p class="aide">${copy.sessionsHelp}</p>
 <ul class="liens noprint">${links}</ul>
-${copy.restoreHint}<script>document.getElementById('restaurer').onsubmit=async function(e){e.preventDefault();var f=this.archive.files[0];if(!f)return;var s=document.getElementById('restaurer-etat');s.textContent='…';var r=await fetch(location.pathname+'/restaurer'+location.search,{method:'POST',headers:{'content-type':'application/zip'},body:f});var t=await r.text();s.textContent=r.ok?${JSON.stringify(copy.restored)}:${JSON.stringify(copy.restoreFailed)}+' ('+r.status+')';};</script>`);
+${copy.restoreHint}<script>document.getElementById('restaurer').onsubmit=async function(e){e.preventDefault();var f=this.archive.files[0];if(!f)return;if(!confirm(this.querySelector('[data-confirm]').dataset.confirm))return;var s=document.getElementById('restaurer-etat');s.textContent='…';var r=await fetch(location.pathname+'/restaurer'+location.search,{method:'POST',headers:{'content-type':'application/zip'},body:f});var t=await r.text();s.textContent=r.ok?${JSON.stringify(copy.restored)}:${JSON.stringify(copy.restoreFailed)}+' ('+r.status+')';};</script>`);
   }
 
   if (path === "/admin/sauvegarde/prefs" && method === "POST") {

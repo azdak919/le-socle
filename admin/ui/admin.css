@@ -16,7 +16,7 @@
   #admin-main button.primary, .media-picker button.primary, #admin-main .button.primary {
     @apply bg-primary text-primary-foreground border-transparent hover:bg-primary/85;
   }
-  #admin-main button.danger { @apply bg-destructive/10 text-destructive border-transparent hover:bg-destructive/20; }
+  #admin-main button.danger { @apply bg-destructive/10 text-red-800 border-transparent hover:bg-destructive/20; }
 
   #admin-main input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=range]),
   .media-picker input:not([type=checkbox]):not([type=radio]),
@@ -138,6 +138,11 @@
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .actions { @apply flex flex-wrap gap-2 mt-5; }
 .notice { @apply block rounded-lg border border-border bg-accent/60 px-4 py-3 text-sm mb-5; }
+/* Un lien dans un texte se distingue autrement que par la couleur (WCAG 1.4.1). */
+.notice a, .muted a, .media-quality a { @apply underline underline-offset-2; }
+/* Les boutons d'un avis passent à la ligne sur mobile au lieu de déborder. */
+.notice .actions > * { @apply whitespace-normal h-auto text-left; }
+.empty-state { @apply rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground text-center my-3; }
 .demo-notice { @apply border-red-200 bg-red-50 text-red-900; }
 .preview-frame { @apply mt-4 rounded-lg border border-border p-6; }
 .preview-frame h1 { @apply font-serif text-3xl; }
@@ -188,3 +193,6 @@
 .media-card-body .actions { @apply flex flex-wrap gap-2 mt-2; }
 .media-card-body .status-pill { @apply mb-2; }
 .media-picker form img { @apply w-full rounded-lg bg-muted; }
+
+/* Écran de connexion ou d'installation : pas de menu tant qu'on n'est pas entré. */
+body.signed-out .admin-nav { display: none; }
