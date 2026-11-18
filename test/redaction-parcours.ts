@@ -54,6 +54,13 @@ export async function scenario(call: Call): Promise<string[]> {
   await step("auteur", "POST", "/v1/redaction/entite", { kind: "author", entity: { id: "a1", name: "Léa Roy", slug: "lea-roy" } }, 200);
   await step("section", "POST", "/v1/redaction/entite", { kind: "section", entity: { id: "s1", name: "Campus", slug: "campus" } }, 200);
   await step("section invalide", "POST", "/v1/redaction/entite", { kind: "section", entity: { name: "Sans slug", slug: "Pas Bon" } }, 400);
+  // Sans nom court, il se tire du nom ; sans adresse, l'article la tire du titre.
+  const derived = await step("section sans nom court", "POST", "/v1/redaction/entite", { kind: "section", entity: { id: "s2", name: "Vie étudiante & Œuvres" } }, 200);
+  assert.equal(derived.json.entity.slug, "vie-etudiante-oeuvres");
+  const untitled = await step("article sans adresse", "POST", "/v1/redaction/article", { article: { id: "art-0", title: "Élection à l'AGE", body: { format: "markdown", raw: "x" }, status: "draft" } }, 200);
+  assert.equal(untitled.json.article.slug, "election-a-l-age");
+  await step("supprimer l'article sans adresse", "POST", "/v1/redaction/supprimer", { kind: "article", id: "art-0" }, 200);
+  await step("supprimer la section sans nom court", "POST", "/v1/redaction/supprimer", { kind: "section", id: "s2" }, 200);
   const draft = { id: "art-1", slug: "premier-article", title: "Premier article", excerpt: "Résumé.", body: { format: "markdown", raw: "Bonjour." }, authors: ["lea-roy"], status: "draft" };
   await step("brouillon", "POST", "/v1/redaction/article", { article: draft }, 200);
   await step("publié sans section", "POST", "/v1/redaction/article", { article: { ...draft, status: "published", publishedAt: NOW } }, 400);

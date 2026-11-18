@@ -62,6 +62,12 @@ function text(value: unknown, max = 2000): string {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
+/** Adresse lisible tirée d'un titre : « Élection à l'AGE » → « election-a-l-age ». Même règle en PHP. */
+export function slugFrom(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae").replace(/Œ/g, "OE").replace(/Æ/g, "AE")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 96).replace(/-+$/g, "");
+}
+
 function list(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean) : [];
 }
@@ -110,7 +116,8 @@ function articleFrom(input: Record<string, unknown>, existing: SocleArticle | un
     ...(existing ?? {}),
     ...(input as Partial<SocleArticle>),
     id,
-    slug: text(input.slug, 96),
+    // Sans adresse, on la tire du titre : l'API ne refuse pas un article pour ça.
+    slug: text(input.slug, 96) || existing?.slug || slugFrom(text(input.title, 300)),
     publication: publicationSlug,
     title: text(input.title, 300),
     excerpt: text(input.excerpt, 2000),
@@ -206,8 +213,9 @@ export async function handleRedaction(
       const input = (body.entity ?? {}) as Record<string, unknown>;
       const id = text(input.id, 80) || randomUUID();
       const name = text(input.name, 200);
-      const slug = text(input.slug, 96);
-      if (!name || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return fail(400, "Un nom et un identifiant URL valides sont requis.");
+      const slug = text(input.slug, 96) || slugFrom(name);
+      if (!name) return fail(400, "Un nom est requis.");
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return fail(400, "Le nom court ne garde que des lettres minuscules, des chiffres et des tirets.");
       const entity = { ...input, id, name, slug };
       await deps.store.put("editorial", `${kind}:${id}`, JSON.stringify(entity));
       return json(200, { entity });

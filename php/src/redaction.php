@@ -110,6 +110,15 @@ function socle_redaction_bytes(SocleStore $store, string $src): ?string {
     return $bytes === false ? null : $bytes;
 }
 
+/** Adresse lisible tirée d'un titre. Même règle que `slugFrom` en Node. */
+function socle_slug_from(string $value): string {
+    $map = ['à'=>'a','á'=>'a','â'=>'a','ä'=>'a','ã'=>'a','å'=>'a','ç'=>'c','è'=>'e','é'=>'e','ê'=>'e','ë'=>'e','ì'=>'i','í'=>'i','î'=>'i','ï'=>'i','ñ'=>'n','ò'=>'o','ó'=>'o','ô'=>'o','ö'=>'o','õ'=>'o','ù'=>'u','ú'=>'u','û'=>'u','ü'=>'u','ý'=>'y','ÿ'=>'y','œ'=>'oe','æ'=>'ae',
+        'À'=>'A','Á'=>'A','Â'=>'A','Ä'=>'A','Ã'=>'A','Å'=>'A','Ç'=>'C','È'=>'E','É'=>'E','Ê'=>'E','Ë'=>'E','Ì'=>'I','Í'=>'I','Î'=>'I','Ï'=>'I','Ñ'=>'N','Ò'=>'O','Ó'=>'O','Ô'=>'O','Ö'=>'O','Õ'=>'O','Ù'=>'U','Ú'=>'U','Û'=>'U','Ü'=>'U','Ý'=>'Y','Œ'=>'OE','Æ'=>'AE'];
+    $slug = strtolower(strtr($value, $map));
+    $slug = trim((string) preg_replace('/[^a-z0-9]+/', '-', $slug), '-');
+    return rtrim(substr($slug, 0, 96), '-');
+}
+
 function socle_handle_redaction(string $method, string $uri, array $config, SocleStore $store, string $raw, ?string $actor, bool $defined): array {
     $path = socle_request_path($uri);
     if (!$config['modules']['editorial'] || !str_starts_with($path, '/v1/redaction/')) return socle_result(404);
@@ -153,7 +162,7 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
             $bodyIn = is_array($input['body'] ?? null) ? $input['body'] : [];
             $article = array_merge($existing ?? [], $input, [
                 'id' => $id,
-                'slug' => socle_redaction_text($input['slug'] ?? null, 96),
+                'slug' => socle_redaction_text($input['slug'] ?? null, 96) ?: ($existing['slug'] ?? socle_slug_from(socle_redaction_text($input['title'] ?? null, 300))),
                 'publication' => $publication['slug'],
                 'title' => socle_redaction_text($input['title'] ?? null, 300),
                 'excerpt' => socle_redaction_text($input['excerpt'] ?? null, 2000),
@@ -192,8 +201,9 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
             $id = socle_redaction_text($input['id'] ?? null, 80);
             if ($id === '') $id = socle_uuid();
             $name = socle_redaction_text($input['name'] ?? null, 200);
-            $slug = socle_redaction_text($input['slug'] ?? null, 96);
-            if ($name === '' || preg_match(SOCLE_SLUG, $slug) !== 1) return socle_redaction_fail(400, 'Un nom et un identifiant URL valides sont requis.');
+            $slug = socle_redaction_text($input['slug'] ?? null, 96) ?: socle_slug_from($name);
+            if ($name === '') return socle_redaction_fail(400, 'Un nom est requis.');
+            if (preg_match(SOCLE_SLUG, $slug) !== 1) return socle_redaction_fail(400, 'Le nom court ne garde que des lettres minuscules, des chiffres et des tirets.');
             $entity = array_merge($input, ['id' => $id, 'name' => $name, 'slug' => $slug]);
             $store->put('editorial', $kind . ':' . $id, socle_json($entity));
             return socle_redaction_json(200, ['entity' => $entity]);
