@@ -2,6 +2,9 @@
  * Quels fichiers de l'admin le mode serveur sert sous `/redaction/`, sans
  * lire le disque : Node (`redaction-page.ts`) lit le fichier, le Worker le
  * demande à ses fichiers statiques. Pas la base de la démo (sql.js).
+ * `/admin` (sans sous-page) redirige vers `/redaction/` quand le module
+ * éditorial est allumé. Les pages Sauvegarde et Mise à jour restent sous
+ * `/admin/sauvegarde` et `/admin/mise-a-jour`.
  */
 export const SERVER_ASSETS: ReadonlySet<string> = new Set([
   "admin.js", "admin.css", "runtime.js", "util.js", "export.js",
@@ -18,8 +21,9 @@ export const REDACTION_HEADERS: Readonly<Record<string, string>> = Object.freeze
 type Result = { status: number; body: string; headers: Record<string, string> };
 
 /**
- * `null` : ce chemin n'est pas l'admin. Sinon, soit une réponse toute faite
- * (redirection, refus), soit le fichier à servir, relatif à `admin/`.
+ * `null` : ce chemin n'est pas l'admin de rédaction. Sinon, soit une
+ * réponse toute faite (redirection, refus), soit le fichier à servir,
+ * relatif à `admin/`.
  */
 export function redactionTarget(path: string, method: string): Result | { file: string; type: string } | null {
   if (path !== "/redaction" && !path.startsWith("/redaction/")) return null;

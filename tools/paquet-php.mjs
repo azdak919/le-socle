@@ -2,8 +2,11 @@
 // dist/le-socle-php.zip, un dossier « socle/ » à déposer tel quel.
 // Usage : node tools/paquet-php.mjs [--sortie dist/le-socle-php.zip]
 //   [--racine journal] [--site chemin/du/site] [--paquet '{"nom":…}']
-// Le paquet complet du Kiosque passe --racine journal --site <site construit> :
-// le même programme sert alors aussi le site du journal (site/).
+// Le paquet complet du Kiosque passe --site <site construit> sans --racine :
+// les fichiers sont à la racine du ZIP (à déposer à la racine du domaine).
+// Un sous-dossier reste possible : on y dépose les mêmes fichiers, le
+// programme détecte le préfixe tout seul. --racine journal reste accepté
+// (anciens paquets et mises à jour).
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,13 +17,16 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
 const opt = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
 const out = opt("--sortie") ?? join(root, "dist", "le-socle-php.zip");
-const folder = opt("--racine") ?? "socle";
 const site = opt("--site");
 const paquet = opt("--paquet");
-if (!/^[a-z0-9-]+$/.test(folder)) throw new Error("--racine : lettres minuscules, chiffres, tirets");
+// Paquet complet (avec --site) : fichiers à la racine du ZIP, donc à la
+// racine du domaine une fois décompressé. Paquet du Socle seul : dossier socle/.
+const folder = opt("--racine") ?? (site ? "" : "socle");
+if (!/^$|^[a-z0-9-]+$/.test(folder)) throw new Error("--racine : vide, ou lettres minuscules, chiffres, tirets");
 
 const files = [];
-const add = (name, data) => files.push({ name: `${folder}/${name}`, data: typeof data === "string" ? new TextEncoder().encode(data) : data });
+const prefix = folder ? `${folder}/` : "";
+const add = (name, data) => files.push({ name: `${prefix}${name}`, data: typeof data === "string" ? new TextEncoder().encode(data) : data });
 const walk = (dir, prefix, skip = () => false) => {
   for (const entry of readdirSync(dir).sort()) {
     const full = join(dir, entry);

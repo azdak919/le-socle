@@ -148,14 +148,28 @@ function socle_install_program(array $files): void {
     if (function_exists('opcache_reset')) @opcache_reset();
 }
 
-/** Lit un ZIP de paquet et rend ses fichiers sans le dossier racine. */
+/**
+ * Lit un ZIP de paquet et rend ses fichiers prêts à installer.
+ * Deux formes acceptées : fichiers à la racine du ZIP (paquet actuel) ou
+ * un seul dossier enveloppant (anciens paquets « journal/ », sauvegardes).
+ */
 function socle_paquet_files(string $zip): array {
     $entries = socle_unzip($zip);
+    $flat = isset($entries['index.php'], $entries['paquet.json'], $entries['php/src/bootstrap.php']);
+    if ($flat) {
+        $files = [];
+        foreach ($entries as $name => $data) {
+            $relative = (string) $name;
+            if ($relative === '' || str_starts_with($relative, 'donnees/')) continue;
+            $files[$relative] = $data;
+        }
+        return $files;
+    }
     $root = null;
     foreach (array_keys($entries) as $name) {
         $first = explode('/', (string) $name)[0];
         if ($root === null) $root = $first;
-        if ($first !== $root) throw new RuntimeException('le ZIP doit contenir un seul dossier');
+        if ($first !== $root) throw new RuntimeException('le ZIP doit contenir un seul dossier, ou les fichiers à la racine');
     }
     if ($root === null || !isset($entries[$root . '/index.php'], $entries[$root . '/paquet.json'], $entries[$root . '/php/src/bootstrap.php'])) {
         throw new RuntimeException('ce ZIP n’est pas un paquet complet du Kiosque');
