@@ -12,6 +12,8 @@ Le back-office sert la sauvegarde ZIP du journal et la page Mise à jour du prog
 
 Le module éditorial, éteint par défaut, parle le contrat de LE KIOSQUE épinglé dans `src/kiosque-pin.ts`. L'adaptateur se teste hors ligne. `GET /v1/editorial/snapshot` n'existe que si le module est allumé.
 
+L'admin du Kiosque écrit par `/v1/redaction/`, qui n'existe que si `editorial` est allumé. La banque de photos (avec crédit obligatoire) s'y ajoute si `media` l'est. Sans `auth`, cette API ne répond qu'à la machine du socle. `SOCLE_STATIC` sert le site construit et l'admin sous `/redaction/`, à la même adresse que l'API.
+
 Le module d'identité, éteint par défaut, a trois portes : un lien magique, GitHub, ou Cloudflare Access. Il ne garde pas de mot de passe. Le jeton de session est haché. `POST /v1/auth/lien` n'existe que si le module est allumé. Tant qu'il est éteint, le bouton de mise à jour reste à qui ouvre la page. Allumé, le bouton est au responsable.
 
 Le module de relecture, éteint par défaut, décide : publier, programmer, ou renvoyer. La correction proposée reste à côté du texte. Quand l'heure est passée, la lecture suivante publie l'article. Le site déjà construit ne change pas tout seul.
