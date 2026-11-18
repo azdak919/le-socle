@@ -39,7 +39,8 @@ const COPY = {
   fr: {
     html: "fr",
     skip: "Aller au contenu",
-    back: "Retour",
+    back: "Tableau de bord",
+    brandSub: "Rédaction",
     other: "English",
     otherLang: "en",
     office: "Back-office",
@@ -54,18 +55,24 @@ const COPY = {
     saveTitle: "Sauvegarde",
     off: "La sauvegarde est éteinte.",
     activate: "Activer",
-    yearsHelp: "L'année en cours et la précédente sont cochées au départ. Les années plus anciennes restent décochées : une archive antérieure est supposée les contenir. Ce programme ne peut pas le vérifier.",
+    saveIntro: "Gardez une copie du journal hors du serveur : articles, photos, équipe et réglages, dans un seul fichier ZIP. Faites-le avant chaque mise à jour.",
+    yearsTitle: "Années comprises dans l’archive",
+    yearsHelp: "L’année en cours et la précédente sont cochées au départ. Décochez les années déjà gardées dans une archive plus ancienne : l’archive sera plus légère.",
+    sessionsTitle: "Archive d’une session",
+    sessionsHelp: "Seulement les articles de la session choisie, sans photos ni réglages.",
+    restored: "Archive restaurée. Rechargez la rédaction pour voir le contenu.",
+    restoreFailed: "La restauration a échoué : vérifiez que c’est bien un ZIP téléchargé sur cette page.",
     savePrefs: "Enregistrer",
-    downloadSite: "Télécharger le site",
+    downloadSite: "Télécharger la sauvegarde complète",
     sessionOf: "Session",
     articlesOnly: "articles seulement",
-    restoreHint: "<h2>Restaurer une archive</h2><p>Choisissez un ZIP téléchargé ici (site ou session). Une archive de session ne remplace que ses articles.</p><form class=\"noprint\" id=\"restaurer\"><input type=\"file\" name=\"archive\" accept=\".zip,application/zip\" required> <button type=\"submit\">Restaurer</button></form><p id=\"restaurer-etat\" role=\"status\"></p>",
+    restoreHint: "<h2>Restaurer une archive</h2><p class=\"aide\">Choisissez un ZIP téléchargé sur cette page. Une archive de session ne remplace que ses articles.</p><form class=\"noprint\" id=\"restaurer\"><input type=\"file\" name=\"archive\" accept=\".zip,application/zip\" required> <button type=\"submit\">Restaurer</button></form><p id=\"restaurer-etat\" role=\"status\"></p>",
     updateTitle: "Mise à jour",
     line: "Socle",
     installed: "Version en place",
     offered: "Version proposée",
     none: "Aucune nouvelle version n’est préparée sur ce serveur.",
-    latest: "<h2>Installer la dernière version</h2><p>Les nouveautés sont sur la <a href=\"https://github.com/azdak919/le-socle/releases/latest\">page de la dernière version</a>. Sur un hébergement PHP : faites une sauvegarde, <a href=\"https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip\">téléchargez le-socle-php.zip</a>, puis envoyez le dossier socle/ par-dessus l’ancien, sans remplacer donnees/.</p>",
+    latest: "<h2>Installer la dernière version</h2><ol><li>Téléchargez la sauvegarde complète (page Sauvegarde).</li><li><a href=\"https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip\">Téléchargez le-socle-php.zip</a> (nouveautés sur la <a href=\"https://github.com/azdak919/le-socle/releases/latest\">page de la dernière version</a>).</li><li>Sur un hébergement PHP, envoyez le dossier socle/ par-dessus l’ancien, sans remplacer donnees/.</li></ol>",
     backupWill: "Sauvegarde du programme, avant",
     notContent: "Le contenu du journal n'est pas dans cette sauvegarde.",
     major: "Cette version casse quelque chose. Je confirme.",
@@ -78,7 +85,8 @@ const COPY = {
   en: {
     html: "en",
     skip: "Skip to content",
-    back: "Back",
+    back: "Dashboard",
+    brandSub: "Newsroom",
     other: "Français",
     otherLang: "fr",
     office: "Back office",
@@ -93,18 +101,24 @@ const COPY = {
     saveTitle: "Backup",
     off: "Backup is off.",
     activate: "Turn on",
-    yearsHelp: "The current year and the previous one start checked. Older years stay unchecked: an earlier archive is assumed to hold them. This program cannot check that.",
+    saveIntro: "Keep a copy of the journal off the server: articles, photos, team and settings, in one ZIP file. Do it before every update.",
+    yearsTitle: "Years in the archive",
+    yearsHelp: "The current year and the previous one start checked. Uncheck years already kept in an older archive: the archive gets lighter.",
+    sessionsTitle: "Archive of one session",
+    sessionsHelp: "Only that session's articles, without photos or settings.",
+    restored: "Archive restored. Reload the newsroom to see the content.",
+    restoreFailed: "Restore failed: make sure it is a ZIP downloaded from this page.",
     savePrefs: "Save",
-    downloadSite: "Download the site",
+    downloadSite: "Download the full backup",
     sessionOf: "Session",
     articlesOnly: "articles only",
-    restoreHint: "<h2>Restore an archive</h2><p>Choose a ZIP downloaded here (site or session). A session archive only replaces its articles.</p><form class=\"noprint\" id=\"restaurer\"><input type=\"file\" name=\"archive\" accept=\".zip,application/zip\" required> <button type=\"submit\">Restore</button></form><p id=\"restaurer-etat\" role=\"status\"></p>",
+    restoreHint: "<h2>Restore an archive</h2><p class=\"aide\">Choose a ZIP downloaded from this page. A session archive only replaces its articles.</p><form class=\"noprint\" id=\"restaurer\"><input type=\"file\" name=\"archive\" accept=\".zip,application/zip\" required> <button type=\"submit\">Restore</button></form><p id=\"restaurer-etat\" role=\"status\"></p>",
     updateTitle: "Update",
     line: "Socle",
     installed: "Installed version",
     offered: "Offered version",
     none: "No new version is prepared on this server.",
-    latest: "<h2>Install the latest version</h2><p>What is new is on the <a href=\"https://github.com/azdak919/le-socle/releases/latest\">latest release page</a>. On PHP hosting: make a backup, <a href=\"https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip\">download le-socle-php.zip</a>, then upload the socle/ folder over the old one, without replacing donnees/.</p>",
+    latest: "<h2>Install the latest version</h2><ol><li>Download the full backup (Backup page).</li><li><a href=\"https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip\">Download le-socle-php.zip</a> (what is new is on the <a href=\"https://github.com/azdak919/le-socle/releases/latest\">latest release page</a>).</li><li>On PHP hosting, upload the socle/ folder over the old one, without replacing donnees/.</li></ol>",
     backupWill: "Program backup, before",
     notContent: "The journal content is not in this backup.",
     major: "This version breaks something. I confirm.",
@@ -138,29 +152,67 @@ export function adminDocument(lang: Lang, title: string, body: string): Result {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title}</title>
 <style>
-  body { font-family: sans-serif; line-height: 1.45; color: #111; background: #fff; }
-  a:focus, button:focus, input:focus { outline: 3px solid #111; outline-offset: 2px; }
+  :root { --primary: #6d2350; --fg: #1f1a1d; --muted: #6b6468; --border: #e9e3e6; --bg: #fdfcfd; --card: #fff; --accent: #f8eff4; --radius: 0.625rem; color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Inter, "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 15px; line-height: 1.5; color: var(--fg); background: var(--bg); }
+  a { color: var(--primary); }
+  a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
   .skip { position: absolute; left: -999px; }
-  .skip:focus { left: 0.5rem; top: 0.5rem; background: #fff; }
+  .skip:focus { left: 0.5rem; top: 0.5rem; background: #fff; padding: 0.5rem; z-index: 2; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; padding: 0.75rem 1.25rem; background: #fff; border-bottom: 1px solid var(--border); }
+  .brand { display: flex; align-items: center; gap: 0.6rem; color: var(--fg); text-decoration: none; }
+  .brand .logo { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 0.5rem; background: var(--primary); color: #fff; font-weight: 700; }
+  .brand strong { display: block; font-size: 0.9rem; line-height: 1.2; }
+  .brand small { display: block; color: var(--muted); font-size: 0.75rem; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-left: auto; }
+  .tabs a { padding: 0.4rem 0.7rem; border-radius: 0.5rem; color: var(--fg); text-decoration: none; font-size: 0.875rem; }
+  .tabs a:hover { background: var(--accent); }
+  .tabs a[aria-current="page"] { background: var(--accent); color: var(--primary); font-weight: 600; }
+  main { max-width: 52rem; margin: 1.5rem auto; padding: 0 1rem; page: letter; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) + 4px); padding: 1.25rem 1.5rem 1.5rem; }
+  h1 { margin: 0 0 1rem; font-size: 1.5rem; letter-spacing: -0.02em; }
+  h2 { margin: 1.5rem 0 0.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border); font-size: 1.05rem; }
+  h1 + h2 { margin-top: 0; padding-top: 0; border-top: 0; }
+  p { margin: 0.5rem 0; }
+  ol { margin: 0.5rem 0; padding-left: 1.25rem; } li { margin: 0.25rem 0; }
+  .muted, .aide { color: var(--muted); font-size: 0.875rem; }
+  .fiche { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1rem; margin: 0.5rem 0; }
+  .fiche dt { color: var(--muted); }
+  .fiche dd { margin: 0; font-weight: 600; }
+  .note { background: var(--accent); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem 1rem; }
+  label { display: inline-flex; align-items: center; gap: 0.4rem; margin: 0.15rem 1rem 0.15rem 0; }
+  ul.liens { list-style: none; padding: 0; margin: 0.5rem 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  button, .bouton { display: inline-flex; align-items: center; min-height: 2.25rem; padding: 0.45rem 0.9rem; border: 1px solid var(--border); border-radius: 0.5rem; background: #fff; color: var(--fg); font: inherit; font-size: 0.875rem; font-weight: 500; text-decoration: none; cursor: pointer; }
+  button:hover, .bouton:hover { background: var(--accent); }
+  button[type="submit"]:not(.secondaire), .bouton.principal { background: var(--primary); border-color: var(--primary); color: #fff; }
+  input[type="file"] { font: inherit; font-size: 0.875rem; max-width: 100%; }
+  form { margin: 0.75rem 0; }
   @page letter { size: letter; }
   @page legal { size: legal; }
   @page tabloid { size: tabloid; }
   @page a4 { size: A4; }
   @page a3 { size: A3; }
-  main { page: letter; }
-  @media print { nav, .noprint { display: none; } }
+  @media (max-width: 40rem) { .tabs { margin-left: 0; width: 100%; } main { margin-top: 1rem; padding: 0 0.6rem; } .panel { padding: 1rem; } }
+  @media print { nav, .noprint, .bar { display: none; } .panel { border: 0; padding: 0; } }
 </style>
 </head>
 <body>
 <a class="skip" href="#contenu">${copy.skip}</a>
+<header class="bar noprint">
+<a class="brand" href="${withLang("/admin", lang)}"><span class="logo" aria-hidden="true">K</span><span><strong>Le Kiosque</strong><small>${copy.brandSub}</small></span></a>
+<nav class="tabs" aria-label="${copy.office}">
+<a href="${withLang("/admin", lang)}">${copy.back}</a>
+<a href="${withLang("/admin/sauvegarde", lang)}"${title === copy.saveTitle ? ' aria-current="page"' : ""}>${copy.saveLink}</a>
+<a href="${withLang("/admin/mise-a-jour", lang)}"${title === copy.updateTitle ? ' aria-current="page"' : ""}>${copy.updateLink}</a>
+<a href="${other}" hreflang="${copy.otherLang}">${copy.other}</a>
+</nav>
+</header>
 <main id="contenu">
+<div class="panel">
 <h1>${title}</h1>
 ${body}
+</div>
 </main>
-<nav class="noprint">
-<p><a href="${withLang("/admin", lang)}">${copy.back}</a></p>
-<p><a href="${other}" hreflang="${copy.otherLang}">${copy.other}</a></p>
-</nav>
 </body>
 </html>`,
   };
@@ -247,7 +299,7 @@ export async function handleAdmin(
 
   if (!exportOn && path !== "/admin/mise-a-jour" && path !== "/admin/mise-a-jour/revenir") {
     if (path === "/admin/sauvegarde" && method === "GET") {
-      return adminDocument(lang, copy.saveTitle, `<p>${copy.off}</p><form class="noprint" method="post" action="${withLang("/admin/sauvegarde/activer", lang)}"><button type="submit">${copy.activate}</button></form>`);
+      return adminDocument(lang, copy.saveTitle, `<p class="note">${copy.off}</p><form class="noprint" method="post" action="${withLang("/admin/sauvegarde/activer", lang)}"><button type="submit">${copy.activate}</button></form>`);
     }
     return { status: 404, body: "", headers: {} };
   }
@@ -258,18 +310,22 @@ export async function handleAdmin(
     const boxes = years.map((year) => {
       const checked = prefs.years.includes(year) ? " checked" : "";
       return `<label><input type="checkbox" name="year" value="${year}"${checked}> ${year}</label>`;
-    }).join("<br>");
+    }).join(" ");
     const named = (await sessionsIn(deps.store)).filter((session) => isSessionName(session) && !SEASONS.includes(session as typeof SEASONS[number]));
     const sessions = [...SEASONS, ...named];
     const links = sessions.map((session) => {
       const href = withLang(`/admin/sauvegarde/session.zip?session=${encodeURIComponent(session)}`, lang);
-      return `<li><a href="${href}">${copy.sessionOf} ${session === "ete" ? "été" : session}, ${copy.articlesOnly}</a></li>`;
+      return `<li><a class="bouton" href="${href}">${copy.sessionOf} ${session === "ete" ? "été" : session}</a></li>`;
     }).join("");
-    return adminDocument(lang, copy.saveTitle, `<p>${copy.yearsHelp}</p>
-<form class="noprint" method="post" action="${withLang("/admin/sauvegarde/prefs", lang)}">${boxes}<p><button type="submit">${copy.savePrefs}</button></p></form>
-<p class="noprint"><a href="${withLang("/admin/sauvegarde/site.zip", lang)}">${copy.downloadSite}</a></p>
-<ul class="noprint">${links}</ul>
-${copy.restoreHint}<script>document.getElementById('restaurer').onsubmit=async function(e){e.preventDefault();var f=this.archive.files[0];if(!f)return;var s=document.getElementById('restaurer-etat');s.textContent='…';var r=await fetch(location.pathname+'/restaurer'+location.search,{method:'POST',headers:{'content-type':'application/zip'},body:f});var t=await r.text();s.textContent=r.ok?'OK : '+t:'Erreur '+r.status;};</script>`);
+    return adminDocument(lang, copy.saveTitle, `<p>${copy.saveIntro}</p>
+<p class="noprint"><a class="bouton principal" href="${withLang("/admin/sauvegarde/site.zip", lang)}">${copy.downloadSite}</a></p>
+<h2>${copy.yearsTitle}</h2>
+<p class="aide">${copy.yearsHelp}</p>
+<form class="noprint" method="post" action="${withLang("/admin/sauvegarde/prefs", lang)}"><p>${boxes}</p><p><button type="submit" class="secondaire">${copy.savePrefs}</button></p></form>
+<h2>${copy.sessionsTitle}</h2>
+<p class="aide">${copy.sessionsHelp}</p>
+<ul class="liens noprint">${links}</ul>
+${copy.restoreHint}<script>document.getElementById('restaurer').onsubmit=async function(e){e.preventDefault();var f=this.archive.files[0];if(!f)return;var s=document.getElementById('restaurer-etat');s.textContent='…';var r=await fetch(location.pathname+'/restaurer'+location.search,{method:'POST',headers:{'content-type':'application/zip'},body:f});var t=await r.text();s.textContent=r.ok?${JSON.stringify(copy.restored)}:${JSON.stringify(copy.restoreFailed)}+' ('+r.status+')';};</script>`);
   }
 
   if (path === "/admin/sauvegarde/prefs" && method === "POST") {
@@ -310,18 +366,18 @@ ${copy.restoreHint}<script>document.getElementById('restaurer').onsubmit=async f
     const current = deps.version();
     const offered = deps.release();
     const offer = offered
-      ? `<p>${copy.offered} : ${offered.version}. ${offered.notes}</p>`
-      : `<p>${copy.none}</p>`;
+      ? `<dt>${copy.offered}</dt><dd>${offered.version}</dd></dl><p>${offered.notes}</p>`
+      : `</dl><p class="aide">${copy.none}</p>`;
     const major = offered !== null && majorOf(offered.version) !== majorOf(current);
     const extra = major ? `<label><input type="checkbox" name="confirmMajor" value="1"> ${copy.major}</label>` : "";
     const named = offered ? programBackupName(current, offered.version) : "";
     const backup = offered
-      ? `<p>${copy.backupWill} : ${named}. ${copy.notContent}</p>`
+      ? `<p class="note">${copy.backupWill} : ${named}. ${copy.notContent}</p>`
       : "";
     const saved = readProgramBackup(deps.backupDir);
     const allowed = await mayUpdate(deps.store, actor);
     const revert = allowed && saved
-      ? `<form class="noprint" method="post" action="${withLang("/admin/mise-a-jour/revenir", lang)}"><button type="submit">${copy.revert}</button></form>`
+      ? `<form class="noprint" method="post" action="${withLang("/admin/mise-a-jour/revenir", lang)}"><button type="submit" class="secondaire">${copy.revert}</button></form>`
       : "";
     const form = allowed && offered
       ? `<form class="noprint" method="post" action="${withLang("/admin/mise-a-jour", lang)}">
@@ -329,7 +385,7 @@ ${extra}
 <p><button type="submit" name="confirm" value="1">${copy.updateBtn}</button></p>
 </form>`
       : "";
-    return adminDocument(lang, copy.updateTitle, `<h2>${copy.line}</h2><p>${copy.installed} : ${current}.</p>${offer}${backup}
+    return adminDocument(lang, copy.updateTitle, `<dl class="fiche"><dt>${copy.installed}</dt><dd>${current}</dd>${offer}${backup}
 ${form}
 ${revert}
 ${copy.latest}`);
@@ -354,7 +410,7 @@ ${copy.latest}`);
       if (!(error instanceof Error)) throw error;
       return { status: 500, body: previous, headers: { "content-type": "text/plain; charset=utf-8" } };
     }
-    return adminDocument(lang, copy.updateTitle, `<h2>${copy.line}</h2><p>${copy.done}</p><p>${copy.installed} : ${deps.version()}.</p>`);
+    return adminDocument(lang, copy.updateTitle, `<p class="note">${copy.done}</p><dl class="fiche"><dt>${copy.installed}</dt><dd>${deps.version()}</dd></dl>`);
   }
 
   if (path === "/admin/mise-a-jour/revenir" && method === "POST") {
@@ -370,7 +426,7 @@ ${copy.latest}`);
       if (!(error instanceof Error)) throw error;
       return { status: 500, body: previous, headers: { "content-type": "text/plain; charset=utf-8" } };
     }
-    return adminDocument(lang, copy.updateTitle, `<h2>${copy.line}</h2><p>${copy.reverted}</p><p>${copy.installed} : ${deps.version()}.</p>`);
+    return adminDocument(lang, copy.updateTitle, `<p class="note">${copy.reverted}</p><dl class="fiche"><dt>${copy.installed}</dt><dd>${deps.version()}</dd></dl>`);
   }
 
   return { status: 404, body: "", headers: {} };

@@ -1,6 +1,7 @@
 # Journal
 
 ## Non publié
+- Pages Sauvegarde et Mise à jour au style de la rédaction (barre du haut, carte, boutons, couleurs), Node et PHP, ordinateur et mobile. Textes plus clairs : « Télécharger la sauvegarde complète » d'abord, années et sessions expliquées, restauration qui dit « Archive restaurée » au lieu d'un JSON, étapes de mise à jour numérotées.
 - Version 1.1.0. Le paquet PHP est publié comme Release GitHub à chaque étiquette vX.Y.Z (workflow « Release »), à une adresse fixe lisible sans compte : https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip. La page Mise à jour et LISEZMOI.txt y renvoient, avec la marche à suivre (sauvegarde, dossier socle/ par-dessus l'ancien, donnees/ intact).
 - Rédaction : un compte auteur ne se voit plus proposer « Publié », « Programmé » ni « Archivé » (le serveur les refusait) ; l'aide dit de passer « En révision ».
 - Photos d'article : la licence saisie à côté du crédit (photo principale ou photo dans le texte) est enfin gardée par le serveur, Node et PHP ; l'éditeur visuel range aussi la première ligne dans un paragraphe.
