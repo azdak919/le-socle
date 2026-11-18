@@ -16,6 +16,23 @@ const CAPABILITIES = Object.freeze({
 
 const KINDS = new Set(['article', 'author', 'section', 'category', 'tag', 'media']);
 
+// Les messages du serveur sont courts et techniques ; on les dit en mots simples.
+const FRIENDLY_ERRORS = {
+  'un article publié doit être signé': 'Pour publier, cochez au moins une signature. Sans signature, créez-en une dans « Équipe ».',
+  'un article publié doit avoir une section': 'Pour publier, choisissez une section.',
+  'un article publié ne peut pas être vide': 'L’article est vide : écrivez son texte avant de publier.',
+  'date de publication requise': 'Indiquez la date et l’heure de publication.',
+  'titre requis': 'Donnez un titre à l’article.',
+  'corps requis': 'Écrivez le texte de l’article.',
+  'slug invalide': 'L’adresse de l’article ne peut contenir que des lettres minuscules, des chiffres et des tirets.',
+  'statut inconnu': 'Choisissez un statut dans la liste.',
+};
+
+function friendlyError(message) {
+  if (!message) return '';
+  return FRIENDLY_ERRORS[message] || message;
+}
+
 export class SocleBackendError extends Error {
   constructor(message, status) {
     super(message);
@@ -71,23 +88,23 @@ export class SocleBackend {
         body: body === undefined ? undefined : JSON.stringify(body),
       });
     } catch {
-      throw new SocleBackendError('Le socle ne répond pas. Le journal publié reste lisible ; réessayez dans un instant.', 0);
+      throw new SocleBackendError('Le serveur du journal ne répond pas. Le site publié reste lisible ; réessayez dans un instant.', 0);
     }
     const text = await response.text();
     let data = null;
     try { data = text ? JSON.parse(text) : null; } catch { data = null; }
     if (!response.ok) {
-      const fallback = response.status === 401 ? 'Connectez-vous au socle pour écrire.'
-        : response.status === 404 ? 'Le module éditorial du socle est éteint.'
-          : `Le socle a refusé (${response.status}).`;
-      throw new SocleBackendError(data?.error || fallback, response.status);
+      const fallback = response.status === 401 ? 'Votre session a expiré : reconnectez-vous pour écrire.'
+        : response.status === 404 ? 'La rédaction est éteinte sur ce serveur : prévenez l’administrateur.'
+          : `Le serveur du journal a refusé la demande (code ${response.status}).`;
+      throw new SocleBackendError(friendlyError(data?.error) || fallback, response.status);
     }
     return data;
   }
 
   async #load() {
     const state = await this.#request('GET', 'etat');
-    if (state?.format !== 'socle-redaction') throw new SocleBackendError('Réponse du socle illisible.', 500);
+    if (state?.format !== 'socle-redaction') throw new SocleBackendError('Le serveur du journal a répondu de façon inattendue : rechargez la page.', 500);
     // Socle neuf : une fiche de départ, écrite au premier enregistrement de
     // la configuration. Rien n'est envoyé avant.
     if (!state.publication) {
@@ -167,7 +184,7 @@ export class SocleBackend {
   }
 
   async removeDemo() {
-    throw new SocleBackendError('Le socle ne garde pas d’exemples à retirer : supprimez les articles un par un.', 400);
+    throw new SocleBackendError('Il n’y a pas d’exemples à retirer ici : supprimez les articles un par un.', 400);
   }
 
   async resetDemo() {

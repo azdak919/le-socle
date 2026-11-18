@@ -36,10 +36,10 @@ const VIEWS = [
   ['dashboard', 'Tableau de bord'],
   ['articles', 'Articles'],
   ['media', 'Photos'],
-  ['authors', 'Auteurs'],
+  ['authors', 'Équipe'],
   ['taxonomies', 'Sections et catégories'],
   ['settings', 'Configuration'],
-  ['exports', 'Exporter et poursuivre'],
+  ['exports', 'Exporter'],
 ];
 
 function icon(name) {

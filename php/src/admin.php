@@ -89,7 +89,7 @@ function socle_admin_copy(string $lang): array {
             'restored' => 'Archive restored. Reload the newsroom to see the content.',
             'restoreFailed' => 'Restore failed: make sure it is a ZIP downloaded from this page.',
             'savePrefs' => 'Save', 'downloadSite' => 'Download the full backup', 'sessionOf' => 'Session', 'articlesOnly' => 'articles only',
-            'restoreHint' => '<h2>Restore an archive</h2><p class="aide">Choose a ZIP downloaded from this page. A session archive only replaces its articles.</p><form class="noprint" id="restaurer"><input type="file" name="archive" accept=".zip,application/zip" required> <button type="submit">Restore</button></form><p id="restaurer-etat" role="status"></p>',
+            'restoreHint' => '<h2>Restore an archive</h2><p class="aide">Choose a ZIP downloaded from this page. A session archive only replaces its articles.</p><form class="noprint" id="restaurer"><label>Archive to restore (ZIP) <input type="file" name="archive" accept=".zip,application/zip" required></label> <button type="submit" data-confirm="Restoring replaces the current content with this archive. Continue?">Restore</button></form><p id="restaurer-etat" role="status"></p>',
             'updateTitle' => 'Update', 'line' => 'Socle', 'installed' => 'Installed version', 'offered' => 'Offered version',
             'none' => 'No new version is prepared on this server.',
             'latest' => '<h2>Install the latest version</h2><ol><li>Download the full backup (Backup page).</li><li><a href="https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip">Download le-socle-php.zip</a> (what is new is on the <a href="https://github.com/azdak919/le-socle/releases/latest">latest release page</a>).</li><li>Upload the socle/ folder over the old one, without replacing donnees/.</li></ol>',
@@ -111,8 +111,8 @@ function socle_admin_copy(string $lang): array {
         'sessionsTitle' => 'Archive d’une session', 'sessionsHelp' => 'Seulement les articles de la session choisie, sans photos ni réglages.',
         'restored' => 'Archive restaurée. Rechargez la rédaction pour voir le contenu.',
         'restoreFailed' => 'La restauration a échoué : vérifiez que c’est bien un ZIP téléchargé sur cette page.',
-        'savePrefs' => 'Enregistrer', 'downloadSite' => 'Télécharger la sauvegarde complète', 'sessionOf' => 'Session', 'articlesOnly' => 'articles seulement',
-        'restoreHint' => '<h2>Restaurer une archive</h2><p class="aide">Choisissez un ZIP téléchargé sur cette page. Une archive de session ne remplace que ses articles.</p><form class="noprint" id="restaurer"><input type="file" name="archive" accept=".zip,application/zip" required> <button type="submit">Restaurer</button></form><p id="restaurer-etat" role="status"></p>',
+        'savePrefs' => 'Garder ce choix d’années', 'downloadSite' => 'Télécharger la sauvegarde complète', 'sessionOf' => 'Session', 'articlesOnly' => 'articles seulement',
+        'restoreHint' => '<h2>Restaurer une archive</h2><p class="aide">Choisissez un ZIP téléchargé sur cette page. Une archive de session ne remplace que ses articles.</p><form class="noprint" id="restaurer"><label>Archive à restaurer (ZIP) <input type="file" name="archive" accept=".zip,application/zip" required></label> <button type="submit" data-confirm="La restauration remplace le contenu actuel par celui de cette archive. Continuer?">Restaurer</button></form><p id="restaurer-etat" role="status"></p>',
         'updateTitle' => 'Mise à jour', 'line' => 'Socle', 'installed' => 'Version en place', 'offered' => 'Version proposée',
         'none' => 'Aucune nouvelle version n’est préparée sur ce serveur.',
         'latest' => '<h2>Installer la dernière version</h2><ol><li>Téléchargez la sauvegarde complète (page Sauvegarde).</li><li><a href="https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip">Téléchargez le-socle-php.zip</a> (nouveautés sur la <a href="https://github.com/azdak919/le-socle/releases/latest">page de la dernière version</a>).</li><li>Envoyez le dossier socle/ par-dessus l’ancien, sans remplacer donnees/.</li></ol>',
@@ -199,7 +199,7 @@ function socle_handle_admin(string $method, string $url, array &$config, SocleSt
 <h2>' . $copy['sessionsTitle'] . '</h2>
 <p class="aide">' . $copy['sessionsHelp'] . '</p>
 <ul class="liens noprint">' . $links . '</ul>
-' . $copy['restoreHint'] . '<script>document.getElementById(\'restaurer\').onsubmit=async function(e){e.preventDefault();var f=this.archive.files[0];if(!f)return;var s=document.getElementById(\'restaurer-etat\');s.textContent=\'…\';var r=await fetch(location.pathname+\'/restaurer\'+location.search,{method:\'POST\',headers:{\'content-type\':\'application/zip\'},body:f});var t=await r.text();s.textContent=r.ok?' . json_encode($copy['restored'], JSON_UNESCAPED_UNICODE) . ':' . json_encode($copy['restoreFailed'], JSON_UNESCAPED_UNICODE) . '+\' (\'+r.status+\')\';};</script>';
+' . $copy['restoreHint'] . '<script>document.getElementById(\'restaurer\').onsubmit=async function(e){e.preventDefault();var f=this.archive.files[0];if(!f)return;if(!confirm(this.querySelector(\'[data-confirm]\').dataset.confirm))return;var s=document.getElementById(\'restaurer-etat\');s.textContent=\'…\';var r=await fetch(location.pathname+\'/restaurer\'+location.search,{method:\'POST\',headers:{\'content-type\':\'application/zip\'},body:f});var t=await r.text();s.textContent=r.ok?' . json_encode($copy['restored'], JSON_UNESCAPED_UNICODE) . ':' . json_encode($copy['restoreFailed'], JSON_UNESCAPED_UNICODE) . '+\' (\'+r.status+\')\';};</script>';
         return socle_admin_document($lang, $copy['saveTitle'], $body);
     }
 
@@ -239,6 +239,11 @@ function socle_handle_admin(string $method, string $url, array &$config, SocleSt
     if ($path === '/admin/mise-a-jour' && $method === 'GET' && socle_paquet() !== null) {
         parse_str((string) (parse_url($url, PHP_URL_QUERY) ?? ''), $query);
         return socle_paquet_page($lang, socle_may_update($store, $actor, $actorDefined), array_key_exists('verifier', $query), null);
+    }
+
+    // Recharger la page après une mise à jour refait un GET : on revient à la page Mise à jour au lieu d'une page blanche.
+    if (($path === '/admin/mise-a-jour/paquet' || $path === '/admin/mise-a-jour/paquet/revenir') && $method === 'GET') {
+        return socle_result(303, '', ['location' => socle_with_lang('/admin/mise-a-jour', $lang)]);
     }
 
     if (($path === '/admin/mise-a-jour/paquet' || $path === '/admin/mise-a-jour/paquet/revenir') && $method === 'POST') {
