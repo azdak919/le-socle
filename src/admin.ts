@@ -1,5 +1,7 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { randomBytes } from "node:crypto";
+import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   buildSessionZip,
@@ -8,6 +10,7 @@ import {
   isSessionName,
   markDownloaded,
   readPrefs,
+  archiveSummary,
   restoreZip,
   sessionsIn,
   wasDownloaded,
@@ -19,6 +22,50 @@ import { enabledModules, type SocleConfig } from "./config.ts";
 import type { SocleStore } from "./store.ts";
 
 export type ReleaseInfo = { version: string; notes: string };
+
+/** Script de restauration en deux temps, partagé avec PHP (lu à la demande : le Worker n'a pas de fichiers). */
+function restoreScript(): string {
+  try {
+    const path = join(dirname(fileURLToPath(import.meta.url)), "..", "admin", "assets", "restauration.js");
+    return readFileSync(path, "utf8").replaceAll("</", "<\\/");
+  } catch {
+    return "";
+  }
+}
+
+function jsonResult(status: number, value: unknown): Result {
+  return { status, body: JSON.stringify(value), headers: { "content-type": "application/json; charset=utf-8" } };
+}
+
+/** Archives en attente de confirmation, gardées une heure en mémoire. */
+const pendingRestores = new Map<string, { bytes: Uint8Array; at: number }>();
+
+function stashRestore(bytes: Uint8Array): string {
+  const now = Date.now();
+  for (const [token, entry] of pendingRestores) if (now - entry.at > 3_600_000) pendingRestores.delete(token);
+  const token = randomBytes(16).toString("hex");
+  pendingRestores.set(token, { bytes, at: now });
+  return token;
+}
+
+function unstashRestore(token: string): Uint8Array {
+  const entry = /^[a-f0-9]{32}$/.test(token) ? pendingRestores.get(token) : undefined;
+  if (!entry || Date.now() - entry.at > 3_600_000) throw new Error("archive expirée : choisissez-la de nouveau");
+  pendingRestores.delete(token);
+  return entry.bytes;
+}
+
+/** Copie de l'état actuel avant une restauration ; les cinq dernières sont gardées. */
+async function autoBackup(deps: AdminDeps, now: Date): Promise<string> {
+  const dir = join(deps.backupDir, "avant-restauration");
+  mkdirSync(dir, { recursive: true });
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const name = `avant-restauration-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.zip`;
+  writeFileSync(join(dir, name), await buildSiteZip(deps.store, now));
+  const all = readdirSync(dir).filter((file) => file.startsWith("avant-restauration-") && file.endsWith(".zip")).sort();
+  while (all.length > 5) unlinkSync(join(dir, all.shift() as string));
+  return name;
+}
 
 export type AdminDeps = {
   store: SocleStore;
@@ -43,7 +90,7 @@ const COPY = {
     brandSub: "Rédaction",
     other: "English",
     otherLang: "en",
-    office: "Back-office",
+    office: "Interface d’administration",
     notice: "Allumez la sauvegarde et téléchargez l'archive. Si le serveur est perdu, réinstallez avec le configurateur du Kiosque et choisissez cette archive.",
     saveLink: "Sauvegarde",
     updateLink: "Mise à jour",
@@ -56,17 +103,17 @@ const COPY = {
     off: "La sauvegarde est éteinte.",
     activate: "Activer",
     saveIntro: "Gardez une copie du journal hors du serveur : articles, photos, équipe et réglages, dans un seul fichier ZIP. Faites-le avant chaque mise à jour.",
-    yearsTitle: "Années comprises dans l’archive",
-    yearsHelp: "L’année en cours et la précédente sont cochées au départ. Décochez les années déjà gardées dans une archive plus ancienne : l’archive sera plus légère.",
-    sessionsTitle: "Archive d’une session",
+    yearsTitle: "Années comprises dans la sauvegarde",
+    yearsHelp: "L’année en cours et la précédente sont cochées au départ. Décochez les années déjà gardées dans une sauvegarde plus ancienne : le fichier sera plus léger.",
+    sessionsTitle: "Sauvegarde d’une session",
     sessionsHelp: "Seulement les articles de la session choisie, sans photos ni réglages.",
-    restored: "Archive restaurée. Rechargez la rédaction pour voir le contenu.",
+    restored: "Sauvegarde restaurée. Rechargez la rédaction pour voir le contenu.",
     restoreFailed: "La restauration a échoué : vérifiez que c’est bien un ZIP téléchargé sur cette page.",
     savePrefs: "Garder ce choix d’années",
     downloadSite: "Télécharger la sauvegarde complète",
     sessionOf: "Session",
     articlesOnly: "articles seulement",
-    restoreHint: "<h2>Restaurer une archive</h2><p class=\"aide\">Choisissez un ZIP téléchargé sur cette page. Une archive de session ne remplace que ses articles.</p><form class=\"noprint\" id=\"restaurer\"><label>Archive à restaurer (ZIP) <input type=\"file\" name=\"archive\" accept=\".zip,application/zip\" required></label> <button type=\"submit\" data-confirm=\"La restauration remplace le contenu actuel par celui de cette archive. Continuer?\">Restaurer</button></form><p id=\"restaurer-etat\" role=\"status\"></p>",
+    restoreHint: "<h2>Restaurer une sauvegarde</h2><p class=\"aide\">Choisissez un fichier ZIP téléchargé sur cette page. Vous verrez d’abord ce qu’il contient : rien ne change avant votre confirmation. Une sauvegarde de session ne remplace que les articles de cette session. Réservé à l’administrateur.</p><form class=\"noprint\" id=\"restaurer\" data-lecture=\"Lecture du fichier…\" data-choisir=\"Choisissez d’abord un fichier.\" data-apercu=\"Contenu de cette sauvegarde\" data-fichier=\"Fichier\" data-date=\"Date de la sauvegarde\" data-inconnue=\"non indiquée (sauvegarde ancienne)\" data-journal=\"Journal\" data-session=\"Session seulement\" data-articles=\"Articles\" data-photos=\"Photos\" data-sections=\"Sections\" data-comptes=\"Comptes de l’équipe\" data-avertir=\"Restaurer remet en place les articles, les photos, les sections et les comptes de cette sauvegarde, par-dessus le contenu actuel ; les articles écrits depuis sont gardés. Juste avant, le journal garde automatiquement une copie de l’état actuel, que vous pourrez télécharger.\" data-confirmer=\"Restaurer cette sauvegarde\" data-annuler=\"Annuler\" data-fait=\"Sauvegarde restaurée. Rechargez la rédaction pour voir le contenu.\" data-auto=\"Copie de l’état d’avant la restauration :\" data-telecharger=\"la télécharger\" data-echec=\"Rien n’a changé :\"><label>Fichier de sauvegarde (ZIP) <input type=\"file\" name=\"archive\" accept=\".zip,application/zip\" required></label> <button type=\"submit\">Voir le contenu</button></form><div id=\"restaurer-etat\" role=\"status\" tabindex=\"-1\"></div>",
     updateTitle: "Mise à jour",
     line: "Socle",
     installed: "Version en place",
@@ -89,7 +136,7 @@ const COPY = {
     brandSub: "Newsroom",
     other: "Français",
     otherLang: "fr",
-    office: "Back office",
+    office: "Administration",
     notice: "Turn backup on and download the archive. If the server is lost, reinstall with the Kiosque configurator and choose that archive.",
     saveLink: "Backup",
     updateLink: "Update",
@@ -112,7 +159,7 @@ const COPY = {
     downloadSite: "Download the full backup",
     sessionOf: "Session",
     articlesOnly: "articles only",
-    restoreHint: "<h2>Restore an archive</h2><p class=\"aide\">Choose a ZIP downloaded from this page. A session archive only replaces its articles.</p><form class=\"noprint\" id=\"restaurer\"><label>Archive to restore (ZIP) <input type=\"file\" name=\"archive\" accept=\".zip,application/zip\" required></label> <button type=\"submit\" data-confirm=\"Restoring replaces the current content with this archive. Continue?\">Restore</button></form><p id=\"restaurer-etat\" role=\"status\"></p>",
+    restoreHint: "<h2>Restore a backup</h2><p class=\"aide\">Choose a ZIP file downloaded from this page. You will first see what it contains: nothing changes until you confirm. A session backup only replaces that session’s articles. Administrator only.</p><form class=\"noprint\" id=\"restaurer\" data-lecture=\"Reading the file…\" data-choisir=\"Choose a file first.\" data-apercu=\"What this backup contains\" data-fichier=\"File\" data-date=\"Backup date\" data-inconnue=\"not given (older backup)\" data-journal=\"Journal\" data-session=\"One session only\" data-articles=\"Articles\" data-photos=\"Photos\" data-sections=\"Sections\" data-comptes=\"Team accounts\" data-avertir=\"Restoring puts back this backup’s articles, photos, sections and accounts over the current content; articles written since are kept. Just before, the journal automatically keeps a copy of the current state, which you can download.\" data-confirmer=\"Restore this backup\" data-annuler=\"Cancel\" data-fait=\"Backup restored. Reload the newsroom to see the content.\" data-auto=\"Copy of the state before restoring:\" data-telecharger=\"download it\" data-echec=\"Nothing changed:\"><label>Backup file (ZIP) <input type=\"file\" name=\"archive\" accept=\".zip,application/zip\" required></label> <button type=\"submit\">Show its content</button></form><div id=\"restaurer-etat\" role=\"status\" tabindex=\"-1\"></div>",
     updateTitle: "Update",
     line: "Socle",
     installed: "Installed version",
@@ -186,6 +233,11 @@ export function adminDocument(lang: Lang, title: string, body: string): Result {
   button:hover, .bouton:hover { background: var(--accent); }
   button[type="submit"]:not(.secondaire), .bouton.principal { background: var(--primary); border-color: var(--primary); color: #fff; }
   input[type="file"] { font: inherit; font-size: 0.875rem; max-width: 100%; }
+  button.danger { background: #991b1b; border-color: #991b1b; color: #fff; }
+  button.danger:hover { background: #7f1d1d; }
+  button:disabled { opacity: 0.6; cursor: default; }
+  h3 { margin: 1rem 0 0.25rem; font-size: 0.95rem; }
+  #restaurer label { flex-wrap: wrap; }
   form { margin: 0.75rem 0; }
   @page letter { size: letter; }
   @page legal { size: legal; }
@@ -325,7 +377,7 @@ export async function handleAdmin(
 <h2>${copy.sessionsTitle}</h2>
 <p class="aide">${copy.sessionsHelp}</p>
 <ul class="liens noprint">${links}</ul>
-${copy.restoreHint}<script>document.getElementById('restaurer').onsubmit=async function(e){e.preventDefault();var f=this.archive.files[0];if(!f)return;if(!confirm(this.querySelector('[data-confirm]').dataset.confirm))return;var s=document.getElementById('restaurer-etat');s.textContent='…';var r=await fetch(location.pathname+'/restaurer'+location.search,{method:'POST',headers:{'content-type':'application/zip'},body:f});var t=await r.text();s.textContent=r.ok?${JSON.stringify(copy.restored)}:${JSON.stringify(copy.restoreFailed)}+' ('+r.status+')';};</script>`);
+${copy.restoreHint}<script>${restoreScript()}</script>`);
   }
 
   if (path === "/admin/sauvegarde/prefs" && method === "POST") {
@@ -353,12 +405,42 @@ ${copy.restoreHint}<script>document.getElementById('restaurer').onsubmit=async f
     return { status: 200, body: zip, headers: { "content-type": "application/zip" } };
   }
 
+  // Restauration en deux temps, comme en PHP : résumé sans rien écrire, puis,
+  // après confirmation, copie automatique de l'état actuel et restauration.
+  if (path === "/admin/sauvegarde/restaurer/apercu" && method === "POST") {
+    try {
+      const resume = archiveSummary(rawBody);
+      return jsonResult(200, { jeton: stashRestore(rawBody), resume });
+    } catch (error) {
+      return jsonResult(400, { error: error instanceof Error ? error.message : "archive illisible" });
+    }
+  }
+
   if (path === "/admin/sauvegarde/restaurer" && method === "POST") {
-    const report = await restoreZip(deps.store, rawBody);
+    try {
+      const head = new TextDecoder().decode(rawBody.subarray(0, 64)).trimStart();
+      let bytes = rawBody;
+      if (head.startsWith("{")) {
+        const parsedBody = JSON.parse(new TextDecoder().decode(rawBody)) as { jeton?: unknown };
+        bytes = unstashRestore(String(parsedBody.jeton ?? ""));
+      }
+      archiveSummary(bytes);
+      const auto = await autoBackup(deps, deps.now());
+      const report = await restoreZip(deps.store, bytes);
+      return jsonResult(200, { ...report, sauvegardeAuto: auto });
+    } catch (error) {
+      return jsonResult(400, { error: error instanceof Error ? error.message : "restauration impossible" });
+    }
+  }
+
+  const autoMatch = /^\/admin\/sauvegarde\/auto\/(avant-restauration-[0-9-]+\.zip)$/.exec(path);
+  if (autoMatch && method === "GET") {
+    const file = join(deps.backupDir, "avant-restauration", autoMatch[1]);
+    if (!existsSync(file)) return { status: 404, body: "", headers: {} };
     return {
       status: 200,
-      headers: { "content-type": "application/json; charset=utf-8" },
-      body: JSON.stringify(report),
+      body: new Uint8Array(readFileSync(file)),
+      headers: { "content-type": "application/zip", "content-disposition": `attachment; filename="${autoMatch[1]}"` },
     };
   }
 

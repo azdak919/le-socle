@@ -77,7 +77,7 @@ function socle_prepare_folder(string $backupDir, string $from, string $to): stri
 function socle_admin_copy(string $lang): array {
     if ($lang === 'en') {
         return [
-            'office' => 'Back office',
+            'office' => 'Administration',
             'notice' => 'Turn backup on and download the archive. If the server is lost, reinstall with the Kiosque configurator and choose that archive.',
             'saveLink' => 'Backup', 'updateLink' => 'Update', 'articlesLink' => 'Articles', 'reviewLink' => 'Review',
             'mediaLink' => 'Media', 'audienceLink' => 'Audience', 'notifyLink' => 'Subscriptions',
@@ -89,7 +89,7 @@ function socle_admin_copy(string $lang): array {
             'restored' => 'Archive restored. Reload the newsroom to see the content.',
             'restoreFailed' => 'Restore failed: make sure it is a ZIP downloaded from this page.',
             'savePrefs' => 'Save', 'downloadSite' => 'Download the full backup', 'sessionOf' => 'Session', 'articlesOnly' => 'articles only',
-            'restoreHint' => '<h2>Restore an archive</h2><p class="aide">Choose a ZIP downloaded from this page. A session archive only replaces its articles.</p><form class="noprint" id="restaurer"><label>Archive to restore (ZIP) <input type="file" name="archive" accept=".zip,application/zip" required></label> <button type="submit" data-confirm="Restoring replaces the current content with this archive. Continue?">Restore</button></form><p id="restaurer-etat" role="status"></p>',
+            'restoreHint' => '<h2>Restore a backup</h2><p class="aide">Choose a ZIP file downloaded from this page. You will first see what it contains: nothing changes until you confirm. A session backup only replaces that session’s articles. Administrator only.</p><form class="noprint" id="restaurer" data-lecture="Reading the file…" data-choisir="Choose a file first." data-apercu="What this backup contains" data-fichier="File" data-date="Backup date" data-inconnue="not given (older backup)" data-journal="Journal" data-session="One session only" data-articles="Articles" data-photos="Photos" data-sections="Sections" data-comptes="Team accounts" data-avertir="Restoring puts back this backup’s articles, photos, sections and accounts over the current content; articles written since are kept. Just before, the journal automatically keeps a copy of the current state, which you can download." data-confirmer="Restore this backup" data-annuler="Cancel" data-fait="Backup restored. Reload the newsroom to see the content." data-auto="Copy of the state before restoring:" data-telecharger="download it" data-echec="Nothing changed:"><label>Backup file (ZIP) <input type="file" name="archive" accept=".zip,application/zip" required></label> <button type="submit">Show its content</button></form><div id="restaurer-etat" role="status" tabindex="-1"></div>',
             'updateTitle' => 'Update', 'line' => 'Socle', 'installed' => 'Installed version', 'offered' => 'Offered version',
             'none' => 'No new version is prepared on this server.',
             'latest' => '<h2>Install the latest version</h2><ol><li>Download the full backup (Backup page).</li><li><a href="https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip">Download le-socle-php.zip</a> (what is new is on the <a href="https://github.com/azdak919/le-socle/releases/latest">latest release page</a>).</li><li>Upload the socle/ folder over the old one, without replacing donnees/.</li></ol>',
@@ -100,19 +100,19 @@ function socle_admin_copy(string $lang): array {
         ];
     }
     return [
-        'office' => 'Back-office',
+        'office' => 'Interface d’administration',
         'notice' => 'Allumez la sauvegarde et téléchargez l\'archive. Si le serveur est perdu, réinstallez avec le configurateur du Kiosque et choisissez cette archive.',
         'saveLink' => 'Sauvegarde', 'updateLink' => 'Mise à jour', 'articlesLink' => 'Articles', 'reviewLink' => 'Relecture',
         'mediaLink' => 'Médias', 'audienceLink' => 'Audience', 'notifyLink' => 'Abonnements',
         'saveTitle' => 'Sauvegarde', 'off' => 'La sauvegarde est éteinte.', 'activate' => 'Activer',
         'saveIntro' => 'Gardez une copie du journal hors du serveur : articles, photos, équipe et réglages, dans un seul fichier ZIP. Faites-le avant chaque mise à jour.',
-        'yearsTitle' => 'Années comprises dans l’archive',
-        'yearsHelp' => 'L’année en cours et la précédente sont cochées au départ. Décochez les années déjà gardées dans une archive plus ancienne : l’archive sera plus légère.',
-        'sessionsTitle' => 'Archive d’une session', 'sessionsHelp' => 'Seulement les articles de la session choisie, sans photos ni réglages.',
-        'restored' => 'Archive restaurée. Rechargez la rédaction pour voir le contenu.',
+        'yearsTitle' => 'Années comprises dans la sauvegarde',
+        'yearsHelp' => 'L’année en cours et la précédente sont cochées au départ. Décochez les années déjà gardées dans une sauvegarde plus ancienne : le fichier sera plus léger.',
+        'sessionsTitle' => 'Sauvegarde d’une session', 'sessionsHelp' => 'Seulement les articles de la session choisie, sans photos ni réglages.',
+        'restored' => 'Sauvegarde restaurée. Rechargez la rédaction pour voir le contenu.',
         'restoreFailed' => 'La restauration a échoué : vérifiez que c’est bien un ZIP téléchargé sur cette page.',
         'savePrefs' => 'Garder ce choix d’années', 'downloadSite' => 'Télécharger la sauvegarde complète', 'sessionOf' => 'Session', 'articlesOnly' => 'articles seulement',
-        'restoreHint' => '<h2>Restaurer une archive</h2><p class="aide">Choisissez un ZIP téléchargé sur cette page. Une archive de session ne remplace que ses articles.</p><form class="noprint" id="restaurer"><label>Archive à restaurer (ZIP) <input type="file" name="archive" accept=".zip,application/zip" required></label> <button type="submit" data-confirm="La restauration remplace le contenu actuel par celui de cette archive. Continuer?">Restaurer</button></form><p id="restaurer-etat" role="status"></p>',
+        'restoreHint' => '<h2>Restaurer une sauvegarde</h2><p class="aide">Choisissez un fichier ZIP téléchargé sur cette page. Vous verrez d’abord ce qu’il contient : rien ne change avant votre confirmation. Une sauvegarde de session ne remplace que les articles de cette session. Réservé à l’administrateur.</p><form class="noprint" id="restaurer" data-lecture="Lecture du fichier…" data-choisir="Choisissez d’abord un fichier." data-apercu="Contenu de cette sauvegarde" data-fichier="Fichier" data-date="Date de la sauvegarde" data-inconnue="non indiquée (sauvegarde ancienne)" data-journal="Journal" data-session="Session seulement" data-articles="Articles" data-photos="Photos" data-sections="Sections" data-comptes="Comptes de l’équipe" data-avertir="Restaurer remet en place les articles, les photos, les sections et les comptes de cette sauvegarde, par-dessus le contenu actuel ; les articles écrits depuis sont gardés. Juste avant, le journal garde automatiquement une copie de l’état actuel, que vous pourrez télécharger." data-confirmer="Restaurer cette sauvegarde" data-annuler="Annuler" data-fait="Sauvegarde restaurée. Rechargez la rédaction pour voir le contenu." data-auto="Copie de l’état d’avant la restauration :" data-telecharger="la télécharger" data-echec="Rien n’a changé :"><label>Fichier de sauvegarde (ZIP) <input type="file" name="archive" accept=".zip,application/zip" required></label> <button type="submit">Voir le contenu</button></form><div id="restaurer-etat" role="status" tabindex="-1"></div>',
         'updateTitle' => 'Mise à jour', 'line' => 'Socle', 'installed' => 'Version en place', 'offered' => 'Version proposée',
         'none' => 'Aucune nouvelle version n’est préparée sur ce serveur.',
         'latest' => '<h2>Installer la dernière version</h2><ol><li>Téléchargez la sauvegarde complète (page Sauvegarde).</li><li><a href="https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip">Téléchargez le-socle-php.zip</a> (nouveautés sur la <a href="https://github.com/azdak919/le-socle/releases/latest">page de la dernière version</a>).</li><li>Envoyez le dossier socle/ par-dessus l’ancien, sans remplacer donnees/.</li></ol>',
@@ -199,7 +199,7 @@ function socle_handle_admin(string $method, string $url, array &$config, SocleSt
 <h2>' . $copy['sessionsTitle'] . '</h2>
 <p class="aide">' . $copy['sessionsHelp'] . '</p>
 <ul class="liens noprint">' . $links . '</ul>
-' . $copy['restoreHint'] . '<script>document.getElementById(\'restaurer\').onsubmit=async function(e){e.preventDefault();var f=this.archive.files[0];if(!f)return;if(!confirm(this.querySelector(\'[data-confirm]\').dataset.confirm))return;var s=document.getElementById(\'restaurer-etat\');s.textContent=\'…\';var r=await fetch(location.pathname+\'/restaurer\'+location.search,{method:\'POST\',headers:{\'content-type\':\'application/zip\'},body:f});var t=await r.text();s.textContent=r.ok?' . json_encode($copy['restored'], JSON_UNESCAPED_UNICODE) . ':' . json_encode($copy['restoreFailed'], JSON_UNESCAPED_UNICODE) . '+\' (\'+r.status+\')\';};</script>';
+' . $copy['restoreHint'] . '<script>' . socle_restore_script() . '</script>';
         return socle_admin_document($lang, $copy['saveTitle'], $body);
     }
 
@@ -231,9 +231,36 @@ function socle_handle_admin(string $method, string $url, array &$config, SocleSt
         return socle_result(200, $zip, ['content-type' => 'application/zip']);
     }
 
+    // Restauration en deux temps : 1) le serveur lit l'archive et en donne le résumé
+    // (rien n'est écrit), 2) après confirmation, il garde une copie de l'état actuel
+    // puis restaure. Réservé à l'administrateur (socle_admin_gate).
+    if ($path === '/admin/sauvegarde/restaurer/apercu' && $method === 'POST') {
+        try {
+            $summary = socle_archive_summary($raw);
+        } catch (Throwable $error) {
+            return socle_result(400, socle_json(['error' => $error->getMessage()]), ['content-type' => 'application/json; charset=utf-8']);
+        }
+        return socle_result(200, socle_json(['jeton' => socle_restore_stash($raw), 'resume' => $summary]), ['content-type' => 'application/json; charset=utf-8']);
+    }
+
     if ($path === '/admin/sauvegarde/restaurer' && $method === 'POST') {
-        $report = socle_restore_zip($store, $raw);
-        return socle_result(200, socle_json($report), ['content-type' => 'application/json; charset=utf-8']);
+        $json = ['content-type' => 'application/json; charset=utf-8'];
+        try {
+            $parsed = str_starts_with(ltrim($raw), '{') ? json_decode($raw, true) : null;
+            $bytes = is_array($parsed) ? socle_restore_unstash((string) ($parsed['jeton'] ?? '')) : $raw;
+            socle_archive_summary($bytes);
+            $auto = socle_auto_backup($store, socle_now());
+            $report = socle_restore_zip($store, $bytes);
+        } catch (Throwable $error) {
+            return socle_result(400, socle_json(['error' => $error->getMessage()]), $json);
+        }
+        return socle_result(200, socle_json($report + ['sauvegardeAuto' => $auto]), $json);
+    }
+
+    if (preg_match('#^/admin/sauvegarde/auto/(avant-restauration-[0-9-]+\.zip)$#', $path, $match) && $method === 'GET') {
+        $file = socle_data_dir('sauvegardes-auto') . '/' . $match[1];
+        if (!is_file($file)) return socle_result(404);
+        return socle_result(200, (string) file_get_contents($file), ['content-type' => 'application/zip', 'content-disposition' => 'attachment; filename="' . $match[1] . '"']);
     }
 
     if ($path === '/admin/mise-a-jour' && $method === 'GET' && socle_paquet() !== null) {
@@ -307,6 +334,11 @@ function socle_handle_admin(string $method, string $url, array &$config, SocleSt
     }
 
     return socle_result(404);
+}
+
+/** Script de restauration en deux temps, partagé avec Node (admin/assets/restauration.js). */
+function socle_restore_script(): string {
+    return str_replace('</', '<\\/', (string) file_get_contents(dirname(__DIR__, 2) . '/admin/assets/restauration.js'));
 }
 
 /** Page Mise à jour d'un paquet complet : vérifier, mettre à jour, revenir. */

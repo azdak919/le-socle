@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
 import { handleAdmin, programBackupName, type AdminDeps } from "../src/admin.ts";
-import { buildSessionZip, buildSiteZip, readPrefs, restoreZip, writePrefs } from "../src/archive.ts";
+import { archiveSummary, buildSessionZip, buildSiteZip, readPrefs, restoreZip, writePrefs } from "../src/archive.ts";
 import { defaultConfig } from "../src/config.ts";
 import { createSocleServer } from "../src/server.ts";
 import { openSqliteMemory } from "../src/sqlite.ts";
@@ -339,3 +339,50 @@ test("une session nommée part, un chemin douteux non", async () => {
     await store.close();
   }
 });
+
+test("restaurer en deux temps : résumé, copie de l'état actuel, puis restauration", async () => {
+  const { store, config } = await seeded();
+  const deps = adminDeps(store);
+  try {
+    await store.migrate(["export", "editorial", "media"]);
+    await store.put("editorial", "publication", JSON.stringify({ name: "La Vigie", slug: "la-vigie" }));
+    await store.put("editorial", "section:sports", JSON.stringify({ id: "sports", name: "Sports", slug: "sports" }));
+    await store.put("editorial", "article:a1", JSON.stringify({ id: "a1", title: "Gardé", status: "published", section: "sports", body: { raw: "x" } }));
+    await store.put("media", "bytes:banque/p1.jpg", "AAAA");
+    const zip = await buildSiteZip(store, NOW);
+    const resume = archiveSummary(zip);
+    assert.deepEqual(resume, { kind: "site", session: null, createdAt: "2026-11-17T15:00:00Z", journal: "La Vigie", articles: 1, sections: 1, photos: 1, comptes: 0 });
+    assert.throws(() => archiveSummary(new Uint8Array([1, 2, 3])), /ZIP/);
+    assert.throws(() => archiveSummary(zipStore([textFile("a.txt", "x")])), /sauvegarde/);
+
+    await store.put("editorial", "article:a1", JSON.stringify({ id: "a1", title: "Changé", status: "draft", body: { raw: "y" } }));
+    const bad = await handleAdmin("POST", "/admin/sauvegarde/restaurer/apercu", config, deps, new Uint8Array([1, 2]));
+    assert.equal(bad.status, 400);
+    const preview = await handleAdmin("POST", "/admin/sauvegarde/restaurer/apercu", config, deps, zip);
+    assert.equal(preview.status, 200);
+    const { jeton, resume: shown } = JSON.parse(String(preview.body)) as { jeton: string; resume: { articles: number } };
+    assert.equal(shown.articles, 1);
+    assert.equal(JSON.parse((await store.get("editorial", "article:a1"))!).title, "Changé", "l'aperçu n'écrit rien");
+
+    const done = await handleAdmin("POST", "/admin/sauvegarde/restaurer", config, deps, Buffer.from(JSON.stringify({ jeton })));
+    assert.equal(done.status, 200, String(done.body));
+    const report = JSON.parse(String(done.body)) as { sauvegardeAuto: string };
+    assert.match(report.sauvegardeAuto, /^avant-restauration-\d{4}-\d{2}-\d{2}-\d{6}\.zip$/);
+    assert.equal(JSON.parse((await store.get("editorial", "article:a1"))!).title, "Gardé");
+    assert.deepEqual(readdirSync(join(deps.backupDir, "avant-restauration")), [report.sauvegardeAuto]);
+    const copy = await handleAdmin("GET", `/admin/sauvegarde/auto/${report.sauvegardeAuto}`, config, deps, new Uint8Array());
+    assert.equal(copy.status, 200);
+    const before = unzip(copy.body as Uint8Array);
+    assert.match(new TextDecoder().decode(before.get("redaction/donnees.json")), /Changé/, "la copie garde l'état d'avant");
+
+    const again = await handleAdmin("POST", "/admin/sauvegarde/restaurer", config, deps, Buffer.from(JSON.stringify({ jeton })));
+    assert.equal(again.status, 400, "un jeton ne sert qu'une fois");
+    const page = await handleAdmin("GET", "/admin/sauvegarde", config, deps, new Uint8Array());
+    assert.match(String(page.body), /Voir le contenu/);
+    assert.match(String(page.body), /restaurer\/apercu/);
+    assert.equal(String(page.body).includes("</script>", String(page.body).indexOf("<script>") + 10) , true);
+  } finally {
+    await store.close();
+  }
+});
+

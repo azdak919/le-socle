@@ -144,6 +144,7 @@ export async function buildSiteZip(store: SocleStore, now: Date): Promise<Uint8A
   const files: ZipFile[] = [];
   files.push(textFile("manifest.json", JSON.stringify({
     kind: "site",
+    createdAt: now.toISOString().replace(/\.\d{3}Z$/, "Z"),
     includedYears: prefs.years,
     excludedYears: excluded,
     note: "Les années plus anciennes ne sont pas dans ce fichier. Une archive antérieure est supposée les contenir. Ce programme ne peut pas le vérifier.",
@@ -313,3 +314,72 @@ export async function markDownloaded(store: SocleStore): Promise<void> {
 export async function wasDownloaded(store: SocleStore): Promise<boolean> {
   return (await store.get("export", "downloaded")) === "1";
 }
+
+export type ArchiveSummary = {
+  kind: string;
+  session: string | null;
+  createdAt: string | null;
+  journal: string;
+  articles: number;
+  sections: number;
+  photos: number;
+  comptes: number;
+};
+
+/** Résumé d'une archive avant de la restaurer : rien n'est écrit (comme socle_archive_summary). */
+export function archiveSummary(bytes: Uint8Array): ArchiveSummary {
+  let files: Map<string, Uint8Array>;
+  try {
+    files = unzip(bytes);
+  } catch {
+    throw new Error("ce fichier n’est pas un ZIP lisible");
+  }
+  const text = (name: string): string | null => {
+    const raw = files.get(name);
+    return raw ? new TextDecoder().decode(raw) : null;
+  };
+  const parse = (raw: string | null): unknown => {
+    if (raw === null) return null;
+    try { return JSON.parse(raw); } catch { return null; }
+  };
+  const manifest = parse(text("manifest.json")) as { kind?: unknown; session?: unknown; createdAt?: unknown } | null;
+  if (!manifest || (manifest.kind !== "site" && manifest.kind !== "session")) {
+    throw new Error("ce ZIP n’est pas une sauvegarde du journal (manifest.json absent)");
+  }
+  let articles = 0;
+  let sections = 0;
+  let photos = 0;
+  let journal = "";
+  const data = parse(text("redaction/donnees.json")) as { modules?: Record<string, { key?: string; value?: string }[]> } | null;
+  if (data && data.modules && typeof data.modules === "object") {
+    for (const row of data.modules.editorial ?? []) {
+      const key = String(row.key ?? "");
+      if (key.startsWith("article:")) articles += 1;
+      else if (key.startsWith("section:")) sections += 1;
+      else if (key === "publication") {
+        const publication = parse(String(row.value ?? "")) as { name?: unknown } | null;
+        if (publication && typeof publication.name === "string") journal = publication.name;
+      }
+    }
+    for (const row of data.modules.media ?? []) {
+      if (String(row.key ?? "").startsWith("bytes:")) photos += 1;
+    }
+  } else {
+    for (const name of files.keys()) {
+      if (name.startsWith("content/articles/") && name.endsWith(".json")) articles += 1;
+      if (name.startsWith("media/") && !name.endsWith(".credit")) photos += 1;
+    }
+  }
+  const members = parse(text("auth/members.json"));
+  return {
+    kind: String(manifest.kind),
+    session: manifest.kind === "session" ? String(manifest.session ?? "") : null,
+    createdAt: typeof manifest.createdAt === "string" ? manifest.createdAt : null,
+    journal,
+    articles,
+    sections,
+    photos,
+    comptes: Array.isArray(members) ? members.length : 0,
+  };
+}
+

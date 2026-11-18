@@ -330,6 +330,10 @@ test("le bouton de mise à jour est au responsable seulement quand l'identité e
       assert.ok([303, 401].includes(anonZip.status), "sans session, aucune archive");
       const anonRestore = await fetch(`${base}/admin/sauvegarde/restaurer`, { method: "POST", headers: { "content-type": "application/zip" }, body: "PK" });
       assert.equal(anonRestore.status, 401, "sans session, aucune restauration");
+      const anonPreview = await fetch(`${base}/admin/sauvegarde/restaurer/apercu`, { method: "POST", headers: { "content-type": "application/zip" }, body: "PK" });
+      assert.equal(anonPreview.status, 401, "sans session, aucun résumé d’archive");
+      const benPreview = await fetch(`${base}/admin/sauvegarde/restaurer/apercu`, { method: "POST", headers: { "content-type": "application/zip", cookie: benCookie }, body: "PK" });
+      assert.equal(benPreview.status, 403, "la restauration est à l’administrateur");
       const benZip = await fetch(`${base}/admin/sauvegarde/site.zip`, { headers: { cookie: benCookie } });
       assert.equal(benZip.status, 403, "la sauvegarde est à l’administrateur");
       assert.equal(deps.version(), "0.0.0");

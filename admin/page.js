@@ -19,6 +19,8 @@ export const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character
 export const ADMIN_ASSETS = Object.freeze([
   'admin.js', 'admin.css', 'runtime.js', 'util.js', 'export.js', 'stock-photo-match.js',
   'marked.esm.js', 'socle-backend.js', 'public-backend.js', 'demo-backend.js', 'sqljs-db.js', 'sql-wasm.js', 'sql-wasm.wasm',
+  // Restauration en deux temps des pages /admin/sauvegarde (insérée par PHP et Node).
+  'restauration.js',
 ]);
 
 const ICONS = {
