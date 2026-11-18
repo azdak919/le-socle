@@ -361,9 +361,12 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
 }
 
 /**
- * L'admin de rédaction sous `/redaction/` : la page `admin/serveur.html` et
+ * L'espace de rédaction sous `/redaction/` : la page `admin/serveur.html` et
  * ses fichiers `admin/assets/`, à la racine du dépôt. Même règle que Node
- * (`src/redaction-page.ts`). `null` : ce chemin n'est pas l'admin.
+ * (`src/redaction-page.ts`). `/admin` (sans sous-page) redirige vers
+ * `/redaction/` quand le module éditorial est allumé. Les pages Sauvegarde
+ * et Mise à jour restent à `/admin/sauvegarde` et `/admin/mise-a-jour`.
+ * `null` : ce chemin n'est pas l'espace de rédaction.
  */
 const SOCLE_REDACTION_ASSETS = [
     'admin.js', 'admin.css', 'runtime.js', 'util.js', 'export.js',

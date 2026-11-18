@@ -69,7 +69,9 @@ test("mode navigateur : la même page, pour la démo", () => {
 
 test("/redaction/ : page, fichiers, refus", () => {
   assert.equal(serveRedactionPage("/ailleurs", "GET"), null);
+  assert.equal(serveRedactionPage("/admin/sauvegarde", "GET"), null);
   assert.equal(serveRedactionPage("/redaction", "GET")?.status, 301);
+  assert.equal(serveRedactionPage("/redaction/", "GET")?.headers?.location, undefined);
   assert.equal(serveRedactionPage("/redaction/", "POST")?.status, 405);
   assert.equal(serveRedactionPage("/redaction/assets/demo-backend.js", "GET")?.status, 404);
   assert.equal(serveRedactionPage("/redaction/assets/../page.js", "GET")?.status, 404);
@@ -207,4 +209,26 @@ test("fondation et droits sur les articles ; Configuration et Mise à jour à l'
   assert.match(admin, /\.admin-nav \[data-nav="save"\], \.admin-nav \[data-nav="update"\]'\)\.forEach\(\(link\) => \{ link\.hidden = !admin; \}\)/);
   const css = readFileSync(join(ASSETS, "admin.css"), "utf8");
   assert.match(css, /admin-app\{background:linear-gradient\(to right/);
+});
+
+test("réseaux sociaux : un champ par réseau, exemple pâle et adresse vérifiée, dans l'assistant et la Configuration", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  const block = /const SOCIAL_FIELDS = (\[[\s\S]*?\n\]);/.exec(admin)?.[1];
+  assert.ok(block, "liste SOCIAL_FIELDS");
+  const fields = new Function(`return ${block}`)() as Array<[string, string, string, string]>;
+  assert.deepEqual(fields.map(([id]) => id), ["facebook", "instagram", "x", "bluesky", "mastodon", "tiktok", "youtube", "linkedin", "threads", "email"]);
+  for (const [id, , example, pattern] of fields) {
+    assert.ok(example, `${id} : exemple pâle`);
+    if (!pattern) continue;
+    // L'attribut pattern est compilé avec le drapeau v par les navigateurs.
+    const re = new RegExp(`^(?:${pattern})$`, "v");
+    assert.ok(re.test(example), `${id} : l'exemple passe`);
+    assert.equal(re.test("lavigie"), false, `${id} : un simple nom est refusé`);
+  }
+  assert.equal(new RegExp(`^(?:${fields[2][3]})$`, "v").test("https://facebook.com/oups"), false, "X refuse une adresse Facebook");
+  assert.match(admin, /<details class="field full assistant-social"><summary>Réseaux sociaux \(facultatif\)<\/summary>/);
+  assert.match(admin, /reseaux: readSocial\(data\)/);
+  assert.match(admin, /<legend>Réseaux sociaux<\/legend>[^]*socialFieldsHtml\(publication\.social \|\| \{\}\)/);
+  assert.match(admin, /publication\.social = readSocial\(data\);/);
+  assert.match(admin, /field\.closest\('details'\)\?\.setAttribute\('open', ''\);/);
 });

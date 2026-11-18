@@ -697,6 +697,9 @@ test("l'API de rédaction PHP suit le même parcours que Node", async () => {
       assert.equal(Buffer.compare(Buffer.from(await a.arrayBuffer()), Buffer.from(await b.arrayBuffer())), 0, path);
     }
     assert.equal((await fetch(php.url + "/redaction/")).status, 200);
+    const adminRedirect = await fetch(php.url + "/admin", { redirect: "manual" });
+    assert.equal(adminRedirect.status, 303);
+    assert.equal(adminRedirect.headers.get("location"), "/redaction/");
     assert.equal((await fetch(php.url + "/redaction/assets/demo-backend.js")).status, 404);
   } finally {
     await closeServer(node);
