@@ -119,6 +119,26 @@ return true;
     assert.equal((await call(`${base}/admin/sauvegarde/site.zip`, { headers: { cookie: anaCookie } })).status, 403);
     assert.equal((await call(`${base}/admin/articles`, { method: "POST", headers: { cookie: anaCookie }, body: "title=x&slug=x&status=published" })).status, 403);
     assert.equal((await call(`${base}/admin/sauvegarde/site.zip`, { headers: { cookie } })).status, 200);
+    // Rôles : chef de pupitre limité aux sports, photographe sans articles (miroir PHP de roles.ts).
+    const post = (path: string, body: unknown, who: string) => call(`${base}${path}`, { method: "POST", headers: { ...json, cookie: who }, body: JSON.stringify(body) });
+    assert.equal((await post("/v1/auth/membres", { email: "chef@cegep.example", role: "chef-pupitre", sections: ["sports"], password: "mot de passe du chef" }, cookie)).status, 204);
+    assert.equal((await post("/v1/auth/membres", { email: "photo@cegep.example", role: "photographe", password: "mot de passe photo" }, cookie)).status, 204);
+    const roster = JSON.parse((await call(`${base}/v1/auth/membres`, { headers: { cookie } })).text) as Array<{ email: string; role: string; sections?: string[] }>;
+    assert.deepEqual(roster.find((m) => m.email === "chef@cegep.example"), { email: "chef@cegep.example", role: "chef-pupitre", sections: ["sports"] });
+    const publication = { id: "11111111-1111-4111-8111-111111111111", slug: "la-vigie", name: "La Vigie", institution: "Cégep", institutionType: "cegep", lang: "fr-CA", siteUrl: "https://vigie.exemple", timeZone: "America/Toronto", theme: { accent: "#8a1538" }, governance: { owner: "Asso", contact: "r@vigie.exemple" } };
+    assert.equal((await post("/v1/redaction/publication", { publication }, cookie)).status, 200);
+    for (const [id, slug] of [["s-sports", "sports"], ["s-campus", "campus"]]) {
+      assert.equal((await post("/v1/redaction/entite", { kind: "section", entity: { id, name: slug, slug } }, cookie)).status, 200);
+    }
+    const login2 = async (email: string, password: string) => String((await post("/v1/auth/motdepasse", { email, password }, "")).headers.get("set-cookie")).split(";")[0];
+    const chef = await login2("chef@cegep.example", "mot de passe du chef");
+    const photo = await login2("photo@cegep.example", "mot de passe photo");
+    const piece = (id: string, section: string) => ({ article: { id, slug: id, title: id, body: { format: "markdown", raw: "Texte." }, authors: ["chef"], section, status: "published", publishedAt: "2026-11-18T15:00:00.000Z" } });
+    const inSports = await post("/v1/redaction/article", piece("match", "s-sports"), chef);
+    assert.equal(inSports.status, 200, inSports.text);
+    assert.equal((await post("/v1/redaction/article", piece("conseil", "s-campus"), chef)).status, 403);
+    assert.equal((await post("/v1/redaction/article", piece("photo-article", "s-sports"), photo)).status, 403);
+    assert.equal(JSON.parse((await call(`${base}/v1/redaction/etat`, { headers: { cookie: chef } })).text).scope.join(), "sports");
     const admin = await call(`${base}/admin`, { headers: { cookie }, redirect: "manual" });
     assert.equal(admin.status, 303);
     assert.equal(admin.headers.get("location"), "/journal/socle/redaction/");

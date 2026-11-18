@@ -186,7 +186,7 @@ Tout est rattaché à une organisation. Une organisation est un média ou une r�
 
 Le module 4 n'écrit que dans `audience_day` et `audience_week`. Pas de colonne d'adresse, d'en-tête, d'identifiant de carte, ni de personne. Les tables des modules 1 et 5 sont un fichier de renseignements personnels au sens de la Loi 25 : finalité, accès, durée, et elles sont dans l'export pour que le journal parte avec. On ne les mélange pas avec l'audience. Un module éteint n'a pas de table consultable de l'extérieur ; les migrations de ce module ne s'appliquent que lorsqu'on l'allume.
 
-Rôles : `auteur`, `reviseur`, `editeur`, plus `administrateur` (ancien nom : `responsable`, encore lu) pour les deux personnes qui peuvent récupérer l'accès (le champ `recoveryContacts` de `Governance` en a déjà l'idée). Le rôle ne donne des droits que sur l'API du socle.
+Rôles : `auteur`, `photographe`, `reviseur`, `chef-pupitre` (rubriques choisies), `editeur`, plus `administrateur` (ancien nom : `responsable`, encore lu) pour les deux personnes qui peuvent récupérer l'accès (le champ `recoveryContacts` de `Governance` en a déjà l'idée). Le rôle ne donne des droits que sur l'API du socle.
 
 ### API
 

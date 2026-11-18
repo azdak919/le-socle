@@ -1,15 +1,15 @@
 import { createHash, pbkdf2Sync, randomBytes, timingSafeEqual } from "node:crypto";
 
+import { cleanScope, ROLES, SCOPED, type OrgRole } from "./roles.ts";
 import { ModuleOffError, type SocleStore } from "./store.ts";
 
-const ROLES = ["auteur", "reviseur", "editeur", "administrateur"] as const;
 /** Anciens noms de rôle encore lus (comptes et archives d’avant 1.2). */
 const LEGACY_ROLES: Record<string, (typeof ROLES)[number]> = { responsable: "administrateur" };
 const MAGIC_MS = 15 * 60 * 1000;
 const SESSION_MS = 12 * 60 * 60 * 1000;
 const STATE_MS = 10 * 60 * 1000;
 
-export type OrgRole = (typeof ROLES)[number];
+export type { OrgRole } from "./roles.ts";
 export type AuthMode = "magic" | "github" | "access" | "motdepasse";
 
 const PBKDF2_ITERATIONS = 210000;
@@ -36,7 +36,8 @@ export type AuthRuntime = {
   randomBytes?: (size: number) => Uint8Array;
 };
 
-export type MemberRecord = { email: string; role: OrgRole };
+/** `sections` : rubriques permises (auteur, chef de pupitre) ; absent = toutes. */
+export type MemberRecord = { email: string; role: OrgRole; sections?: string[] };
 
 /**
  * Mot de passe : PBKDF2-SHA256, sel de 16 octets, 210 000 tours. Même format
@@ -180,12 +181,30 @@ export async function mayUpdate(store: SocleStore, actor: string | null | undefi
   return (await roleOf(store, actor)) === "administrateur";
 }
 
+/** Rubriques d'un compte ; liste vide = toutes. */
+export async function scopeOf(store: SocleStore, email: string): Promise<string[]> {
+  try {
+    const raw = await store.get("auth", `scope:${email}`);
+    return raw ? cleanScope(JSON.parse(raw)) : [];
+  } catch (error) {
+    if (error instanceof ModuleOffError || error instanceof SyntaxError) return [];
+    throw error;
+  }
+}
+
+async function writeScope(store: SocleStore, email: string, role: OrgRole, sections: unknown): Promise<void> {
+  const scope = SCOPED.includes(role) ? cleanScope(sections) : [];
+  if (scope.length) await store.put("auth", `scope:${email}`, JSON.stringify(scope));
+  else await store.delete("auth", `scope:${email}`);
+}
+
 export async function saveMember(
   store: SocleStore,
   actor: string | null,
   email: string,
   role: string,
   password?: string,
+  sections?: unknown,
 ): Promise<void> {
   if (!actor || (await roleOf(store, actor)) !== "administrateur") throw new AuthError("réservé à l’administrateur");
   const clean = normalizeEmail(email);
@@ -197,6 +216,7 @@ export async function saveMember(
     await store.put("auth", `password:${clean}`, hashPassword(secret));
   }
   await store.put("auth", `member:${clean}`, canonical);
+  await writeScope(store, clean, canonical, sections);
 }
 
 export async function startMagic(
@@ -335,7 +355,9 @@ export async function membersForArchive(store: SocleStore): Promise<MemberRecord
       if (!row.key.startsWith("member:")) continue;
       const role = canonicalRole(row.value);
       if (!role) continue;
-      members.push({ email: row.key.slice("member:".length), role });
+      const email = row.key.slice("member:".length);
+      const sections = await scopeOf(store, email);
+      members.push(sections.length ? { email, role, sections } : { email, role });
     }
     members.sort((a, b) => a.email.localeCompare(b.email));
     return members;
@@ -349,12 +371,13 @@ export async function restoreMembers(store: SocleStore, value: unknown): Promise
   if (!Array.isArray(value)) return;
   for (const item of value) {
     if (item === null || typeof item !== "object") continue;
-    const record = item as { email?: unknown; role?: unknown };
+    const record = item as { email?: unknown; role?: unknown; sections?: unknown };
     const email = normalizeEmail(record.email);
     const role = canonicalRole(typeof record.role === "string" ? record.role : null);
     if (!email || !role) continue;
     try {
       await store.put("auth", `member:${email}`, role);
+      await writeScope(store, email, role, record.sections);
     } catch (error) {
       if (error instanceof ModuleOffError) return;
       throw error;

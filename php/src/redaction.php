@@ -5,7 +5,6 @@ declare(strict_types=1);
 // Lire l'en-tête de ce fichier Node pour les règles (local, rôles, JSON).
 
 const SOCLE_REDACTION_KINDS = ['author', 'section', 'category', 'tag'];
-const SOCLE_REDACTION_EDITORS = ['reviseur', 'editeur', 'administrateur'];
 const SOCLE_REDACTION_PUBLIC = ['published', 'scheduled', 'archived', 'retracted'];
 const SOCLE_REDACTION_MAX = 8388608;
 const SOCLE_REDACTION_EXT = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
@@ -119,6 +118,18 @@ function socle_slug_from(string $value): string {
     return rtrim(substr($slug, 0, 96), '-');
 }
 
+/** La rubrique (section) est-elle permise ? Par identifiant ou nom court. */
+function socle_sections_allow(SocleStore $store, array $scope, ?string $section): bool {
+    if ($scope === []) return true;
+    if ($section === null || $section === '') return false;
+    $slug = null;
+    $id = $section;
+    foreach (socle_read_kind($store, 'section:') as $item) {
+        if (($item['id'] ?? null) === $section || ($item['slug'] ?? null) === $section) { $id = (string) ($item['id'] ?? $section); $slug = isset($item['slug']) ? (string) $item['slug'] : null; break; }
+    }
+    return socle_in_scope($scope, $id, $slug);
+}
+
 function socle_handle_redaction(string $method, string $uri, array $config, SocleStore $store, string $raw, ?string $actor, bool $defined): array {
     $path = socle_request_path($uri);
     if (!$config['modules']['editorial'] || !str_starts_with($path, '/v1/redaction/')) return socle_result(404);
@@ -130,10 +141,11 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
         $role = socle_role_of($store, $actor);
         if ($role === null) return socle_redaction_fail(403, "Ce compte n'a pas de rôle dans la rédaction.");
     }
-    $editor = in_array($role, SOCLE_REDACTION_EDITORS, true);
+    $scope = ($defined && in_array($role, SOCLE_SCOPED, true)) ? socle_scope_of($store, (string) $actor) : [];
+    $editor = socle_is_editor($role);
 
     if ($method === 'GET' && $path === '/v1/redaction/etat') {
-        return socle_redaction_json(200, socle_redaction_state($store, $config, $role));
+        return socle_redaction_json(200, socle_redaction_state($store, $config, $role) + ['scope' => $scope]);
     }
     if ($method === 'GET' && $path === '/v1/redaction/fichier') {
         parse_str((string) (parse_url($uri, PHP_URL_QUERY) ?? ''), $query);
@@ -150,6 +162,7 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
 
     try {
         if ($path === '/v1/redaction/article') {
+            if (!socle_writes_articles($role)) return socle_redaction_fail(403, "Un compte photographe gère la banque de photos ; il n'écrit pas d'articles.");
             $input = is_array($body['article'] ?? null) ? $body['article'] : [];
             $publication = socle_read_publication($store);
             if ($publication === null) return socle_redaction_fail(409, "Créez d'abord la publication.");
@@ -184,8 +197,10 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
             elseif ($status === 'published' || $status === 'archived') $article['publishedAt'] = $existing['publishedAt'] ?? $now;
             elseif (isset($existing['publishedAt'])) $article['publishedAt'] = $existing['publishedAt'];
             else unset($article['publishedAt']);
+            $allowedHere = socle_sections_allow($store, $scope, $article['section'] ?? null) && ($existing === null || socle_sections_allow($store, $scope, $existing['section'] ?? null));
+            if (!$editor && !$allowedHere) return socle_redaction_fail(403, 'Cet article est hors de vos rubriques : choisissez une de vos rubriques.');
             $touches = in_array($status, SOCLE_REDACTION_PUBLIC, true) || ($existing !== null && in_array($existing['status'] ?? '', SOCLE_REDACTION_PUBLIC, true));
-            if ($touches && !$editor) return socle_redaction_fail(403, 'Publier ou programmer demande un réviseur, un éditeur ou l’administrateur.');
+            if ($touches && !socle_publishes_in($role, $allowedHere)) return socle_redaction_fail(403, 'Publier ou programmer demande un réviseur, un éditeur, l’administrateur, ou le chef de pupitre de la rubrique.');
             foreach ($articles as $item) {
                 if (($item['slug'] ?? '') === $article['slug'] && ($item['id'] ?? '') !== $id) {
                     return socle_redaction_fail(409, "L'adresse « " . $article['slug'] . ' » est déjà prise par un autre article.');
@@ -197,6 +212,7 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
             $kind = socle_redaction_text($body['kind'] ?? null, 20);
             if (!in_array($kind, SOCLE_REDACTION_KINDS, true)) return socle_redaction_fail(400, 'Genre inconnu.');
             if ($kind !== 'author' && !$editor) return socle_redaction_fail(403, 'Les sections, catégories et étiquettes demandent un éditeur.');
+            if ($kind === 'author' && $role === 'photographe') return socle_redaction_fail(403, 'Un compte photographe ne gère pas les signatures.');
             $input = is_array($body['entity'] ?? null) ? $body['entity'] : [];
             $id = socle_redaction_text($input['id'] ?? null, 80);
             if ($id === '') $id = socle_uuid();
@@ -209,10 +225,15 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
             return socle_redaction_json(200, ['entity' => $entity]);
         }
         if ($path === '/v1/redaction/supprimer') {
-            if (!$editor) return socle_redaction_fail(403, 'Supprimer demande un éditeur.');
             $kind = socle_redaction_text($body['kind'] ?? null, 20);
             $id = socle_redaction_text($body['id'] ?? null, 80);
             if ($id === '' || !in_array($kind, [...SOCLE_REDACTION_KINDS, 'article'], true)) return socle_redaction_fail(400, 'Genre ou identifiant invalide.');
+            if (!$editor) {
+                $target = null;
+                if ($kind === 'article') foreach (socle_read_articles($store) as $item) if (($item['id'] ?? null) === $id) $target = $item;
+                $pupitre = $role === 'chef-pupitre' && $target !== null && socle_sections_allow($store, $scope, $target['section'] ?? null);
+                if (!$pupitre) return socle_redaction_fail(403, 'Supprimer demande un éditeur, ou le chef de pupitre de la rubrique.');
+            }
             $store->delete('editorial', $kind . ':' . $id);
             return socle_redaction_json(200, ['ok' => true]);
         }
@@ -232,6 +253,7 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
         }
         if ($path === '/v1/redaction/photo') {
             if (!$config['modules']['media']) return socle_redaction_fail(404, 'Le module media est éteint.');
+            if (($body['bank'] ?? true) === false && !socle_writes_articles($role)) return socle_redaction_fail(403, 'Un compte photographe ajoute ses photos à la banque.');
             $input = is_array($body['asset'] ?? null) ? $body['asset'] : [];
             $data = is_string($body['data'] ?? null) ? preg_replace('/^data:[^,]*,/', '', $body['data']) : '';
             $bytes = base64_decode((string) $data, false);
@@ -290,6 +312,7 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
         }
         if ($path === '/v1/redaction/photo/fiche') {
             if (!$config['modules']['media']) return socle_redaction_fail(404, 'Le module media est éteint.');
+            if (!socle_manages_bank($role)) return socle_redaction_fail(403, "Modifier la fiche d'une photo demande un photographe, un réviseur, un éditeur ou l’administrateur.");
             $input = is_array($body['asset'] ?? null) ? $body['asset'] : [];
             $id = socle_redaction_text($input['id'] ?? null, 80);
             $raw = $id !== '' ? $store->get('media', 'library:' . $id) : null;
@@ -313,7 +336,7 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
         }
         if ($path === '/v1/redaction/photo/supprimer') {
             if (!$config['modules']['media']) return socle_redaction_fail(404, 'Le module media est éteint.');
-            if (!$editor) return socle_redaction_fail(403, 'Retirer une photo de la banque demande un éditeur.');
+            if (!socle_manages_bank($role)) return socle_redaction_fail(403, 'Retirer une photo de la banque demande un photographe ou un éditeur.');
             $id = socle_redaction_text($body['id'] ?? null, 80);
             $raw = $id !== '' ? $store->get('media', 'library:' . $id) : null;
             if ($raw === null) return socle_redaction_fail(404, 'Photo absente de la banque.');

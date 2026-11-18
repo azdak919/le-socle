@@ -117,6 +117,7 @@ export class SocleBackend {
       syncedAt: state.syncedAt,
       demoVisible: state.demoVisible,
       role: state.role,
+      scope: state.scope || [],
       modules: state.modules,
     });
   }
@@ -176,6 +177,7 @@ export class SocleBackend {
   async createBackup(options = {}) {
     const bundle = await this.getSnapshot({ audience: 'editorial' });
     delete bundle.role;
+    delete bundle.scope;
     delete bundle.modules;
     const filter = options.filter || 'all';
     if (filter !== 'all') {
