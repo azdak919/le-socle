@@ -80,6 +80,7 @@ async function applyKiosqueConfig(data) {
   publication.institutionType = ['cegep', 'universite', 'autre'].includes(journal.typeEtablissement) ? journal.typeEtablissement : publication.institutionType;
   publication.region = pick(journal.region, publication.region || '');
   publication.founded = pick(journal.fondation, publication.founded || '');
+  publication.license = pick(journal.licence, publication.license || '');
   publication.siteUrl = pick(journal.adresse, publication.siteUrl || '');
   publication.timeZone = pick(journal.fuseau, publication.timeZone || 'America/Toronto');
   publication.lang = pick(journal.langue, publication.lang || 'fr-CA');
@@ -229,7 +230,7 @@ function flagInvalidFields(form) {
     const message = document.createElement('small');
     message.className = 'field-error';
     message.id = `${field.name || 'champ'}-erreur`;
-    message.textContent = field.validity.valueMissing || field.validity.customError ? 'Ce champ est obligatoire.' : field.validationMessage;
+    message.textContent = field.validity.valueMissing || field.validity.customError ? 'Ce champ est obligatoire.' : (field.dataset.erreur || field.validationMessage);
     field.setAttribute('aria-describedby', message.id);
     label.append(message);
     first ||= field;
@@ -258,10 +259,13 @@ function assistantForm() {
 <p class="muted">Les exemples en gris pâle disparaissent quand vous écrivez ; un champ laissé vide n’enregistre rien. Les champs marqués « obligatoire » doivent être remplis.</p>
 <label>Nom du journal (obligatoire)<input name="nom" required maxlength="80" placeholder="La Vigie"></label>
 <label>Établissement (facultatif)<input name="etablissement" maxlength="120" placeholder="Cégep de Sainte-Foy"></label>
+<label>Année de fondation (facultatif)<input name="fondation" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" data-erreur="Écrivez l’année en quatre chiffres, par exemple 1971." placeholder="1971"></label>
 <label>Organisme responsable du journal (facultatif)<input name="organisme" maxlength="120" placeholder="Association étudiante du Cégep de Sainte-Foy"></label>
 <label>Courriel de la rédaction, affiché sur le site (facultatif)<input name="contact" type="email" placeholder="redaction@exemple.ca"></label>
 <label>Signature (facultatif)<input name="signature" maxlength="120" placeholder="Le journal étudiant du Cégep de Sainte-Foy"></label>
 <label>Sections, séparées par des virgules (obligatoire)<input name="sections" required placeholder="Campus, Culture, Sports"></label>
+<label>Droits sur les articles<select name="licence"><option value="">Tous droits réservés (par défaut)</option><option value="CC BY-NC-ND 4.0">Creative Commons BY-NC-ND 4.0 : partage permis, sans modification ni usage commercial</option></select></label>
+<small>Affiché au bas de chaque page : « © 2026 Nom du journal. Tous droits réservés. » Avec l’année de fondation : « © 1971–2026 ». L’année courante se met à jour toute seule.</small>
 </fieldset>
 <fieldset class="field full"><legend>Apparence</legend>
 <label>Couleur principale<input name="couleur" type="color" value="#6c2163"></label>
@@ -322,7 +326,7 @@ function bindAssistant() {
       const nom = String(data.get('nom')).trim();
       const fiche = {
         format: 'kiosque-config',
-        journal: { nom, slug: slugify(nom), etablissement: String(data.get('etablissement') || '').trim(), signature: String(data.get('signature') || '').trim(), adresse: `${location.origin}${socleRoot()}/` },
+        journal: { nom, slug: slugify(nom), etablissement: String(data.get('etablissement') || '').trim(), signature: String(data.get('signature') || '').trim(), fondation: String(data.get('fondation') || '').trim(), licence: String(data.get('licence') || '').trim(), adresse: `${location.origin}${socleRoot()}/` },
         apparence: { couleur: data.get('couleur'), logo, logoAlt: nom },
         options: { radio: Boolean(data.get('radio')), station: String(data.get('station') || ''), noindex: Boolean(data.get('noindex')), fictif: Boolean(data.get('fictif')) },
         gouvernance: (() => {
@@ -519,15 +523,20 @@ function sectionAllowed(section) {
   return !scope.length || scope.includes(section.slug) || scope.includes(section.id);
 }
 
-/** Menu selon le rôle : le photographe n'a que les photos ; la sauvegarde est à l'administrateur. */
+function isAdminRole() {
+  return ['administrateur', 'responsable'].includes(bundle?.role);
+}
+
+/** Menu selon le rôle : le photographe n'a que les photos ; Configuration, Sauvegarde et Mise à jour sont à l'administrateur. */
 function applyRoleNav() {
   if (!onSocle() || !bundle?.role) return;
   const photographer = bundle.role === 'photographe';
+  // Configuration, Sauvegarde et Mise à jour : l'administrateur seulement (le serveur refuse aux autres).
+  const admin = !authOn() || isAdminRole();
   document.querySelectorAll('.admin-nav [data-view]').forEach((link) => {
-    link.hidden = photographer && !['dashboard', 'media'].includes(link.dataset.view);
+    link.hidden = (photographer && !['dashboard', 'media'].includes(link.dataset.view)) || (!admin && link.dataset.view === 'settings');
   });
-  const save = document.querySelector('.admin-nav [data-nav="save"]');
-  if (save && authOn()) save.hidden = !['administrateur', 'responsable'].includes(bundle.role);
+  document.querySelectorAll('.admin-nav [data-nav="save"], .admin-nav [data-nav="update"]').forEach((link) => { link.hidden = !admin; });
 }
 
 /** Licences courantes et leur lien, pour la banque et la photo principale. */
@@ -1195,7 +1204,7 @@ function settings() {
       <label>Courriel de la rédaction<input name="contact" type="email" placeholder="redaction@exemple.ca" value="${esc(governance.contact || '')}"></label>
       <label>Dépôt GitHub du journal, facultatif<input name="repo" placeholder="organisation/journal" value="${esc(governance.repo || '')}"></label>
       <label><input name="noindex" type="checkbox" ${publication.noindex ? 'checked' : ''}> Cacher le journal des moteurs de recherche (journal d’essai ou fictif)</label><label><input name="fictif" type="checkbox" ${publication.fictif ? 'checked' : ''}> Afficher le bandeau « Journal étudiant fictif »</label>
-    </fieldset><div class="field"><label>Signature<input name="tagline" placeholder="Le journal étudiant du Cégep de Sainte-Foy" value="${esc(publication.tagline || '')}"></label></div><div class="field"><label>Institution<input name="institution" placeholder="Cégep de Sainte-Foy" value="${esc(publication.institution || '')}"></label></div><div class="field"><label>Typographie<select name="typography"><option value="modern-accessible">Moderne accessible</option><option value="editorial-classic" ${publication.theme?.typography === 'editorial-classic' ? 'selected' : ''}>Éditoriale classique</option><option value="institutional" ${publication.theme?.typography === 'institutional' ? 'selected' : ''}>Institutionnelle</option></select></label></div>
+    </fieldset><div class="field"><label>Signature<input name="tagline" placeholder="Le journal étudiant du Cégep de Sainte-Foy" value="${esc(publication.tagline || '')}"></label></div><div class="field"><label>Établissement<input name="institution" placeholder="Cégep de Sainte-Foy" value="${esc(publication.institution || '')}"></label></div><div class="field"><label>Année de fondation (facultatif)<input name="founded" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" data-erreur="Écrivez l’année en quatre chiffres, par exemple 1971." placeholder="1971" value="${esc(publication.founded || '')}"></label><small>Au bas des pages : « © 1971–${new Date().getFullYear()} ». Vide : seulement l’année courante.</small></div><div class="field"><label>Droits sur les articles<select name="license"><option value="" ${/by-nc-nd/i.test(publication.license || '') ? '' : 'selected'}>Tous droits réservés (par défaut)</option><option value="CC BY-NC-ND 4.0" ${/by-nc-nd/i.test(publication.license || '') ? 'selected' : ''}>Creative Commons BY-NC-ND 4.0 : partage permis, sans modification ni usage commercial</option></select></label></div><div class="field"><label>Typographie<select name="typography"><option value="modern-accessible">Moderne accessible</option><option value="editorial-classic" ${publication.theme?.typography === 'editorial-classic' ? 'selected' : ''}>Éditoriale classique</option><option value="institutional" ${publication.theme?.typography === 'institutional' ? 'selected' : ''}>Institutionnelle</option></select></label></div>
     <div class="field"><label>Fuseau horaire<select name="timeZone"><option value="America/Toronto" ${publication.timeZone !== 'America/Blanc-Sablon' ? 'selected' : ''}>Heure de l’Est — majorité du Québec</option><option value="America/Blanc-Sablon" ${publication.timeZone === 'America/Blanc-Sablon' ? 'selected' : ''}>Heure de l’Atlantique — Blanc-Sablon</option></select></label></div>
     <div class="field"><label>Couleur principale<input name="accent" type="color" value="${esc(publication.theme?.accent || '#6c2163')}"></label></div><div class="field"><label>Couleur sombre<input name="accentDark" type="color" value="${esc(publication.theme?.accentDark || '#cf7ec1')}"></label></div><div id="admin-contrast" class="notice full" role="status"></div>
     <fieldset class="field full"><legend>Mât illustré</legend><label><input name="backgroundsEnabled" type="checkbox" ${masthead.backgrounds?.enabled !== false ? 'checked' : ''}> Afficher les images de fond</label><label>Ajouter mes propres images<input id="background-files" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><div class="actions"><button type="button" data-action="choose-masthead-media">Choisir une photo</button><button type="button" data-action="clear-backgrounds">Retirer toutes les images</button></div><p>${masthead.backgrounds?.images?.length || 0} image(s) enregistrée(s). Un nouvel envoi les ajoute à la rotation.</p><label>Cadrage horizontal<input name="mastheadFocalX" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.x ?? 50}"></label><label>Cadrage vertical<input name="mastheadFocalY" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.y ?? 50}"></label><label>Assombrir l’image derrière le titre<input name="overlayStrength" type="range" min="0" max="0.9" step="0.05" value="${masthead.overlayStrength ?? 0.55}"></label><label>Alignement du titre<select name="textAlignment"><option value="left">Gauche</option><option value="center" ${masthead.textAlignment === 'center' ? 'selected' : ''}>Centre</option><option value="right" ${masthead.textAlignment === 'right' ? 'selected' : ''}>Droite</option></select></label><div id="masthead-crop-preview">${cropFrames(masthead.backgrounds?.images?.[0], 'masthead')}</div></fieldset>
@@ -1249,6 +1258,7 @@ function bindCommon() {
 function render() {
   applyRoleNav();
   if (onSocle() && bundle.role === 'photographe' && !['dashboard', 'media'].includes(view)) { view = 'media'; history.replaceState(null, '', '#media'); }
+  if (onSocle() && authOn() && bundle.role && !isAdminRole() && view === 'settings') { view = 'dashboard'; history.replaceState(null, '', '#dashboard'); }
   main.innerHTML = ({ dashboard, articles, media: mediaLibrary, authors, taxonomies, settings, exports: exportsView }[view] || dashboard)();
   bindLogout(main);
   if (view === 'authors') fillAccessPanel();
@@ -1370,7 +1380,7 @@ function render() {
       document.getElementById('masthead-crop-preview').innerHTML = cropFrames({ src: URL.createObjectURL(chosen), focalPoint: { x: Number(form.elements.mastheadFocalX.value), y: Number(form.elements.mastheadFocalY.value) } }, 'masthead');
     });
     bindRequiredFlags(form);
-    form.onsubmit = async (event) => { event.preventDefault(); if (!flagInvalidFields(form)) { notify('Remplissez les champs signalés.'); return; } const data = new FormData(form); const publication = structuredClone(bundle.publication); publication.name = data.get('name').trim(); publication.tagline = data.get('tagline').trim(); publication.institution = data.get('institution').trim(); publication.timeZone = data.get('timeZone'); publication.siteUrl = data.get('siteUrl').trim(); publication.slug = slugify(data.get('slug')) || publication.slug; publication.governance = { ...publication.governance, owner: data.get('owner').trim(), contact: data.get('contact').trim(), repo: data.get('repo').trim() }; publication.noindex = data.has('noindex'); publication.fictif = data.has('fictif'); publication.theme = { accent: data.get('accent'), accentDark: data.get('accentDark'), typography: data.get('typography') }; publication.radio = { ...publication.radio, enabled: data.has('radioEnabled'), station: String(data.get('station') || '').trim().toLowerCase(), theme: 'dark', position: 'top' }; delete publication.radio.stream; delete publication.radio.name; delete publication.radio.frequency; delete publication.radio.website; publication.media = { ...publication.media, autoStockPhoto: data.has('autoStockPhoto') }; const localities = data.get('weatherLocalities').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4); const priorImages = clearMastheadImages ? [] : (publication.masthead?.backgrounds?.images || []); const selected = selectedMasthead ? { ...selectedMasthead, focalPoint: { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } } : null; publication.masthead = { backgrounds: { enabled: data.has('backgroundsEnabled'), images: selected ? [selected, ...priorImages.filter((item) => item.id !== selected.id)] : priorImages }, weather: { enabled: data.has('weatherEnabled'), localities }, tools: { pomodoro: data.has('pomodoro'), solitaire: data.has('solitaire') }, overlayStrength: Math.min(0.9, Math.max(0, Number(data.get('overlayStrength')))), textAlignment: data.get('textAlignment') }; for (const file of document.getElementById('background-files').files) publication.masthead.backgrounds.images.push({ ...await readArticleImage(file, { alt: `Arrière-plan du journal ${publication.name}` }), focalPoint: { x: 50, y: 50 } }); const logoFile = document.getElementById('logo-file').files[0]; if (logoFile) publication.logo = await readLogo(logoFile, data.get('logoAlt').trim()); else if (publication.logo) publication.logo.alt = data.get('logoAlt').trim() || publication.name; await backend.savePublication(publication); await refresh(); notify('Configuration enregistrée.'); render(); };
+    form.onsubmit = async (event) => { event.preventDefault(); if (!flagInvalidFields(form)) { notify('Remplissez les champs signalés.'); return; } const data = new FormData(form); const publication = structuredClone(bundle.publication); publication.name = data.get('name').trim(); publication.tagline = data.get('tagline').trim(); publication.institution = data.get('institution').trim(); publication.founded = String(data.get('founded') || '').trim(); publication.license = String(data.get('license') || ''); publication.timeZone = data.get('timeZone'); publication.siteUrl = data.get('siteUrl').trim(); publication.slug = slugify(data.get('slug')) || publication.slug; publication.governance = { ...publication.governance, owner: data.get('owner').trim(), contact: data.get('contact').trim(), repo: data.get('repo').trim() }; publication.noindex = data.has('noindex'); publication.fictif = data.has('fictif'); publication.theme = { accent: data.get('accent'), accentDark: data.get('accentDark'), typography: data.get('typography') }; publication.radio = { ...publication.radio, enabled: data.has('radioEnabled'), station: String(data.get('station') || '').trim().toLowerCase(), theme: 'dark', position: 'top' }; delete publication.radio.stream; delete publication.radio.name; delete publication.radio.frequency; delete publication.radio.website; publication.media = { ...publication.media, autoStockPhoto: data.has('autoStockPhoto') }; const localities = data.get('weatherLocalities').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4); const priorImages = clearMastheadImages ? [] : (publication.masthead?.backgrounds?.images || []); const selected = selectedMasthead ? { ...selectedMasthead, focalPoint: { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } } : null; publication.masthead = { backgrounds: { enabled: data.has('backgroundsEnabled'), images: selected ? [selected, ...priorImages.filter((item) => item.id !== selected.id)] : priorImages }, weather: { enabled: data.has('weatherEnabled'), localities }, tools: { pomodoro: data.has('pomodoro'), solitaire: data.has('solitaire') }, overlayStrength: Math.min(0.9, Math.max(0, Number(data.get('overlayStrength')))), textAlignment: data.get('textAlignment') }; for (const file of document.getElementById('background-files').files) publication.masthead.backgrounds.images.push({ ...await readArticleImage(file, { alt: `Arrière-plan du journal ${publication.name}` }), focalPoint: { x: 50, y: 50 } }); const logoFile = document.getElementById('logo-file').files[0]; if (logoFile) publication.logo = await readLogo(logoFile, data.get('logoAlt').trim()); else if (publication.logo) publication.logo.alt = data.get('logoAlt').trim() || publication.name; await backend.savePublication(publication); await refresh(); notify('Configuration enregistrée.'); render(); };
     main.querySelector('[data-action="clear-backgrounds"]').onclick = () => { selectedMasthead = null; clearMastheadImages = true; form.elements.backgroundsEnabled.checked = false; document.getElementById('masthead-crop-preview').innerHTML = cropFrames(null, 'masthead'); notify('Les images seront retirées à l’enregistrement.'); };
     main.querySelector('[data-action="recommended-theme"]').onclick = () => { form.elements.typography.value = 'modern-accessible'; form.elements.accent.value = '#6c2163'; form.elements.accentDark.value = '#cf7ec1'; };
   }

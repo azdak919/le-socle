@@ -195,3 +195,16 @@ test("rédaction pour néophytes : mots simples, états vides, erreurs lisibles"
   assert.match(php, /<label>Fichier de sauvegarde \(ZIP\) <input type="file"/);
   assert.match(php, /'\/admin\/mise-a-jour\/paquet\/revenir'\) && \$method === 'GET'\)/);
 });
+
+test("fondation et droits sur les articles ; Configuration et Mise à jour à l'administrateur", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  assert.match(admin, /<input name="fondation" inputmode="numeric" maxlength="4" pattern="\[0-9\]\{4\}"[^>]*placeholder="1971">/);
+  assert.match(admin, /<select name="licence"><option value="">Tous droits réservés \(par défaut\)<\/option><option value="CC BY-NC-ND 4\.0">/);
+  assert.match(admin, /fondation: String\(data\.get\('fondation'\) \|\| ''\)\.trim\(\), licence:/);
+  assert.match(admin, /publication\.license = pick\(journal\.licence, publication\.license \|\| ''\);/);
+  assert.match(admin, /publication\.founded = String\(data\.get\('founded'\) \|\| ''\)\.trim\(\); publication\.license = String\(data\.get\('license'\) \|\| ''\);/);
+  assert.match(admin, /\(!admin && link\.dataset\.view === 'settings'\)/);
+  assert.match(admin, /\.admin-nav \[data-nav="save"\], \.admin-nav \[data-nav="update"\]'\)\.forEach\(\(link\) => \{ link\.hidden = !admin; \}\)/);
+  const css = readFileSync(join(ASSETS, "admin.css"), "utf8");
+  assert.match(css, /admin-app\{background:linear-gradient\(to right/);
+});

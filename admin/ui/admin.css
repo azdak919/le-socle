@@ -44,6 +44,11 @@
 /* Coquille (local-admin.ts) */
 .admin-app { @apply min-h-dvh md:grid md:grid-cols-[15.5rem_minmax(0,1fr)]; }
 .admin-sidebar { @apply flex flex-col gap-1 border-b md:border-b-0 md:border-r border-border bg-sidebar px-2 md:px-3 py-2 md:py-4 md:sticky md:top-0 md:h-dvh; }
+/* La barre latérale reste collée en haut de l'écran ; sa colonne garde le même fond
+   jusqu'en bas des longues pages (sinon il s'arrête à mi-hauteur). */
+@media (min-width: 48rem) {
+  .admin-app { background: linear-gradient(to right, var(--color-sidebar) calc(15.5rem - 1px), var(--color-border) calc(15.5rem - 1px) 15.5rem, transparent 15.5rem); }
+}
 .admin-brand { @apply hidden md:flex items-center gap-2.5 px-2 pb-4 mb-2 border-b border-border; }
 .admin-brand-mark { @apply grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground text-sm font-bold; }
 .admin-brand strong { @apply block text-sm font-semibold leading-tight; }
