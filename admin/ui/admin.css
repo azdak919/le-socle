@@ -201,3 +201,12 @@
 
 /* Écran de connexion ou d'installation : pas de menu tant qu'on n'est pas entré. */
 body.signed-out .admin-nav { display: none; }
+
+/* Réseaux sociaux (assistant et Configuration) : libellé au-dessus, deux colonnes sur grand écran. */
+.social-grid, .assistant-social { @apply grid gap-x-4 gap-y-2 sm:grid-cols-2; }
+.social-grid { @apply mt-3; }
+#admin-main .social-grid label, #admin-main .assistant-social label { @apply flex-col items-stretch gap-1; }
+.assistant-social { @apply rounded-lg border border-border p-4; }
+.assistant-social > summary, .assistant-social > p { @apply sm:col-span-2; }
+.assistant-social > summary { @apply cursor-pointer text-sm font-medium; }
+.assistant-social > p { @apply m-0; }
