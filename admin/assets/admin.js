@@ -183,12 +183,48 @@ async function fillAccessPanel() {
   if (!members) { panel.hidden = false; panel.innerHTML = `<div class="toolbar"><h2>Mon accès</h2>${logout}</div>`; bindLogout(panel); return; }
   const password = (await authCall('GET', 'etat').catch(() => null))?.mode === 'motdepasse';
   panel.hidden = false;
-  panel.innerHTML = `<div class="toolbar"><h2>Accès à la rédaction</h2>${logout}</div><p class="notice">Ces comptes ouvrent l’admin. Les signatures, plus bas, sont ce que le public voit.</p><ul class="entity-list">${members.map((member) => `<li><div><strong>${esc(member.email)}</strong><small>${esc(ACCOUNT_LABELS[member.role] || member.role)}</small></div></li>`).join('')}</ul><form id="member-form" class="grid"><div class="field"><label>Courriel<input name="email" type="email" required autocomplete="off"></label></div><div class="field"><label>Rôle<select name="role">${['auteur', 'reviseur', 'editeur', 'administrateur'].map((role) => `<option value="${role}">${esc(ACCOUNT_LABELS[role] || role)}</option>`).join('')}</select></label></div>${password ? '<div class="field"><label>Mot de passe à lui transmettre (10 caractères ou plus ; vide = inchangé)<input name="password" type="text" minlength="10" autocomplete="off"></label></div>' : ''}<div class="actions full"><button class="primary">Ajouter ou modifier le compte</button></div></form>`;
+  const sections = orderedSections();
+  const sectionName = (key) => sections.find((item) => item.slug === key || item.id === key)?.name || key;
+  const roleOptions = ACCOUNT_ROLES.map(([value, label]) => `<option value="${value}">${esc(label)}</option>`).join('');
+  const roleHelp = Object.fromEntries(ACCOUNT_ROLES.map(([value, , help]) => [value, help]));
+  const memberLine = (member) => {
+    const scope = (member.sections || []).map(sectionName);
+    const where = SCOPED_ROLES.includes(member.role) ? (scope.length ? `Rubriques : ${scope.join(', ')}` : 'Toutes les rubriques') : '';
+    return `<li><div><strong>${esc(member.email)}</strong><small>${esc([ACCOUNT_LABELS[member.role] || member.role, where].filter(Boolean).join(' · '))}</small></div><div><button type="button" data-edit-member="${esc(member.email)}">Modifier</button></div></li>`;
+  };
+  panel.innerHTML = `<div class="toolbar"><h2>Équipe : comptes et rôles</h2>${logout}</div><p class="notice">Ces comptes ouvrent la rédaction. Le rôle dit ce que chacun peut faire ; le serveur l’applique. Les signatures, plus bas, sont ce que le public voit.</p><ul class="entity-list" id="member-list">${members.map(memberLine).join('')}</ul>
+  <form id="member-form" class="grid"><h3 class="full" id="member-form-title">Ajouter une personne</h3>
+  <div class="field"><label>Courriel<input name="email" type="email" required autocomplete="off"></label></div>
+  <div class="field"><label>Rôle<select name="role">${roleOptions}</select></label><small id="member-role-help"></small></div>
+  <fieldset class="field full" id="member-sections"><legend>Rubriques permises</legend><small>Rien de coché : toutes les rubriques.</small><div class="chips">${sections.length ? sections.map((item) => `<label><input type="checkbox" name="sections" value="${esc(item.slug)}"> ${esc(item.name)}</label>`).join(' ') : '<em>Aucune section pour l’instant (Sections et catégories).</em>'}</div></fieldset>
+  ${password ? '<div class="field"><label>Mot de passe à lui transmettre (10 caractères ou plus ; vide = inchangé)<input name="password" type="text" minlength="10" autocomplete="off"></label></div>' : ''}
+  <div class="actions full"><button class="primary">Enregistrer le compte</button><button type="button" data-action="member-new">Nouvelle personne</button></div></form>
+  <details class="full"><summary>Qui peut faire quoi ?</summary><ul>${ACCOUNT_ROLES.map(([, label, help]) => `<li><strong>${esc(label)}</strong> : ${esc(help)}</li>`).join('')}</ul></details>`;
   bindLogout(panel);
-  panel.querySelector('#member-form').onsubmit = async (event) => {
+  const form = panel.querySelector('#member-form');
+  const syncRole = () => {
+    const role = form.elements.role.value;
+    panel.querySelector('#member-role-help').textContent = roleHelp[role] || '';
+    panel.querySelector('#member-sections').hidden = !SCOPED_ROLES.includes(role);
+  };
+  form.elements.role.onchange = syncRole;
+  syncRole();
+  panel.querySelectorAll('[data-edit-member]').forEach((button) => button.onclick = () => {
+    const member = members.find((item) => item.email === button.dataset.editMember);
+    if (!member) return;
+    form.elements.email.value = member.email;
+    form.elements.role.value = member.role === 'responsable' ? 'administrateur' : member.role;
+    form.querySelectorAll('input[name="sections"]').forEach((box) => { box.checked = (member.sections || []).includes(box.value); });
+    panel.querySelector('#member-form-title').textContent = `Modifier ${member.email}`;
+    syncRole();
+    form.elements.email.focus();
+  });
+  panel.querySelector('[data-action="member-new"]').onclick = () => { form.reset(); panel.querySelector('#member-form-title').textContent = 'Ajouter une personne'; syncRole(); };
+  form.onsubmit = async (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const body = { email: data.get('email').trim(), role: data.get('role') };
+    if (SCOPED_ROLES.includes(body.role)) body.sections = data.getAll('sections');
     if (data.get('password')) body.password = data.get('password');
     try { await authCall('POST', 'membres', body); notify('Compte enregistré.'); fillAccessPanel(); } catch (error) { notify(error.message, 5000); }
   };
@@ -239,8 +275,39 @@ function setView(next) {
 }
 
 const ROLE_LABELS = { auteur: 'Auteur ou autrice', reviseur: 'Réviseur ou réviseure', editeur: 'Éditeur ou éditrice' };
+/** Rôles des comptes : ce qu'ils donnent, dit simplement (le serveur applique les mêmes règles). */
+const ACCOUNT_ROLES = [
+  ['auteur', 'Auteur ou autrice', 'Écrit des articles et les envoie en révision. Ne publie pas.'],
+  ['photographe', 'Photographe', 'Gère la banque de photos : ajout, crédit, licence, retrait. N’écrit pas d’articles.'],
+  ['reviseur', 'Réviseur ou réviseure', 'Relit et publie dans toutes les rubriques.'],
+  ['chef-pupitre', 'Chef de pupitre', 'Relit et publie dans ses rubriques seulement.'],
+  ['editeur', 'Éditeur ou éditrice', 'Relit et publie partout, règle les sections et le journal.'],
+  ['administrateur', 'Administrateur', 'Tout, plus l’équipe, la sauvegarde et la mise à jour.'],
+];
+const SCOPED_ROLES = ['auteur', 'chef-pupitre'];
 // « responsable » : ancien nom du rôle administrateur, encore lu.
-const ACCOUNT_LABELS = { ...ROLE_LABELS, administrateur: 'Administrateur', responsable: 'Administrateur' };
+const ACCOUNT_LABELS = { ...Object.fromEntries(ACCOUNT_ROLES.map(([value, label]) => [value, label])), responsable: 'Administrateur' };
+
+/** Rubriques permises à ce compte (vide = toutes). */
+function myScope() {
+  return onSocle() && SCOPED_ROLES.includes(bundle?.role) ? (bundle.scope || []) : [];
+}
+
+function sectionAllowed(section) {
+  const scope = myScope();
+  return !scope.length || scope.includes(section.slug) || scope.includes(section.id);
+}
+
+/** Menu selon le rôle : le photographe n'a que les photos ; la sauvegarde est à l'administrateur. */
+function applyRoleNav() {
+  if (!onSocle() || !bundle?.role) return;
+  const photographer = bundle.role === 'photographe';
+  document.querySelectorAll('.admin-nav [data-view]').forEach((link) => {
+    link.hidden = photographer && !['dashboard', 'media'].includes(link.dataset.view);
+  });
+  const save = document.querySelector('.admin-nav [data-nav="save"]');
+  if (save && authOn()) save.hidden = !['administrateur', 'responsable'].includes(bundle.role);
+}
 
 /** Licences courantes et leur lien, pour la banque et la photo principale. */
 const LICENSES = {
@@ -554,12 +621,12 @@ function articleEditor(article) {
   // Un auteur ne publie pas (le serveur refuse) : on ne lui propose pas.
   const authorOnly = onSocle() && bundle.role === 'auteur';
   const current = article || {
-    id: crypto.randomUUID(), slug: '', title: '', excerpt: '', subtitle: '', dek: '', authors: [], section: bundle.taxonomies.sections[0]?.slug || '', categories: [], tags: [], lang: bundle.publication.lang || 'fr-CA', status: 'draft', body: { format: 'markdown', raw: '' }, media: [], publication: bundle.publication.slug, updatedAt: new Date().toISOString(), canonicalUrl: '', source: source('article', 'local'),
+    id: crypto.randomUUID(), slug: '', title: '', excerpt: '', subtitle: '', dek: '', authors: [], section: orderedSections().find(sectionAllowed)?.slug || '', categories: [], tags: [], lang: bundle.publication.lang || 'fr-CA', status: 'draft', body: { format: 'markdown', raw: '' }, media: [], publication: bundle.publication.slug, updatedAt: new Date().toISOString(), canonicalUrl: '', source: source('article', 'local'),
   };
   main.innerHTML = `<section class="panel"><div class="toolbar"><h2>${article ? 'Modifier' : 'Créer'} un article</h2><button data-action="articles">Retour à la liste</button></div><form id="article-form" class="grid">
     <input type="hidden" name="id" value="${esc(current.id)}"><div class="field"><label for="article-title">Titre</label><input id="article-title" name="title" required value="${esc(current.title)}"></div><div class="field"><label for="article-slug">Adresse de l’article</label><input id="article-slug" name="slug" required value="${esc(current.slug)}"><small>Se remplit à partir du titre.</small></div>
     <div class="field full"><label for="article-excerpt">Résumé</label><textarea id="article-excerpt" name="excerpt" required>${esc(current.excerpt)}</textarea></div>
-    <div class="field"><label for="article-section">Section</label><select id="article-section" name="section">${orderedSections().map((item) => `<option value="${esc(item.slug)}" ${item.slug === current.section ? 'selected' : ''}>${esc(item.name)}</option>`).join('')}</select></div>
+    <div class="field"><label for="article-section">Section</label><select id="article-section" name="section">${orderedSections().filter((item) => sectionAllowed(item) || item.slug === current.section).map((item) => `<option value="${esc(item.slug)}" ${item.slug === current.section ? 'selected' : ''}>${esc(item.name)}</option>`).join('')}</select></div>
     <div class="field"><label for="article-status">Statut</label><select id="article-status" name="status"><option value="draft" ${current.status === 'draft' ? 'selected' : ''}>Brouillon</option><option value="in-review" ${current.status === 'in-review' ? 'selected' : ''}>En révision</option><option value="scheduled" ${current.status === 'scheduled' ? 'selected' : (authorOnly ? 'disabled' : '')}>Programmé</option><option value="published" ${current.status === 'published' ? 'selected' : (authorOnly ? 'disabled' : '')}>Publié</option><option value="archived" ${current.status === 'archived' ? 'selected' : (authorOnly ? 'disabled' : '')}>Archivé</option></select><small>${authorOnly ? 'Mettez « En révision » quand c’est prêt : un réviseur, un éditeur ou l’administrateur publie.' : 'Programmé : publié tout seul à l’heure choisie. Archivé : la page reste, l’article quitte les listes.'}</small></div>
     <div class="field" data-scheduled-field ${current.status === 'scheduled' ? '' : 'hidden'}><label for="article-scheduled-at">Programmer pour</label><input id="article-scheduled-at" name="scheduledAt" type="datetime-local" value="${esc(localDateTime(current.scheduledAt))}"></div>
     <div class="field full"><label for="article-published-at">Date et heure de publication</label><input id="article-published-at" name="publishedAt" type="datetime-local" value="${esc(localDateTime(current.publishedAt))}"><small>Heure locale du journal.</small></div>
@@ -936,6 +1003,8 @@ function bindCommon() {
 }
 
 function render() {
+  applyRoleNav();
+  if (onSocle() && bundle.role === 'photographe' && !['dashboard', 'media'].includes(view)) { view = 'media'; history.replaceState(null, '', '#media'); }
   main.innerHTML = ({ dashboard, articles, media: mediaLibrary, authors, taxonomies, settings, exports: exportsView }[view] || dashboard)();
   bindLogout(main);
   if (view === 'authors') fillAccessPanel();

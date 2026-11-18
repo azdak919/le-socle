@@ -176,7 +176,7 @@ export async function handleRedaction(
   const editor = isEditor(role);
 
   if (method === "GET" && path === "/v1/redaction/etat") {
-    return json(200, { ...(await redactionState(config, deps, role)), sections: scope });
+    return json(200, { ...(await redactionState(config, deps, role)), scope });
   }
   if (method === "GET" && path === "/v1/redaction/fichier") {
     const src = parsed.searchParams.get("src") ?? "";
