@@ -144,7 +144,7 @@ test("la démo en mode navigateur tourne sur sql.js copié tel quel, sans PGlite
 
 test("assistant d'installation : le journal et le compte administrateur en un formulaire", () => {
   const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
-  for (const field of ["nom", "etablissement", "organisme", "sections", "couleur", "logo", "radio", "station", "noindex", "email", "password"]) {
+  for (const field of ["nom", "etablissement", "organisme", "contact", "sections", "couleur", "logo", "radio", "station", "noindex", "email", "password"]) {
     assert.match(admin, new RegExp(`name="${field}"`), `champ ${field} de l'assistant`);
   }
   // La fiche passe par la même porte que le fichier du configurateur.

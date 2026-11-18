@@ -180,6 +180,7 @@ function assistantForm() {
 <label>Nom du journal<input name="nom" required maxlength="80" placeholder="Le Phare"></label>
 <label>Établissement<input name="etablissement" maxlength="120" placeholder="Cégep de…"></label>
 <label>Organisme responsable du journal (facultatif)<input name="organisme" maxlength="120" placeholder="Association étudiante du cégep"></label>
+<label>Courriel de la rédaction, affiché sur le site<input name="contact" type="email" placeholder="redaction@…"></label>
 <label>Signature (facultatif)<input name="signature" maxlength="120" placeholder="Le journal étudiant du cégep"></label>
 <label>Sections, séparées par des virgules<input name="sections" value="Campus, Culture, Sports"></label>
 </fieldset>
@@ -193,7 +194,7 @@ function assistantForm() {
 <label><input name="noindex" type="checkbox" checked> Cacher le journal des moteurs de recherche (conseillé pendant les essais)</label>
 </fieldset>
 <fieldset class="field full"><legend>Compte administrateur</legend>
-<p class="muted">Ce compte ajoute ensuite l’équipe (auteurs, photographes, réviseurs…). Notez le mot de passe en lieu sûr.</p>
+<p class="muted">Ce compte ajoute ensuite l’équipe (auteurs, photographes, réviseurs…). Son courriel n’est pas affiché sur le site. Notez le mot de passe en lieu sûr.</p>
 <label>Courriel<input name="email" type="email" autocomplete="username" required></label>
 <label>Mot de passe (10 caractères ou plus)<input name="password" type="password" autocomplete="new-password" minlength="10" required></label>
 </fieldset>
@@ -234,7 +235,8 @@ function bindAssistant() {
         options: { radio: Boolean(data.get('radio')), station: String(data.get('station') || ''), noindex: Boolean(data.get('noindex')) },
         gouvernance: (() => {
           const organisme = String(data.get('organisme') || '').trim() || String(data.get('etablissement') || '').trim() || nom;
-          return { proprietaire: organisme, organisme, contact: String(data.get('email')).trim() };
+          // Le courriel du compte reste privé : seul le courriel de la rédaction est public.
+          return { proprietaire: organisme, organisme, contact: String(data.get('contact') || '').trim() };
         })(),
         sections: String(data.get('sections') || '').split(',').map((name) => name.trim()).filter(Boolean).slice(0, 12).map((name, index) => ({ nom: name, slug: slugify(name), ordre: index + 1 })),
       };
