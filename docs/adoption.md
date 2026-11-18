@@ -2,7 +2,7 @@
 
 Ce guide est pour qui installe **sa** copie. Un client du Kiosque passe par le configurateur, pas par ces commandes. Compter moins d'une heure. On n'allume un module que lorsqu'on en a besoin.
 
-1. Choisir la machine. Pour essayer avec Node : ce dépôt, Node 22.18 ou plus récent, le fichier SQLite à côté. D1 se vérifie en local avec Miniflare. Pour un hébergement qui reçoit un dossier : le contrôleur est `php/public/index.php`, la base est `php/data/socle.sqlite`, hors de la racine web. Sans SQLite, les pages déjà exportées restent servies. `SOCLE_UPLOAD_DIR` nomme le dossier déjà utilisé ; le bouton de mise à jour prépare la sauvegarde et ce dossier. Pas de service central, pas de compte partagé.
+1. Choisir la machine. Pour essayer avec Node : ce dépôt, Node 22.18 ou plus récent, le fichier SQLite à côté. D1 se vérifie en local avec Miniflare. Pour Cloudflare (Worker et D1, derrière Access) : voir [`worker-d1.md`](worker-d1.md). Pour un hébergement qui reçoit un dossier : le contrôleur est `php/public/index.php`, la base est `php/data/socle.sqlite`, hors de la racine web. Sans SQLite, les pages déjà exportées restent servies. `SOCLE_UPLOAD_DIR` nomme le dossier déjà utilisé ; le bouton de mise à jour prépare la sauvegarde et ce dossier. Pas de service central, pas de compte partagé.
 
 2. Copier `socle.config.json`. Tout laisser à `false`. Aucun secret dans ce fichier. Le mode (`SOCLE_AUTH_MODE`), le SMTP (`SOCLE_SMTP_HOST`, `SOCLE_SMTP_FROM`), les clés push (`SOCLE_VAPID_PUBLIC`, `SOCLE_VAPID_PRIVATE`), le client GitHub et `SOCLE_RESPONSABLE` se posent à côté, pas dedans.
 

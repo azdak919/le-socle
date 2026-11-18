@@ -4,20 +4,9 @@ import { join } from "node:path";
 
 import { Miniflare } from "miniflare";
 
-import { createModuleStore, type SqlDb } from "./sql.ts";
+import { wrapD1, type D1Database } from "./d1-store.ts";
+import { createModuleStore } from "./sql.ts";
 import type { SocleStore } from "./store.ts";
-
-type D1Prepared = {
-  bind(...values: readonly unknown[]): D1Prepared;
-  run(): Promise<unknown>;
-  first<T>(): Promise<T | null>;
-  all<T>(): Promise<{ results: T[] }>;
-};
-
-type D1Database = {
-  exec(sql: string): Promise<unknown>;
-  prepare(sql: string): D1Prepared;
-};
 
 export async function openD1Memory(): Promise<SocleStore> {
   const dir = await mkdtemp(join(tmpdir(), "socle-d1-"));
@@ -32,26 +21,4 @@ export async function openD1Memory(): Promise<SocleStore> {
     await mf.dispose();
     await rm(dir, { recursive: true, force: true });
   }));
-}
-
-function wrapD1(db: D1Database, close: () => Promise<void>): SqlDb {
-  return {
-    exec: (sql) => db.exec(sql).then(() => undefined),
-    run: (sql, params) => db.prepare(sql).bind(...params).run().then(() => undefined),
-    async get(sql, params) {
-      const row = await db.prepare(sql).bind(...params).first<Record<string, unknown>>();
-      return row ?? undefined;
-    },
-    async all(sql, params) {
-      const result = await db.prepare(sql).bind(...params).all<Record<string, unknown>>();
-      return result.results;
-    },
-    async tableExists(name) {
-      const row = await db.prepare(
-        `SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = ?`,
-      ).bind(name).first();
-      return row !== null && row !== undefined;
-    },
-    close,
-  };
 }

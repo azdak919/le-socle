@@ -1,0 +1,26 @@
+# Exemple pour le mode « Worker D1 ». Copiez-le en wrangler.toml, puis
+# remplacez les valeurs entre < >. Rien de secret ici : la base se désigne
+# par son identifiant, Access par son équipe et son étiquette d'audience.
+name = "socle-journal"
+main = "src/worker.ts"
+compatibility_date = "2026-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+# La page de rédaction et ses fichiers (le Worker ne sert que ceux du mode
+# serveur, jamais la base de démonstration).
+[assets]
+directory = "admin"
+binding = "ASSETS"
+run_worker_first = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "socle-journal"
+database_id = "<identifiant de la base D1>"
+
+[vars]
+SOCLE_CONFIG = '{"modules":{"auth":true,"editorial":true,"media":true}}'
+SOCLE_RESPONSABLE = "<adresse du responsable>"
+SOCLE_AUTH_MODE = "access"
+SOCLE_ACCESS_TEAM = "<équipe>.cloudflareaccess.com"
+SOCLE_ACCESS_AUD = "<étiquette AUD de l'application Access>"
