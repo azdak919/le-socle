@@ -381,8 +381,8 @@ function socle_text(int $status, string $body): array {
 
 function socle_admin_document(string $lang, string $title, string $body): array {
     $copy = $lang === 'en'
-        ? ['html' => 'en', 'skip' => 'Skip to content', 'back' => 'Dashboard', 'brandSub' => 'Newsroom', 'office' => 'Back office', 'save' => 'Backup', 'update' => 'Update', 'other' => 'Français', 'otherLang' => 'fr']
-        : ['html' => 'fr', 'skip' => 'Aller au contenu', 'back' => 'Tableau de bord', 'brandSub' => 'Rédaction', 'office' => 'Back-office', 'save' => 'Sauvegarde', 'update' => 'Mise à jour', 'other' => 'English', 'otherLang' => 'en'];
+        ? ['html' => 'en', 'skip' => 'Skip to content', 'back' => 'Dashboard', 'brandSub' => 'Newsroom', 'office' => 'Administration', 'save' => 'Backup', 'update' => 'Update', 'other' => 'Français', 'otherLang' => 'fr']
+        : ['html' => 'fr', 'skip' => 'Aller au contenu', 'back' => 'Tableau de bord', 'brandSub' => 'Rédaction', 'office' => 'Interface d’administration', 'save' => 'Sauvegarde', 'update' => 'Mise à jour', 'other' => 'English', 'otherLang' => 'en'];
     $other = socle_with_lang('/admin', $copy['otherLang']);
     $back = socle_with_lang('/admin', $lang);
     $saveCurrent = $title === $copy['save'] ? ' aria-current="page"' : '';
@@ -428,6 +428,11 @@ function socle_admin_document(string $lang, string $title, string $body): array 
   button:hover, .bouton:hover { background: var(--accent); }
   button[type="submit"]:not(.secondaire), .bouton.principal { background: var(--primary); border-color: var(--primary); color: #fff; }
   input[type="file"] { font: inherit; font-size: 0.875rem; max-width: 100%; }
+  button.danger { background: #991b1b; border-color: #991b1b; color: #fff; }
+  button.danger:hover { background: #7f1d1d; }
+  button:disabled { opacity: 0.6; cursor: default; }
+  h3 { margin: 1rem 0 0.25rem; font-size: 0.95rem; }
+  #restaurer label { flex-wrap: wrap; }
   form { margin: 0.75rem 0; }
   @page letter { size: letter; }
   @page legal { size: legal; }

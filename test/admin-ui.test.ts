@@ -192,6 +192,6 @@ test("rédaction pour néophytes : mots simples, états vides, erreurs lisibles"
   for (const empty of ["Aucun article pour l’instant", "La banque est vide", "Aucune signature pour l’instant"]) assert.ok(admin.includes(empty), empty);
   assert.match(admin, /document\.body\.classList\.add\('signed-out'\)/);
   // Pages sans JavaScript : champ de restauration étiqueté, confirmation, et plus de page blanche au rechargement.
-  assert.match(php, /<label>Archive à restaurer \(ZIP\) <input type="file"/);
+  assert.match(php, /<label>Fichier de sauvegarde \(ZIP\) <input type="file"/);
   assert.match(php, /'\/admin\/mise-a-jour\/paquet\/revenir'\) && \$method === 'GET'\)/);
 });

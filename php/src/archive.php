@@ -117,6 +117,7 @@ function socle_build_site_zip(SocleStore $store, DateTimeImmutable $now): string
     $files = [];
     $files[] = socle_text_file('manifest.json', socle_json_pretty([
         'kind' => 'site',
+        'createdAt' => $now->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z'),
         'includedYears' => $prefs['years'],
         'excludedYears' => $excluded,
         'note' => "Les années plus anciennes ne sont pas dans ce fichier. Une archive antérieure est supposée les contenir. Ce programme ne peut pas le vérifier.",
@@ -289,4 +290,96 @@ function socle_mark_downloaded(SocleStore $store): void {
 
 function socle_was_downloaded(SocleStore $store): bool {
     return $store->get('export', 'downloaded') === '1';
+}
+
+/**
+ * Résumé d'une archive avant de la restaurer : rien n'est écrit. Lève une
+ * exception si le fichier n'est pas une sauvegarde de ce journal.
+ */
+function socle_archive_summary(string $bytes): array {
+    try {
+        $files = socle_unzip($bytes);
+    } catch (Throwable) {
+        throw new RuntimeException('ce fichier n’est pas un ZIP lisible');
+    }
+    $manifest = json_decode((string) ($files['manifest.json'] ?? ''), true);
+    if (!is_array($manifest) || !in_array($manifest['kind'] ?? '', ['site', 'session'], true)) {
+        throw new RuntimeException('ce ZIP n’est pas une sauvegarde du journal (manifest.json absent)');
+    }
+    $articles = 0;
+    $sections = 0;
+    $photos = 0;
+    $journal = '';
+    $data = isset($files['redaction/donnees.json']) ? json_decode($files['redaction/donnees.json'], true) : null;
+    if (is_array($data) && is_array($data['modules'] ?? null)) {
+        foreach ((array) ($data['modules']['editorial'] ?? []) as $row) {
+            $key = (string) ($row['key'] ?? '');
+            if (str_starts_with($key, 'article:')) $articles += 1;
+            elseif (str_starts_with($key, 'section:')) $sections += 1;
+            elseif ($key === 'publication') {
+                $publication = json_decode((string) ($row['value'] ?? ''), true);
+                if (is_array($publication)) $journal = (string) ($publication['name'] ?? '');
+            }
+        }
+        foreach ((array) ($data['modules']['media'] ?? []) as $row) {
+            if (str_starts_with((string) ($row['key'] ?? ''), 'bytes:')) $photos += 1;
+        }
+    } else {
+        foreach (array_keys($files) as $name) {
+            if (str_starts_with($name, 'content/articles/') && str_ends_with($name, '.json')) $articles += 1;
+            if (str_starts_with($name, 'media/') && !str_ends_with($name, '.credit')) $photos += 1;
+        }
+    }
+    $members = isset($files['auth/members.json']) ? json_decode($files['auth/members.json'], true) : [];
+    return [
+        'kind' => (string) $manifest['kind'],
+        'session' => ($manifest['kind'] ?? '') === 'session' ? (string) ($manifest['session'] ?? '') : null,
+        'createdAt' => is_string($manifest['createdAt'] ?? null) ? $manifest['createdAt'] : null,
+        'journal' => $journal,
+        'articles' => $articles,
+        'sections' => $sections,
+        'photos' => $photos,
+        'comptes' => is_array($members) ? count($members) : 0,
+    ];
+}
+
+/** Dossier des données (base, photos, sauvegardes automatiques), hors du programme. */
+function socle_data_dir(string $child): string {
+    $db = socle_env('SOCLE_DB');
+    $base = $db !== null ? dirname($db) : socle_root() . '/donnees';
+    $dir = $base . '/' . $child;
+    if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) throw new RuntimeException('dossier ' . $child . ' impossible à créer');
+    return $dir;
+}
+
+/** Archive en attente de confirmation : gardée une heure, sous un jeton aléatoire. */
+function socle_restore_stash(string $bytes): string {
+    $dir = socle_data_dir('restaurations');
+    foreach (glob($dir . '/*.zip') ?: [] as $old) {
+        if (time() - (int) filemtime($old) > 3600) @unlink($old);
+    }
+    $token = bin2hex(random_bytes(16));
+    file_put_contents($dir . '/' . $token . '.zip', $bytes);
+    return $token;
+}
+
+function socle_restore_unstash(string $token): string {
+    if (!preg_match('/^[a-f0-9]{32}$/', $token)) throw new RuntimeException('jeton inconnu');
+    $path = socle_data_dir('restaurations') . '/' . $token . '.zip';
+    if (!is_file($path) || time() - (int) filemtime($path) > 3600) throw new RuntimeException('archive expirée : choisissez-la de nouveau');
+    $bytes = (string) file_get_contents($path);
+    @unlink($path);
+    return $bytes;
+}
+
+/** Copie automatique de l'état actuel avant une restauration ; les cinq dernières sont gardées. */
+function socle_auto_backup(SocleStore $store, DateTimeImmutable $now): string {
+    $dir = socle_data_dir('sauvegardes-auto');
+    $name = 'avant-restauration-' . $now->format('Y-m-d-His') . '.zip';
+    // redaction/donnees.json porte toute la rédaction, quelles que soient les années choisies.
+    file_put_contents($dir . '/' . $name, socle_build_site_zip($store, $now));
+    $all = glob($dir . '/avant-restauration-*.zip') ?: [];
+    sort($all);
+    while (count($all) > 5) @unlink(array_shift($all));
+    return $name;
 }
