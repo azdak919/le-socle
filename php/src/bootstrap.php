@@ -74,6 +74,14 @@ function socle_front(): void {
     }
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $uri = $_SERVER['REQUEST_URI'] ?? '/';
+    // Hébergement mutualisé : le socle vit souvent dans un sous-dossier
+    // (https://cegep.example/journal/socle/). On retire ce préfixe à l'entrée
+    // et on le remet dans les adresses des réponses.
+    $base = socle_base_path((string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+    if ($base !== '' && ($uri === $base || str_starts_with($uri, $base . '/') || str_starts_with($uri, $base . '?'))) {
+        $uri = substr($uri, strlen($base));
+        if ($uri === '' || $uri[0] !== '/') $uri = '/' . $uri;
+    }
     $path = socle_request_path($uri);
     $raw = file_get_contents('php://input');
     if ($raw === false) $raw = '';
@@ -83,7 +91,7 @@ function socle_front(): void {
         error_log($error->getMessage());
         $result = socle_text(500, 'erreur');
     }
-    socle_emit($result, $method);
+    socle_emit(socle_with_base($result, $base), $method);
 }
 
 function socle_cli_value(array $argv, string $name): ?string {

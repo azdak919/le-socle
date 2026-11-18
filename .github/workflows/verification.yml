@@ -37,6 +37,15 @@ jobs:
         run: npm test
         env:
           KIOSQUE_PIN_DIR: .kiosque-pin
+      - name: Paquet PHP pour hébergement mutualisé
+        run: node tools/paquet-php.mjs
+      - name: Publier le paquet PHP (artefact)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: le-socle-php
+          path: dist/le-socle-php.zip
+          retention-days: 90
       - name: Upload traces on failure
         if: failure()
         uses: actions/upload-artifact@v4

@@ -2,7 +2,12 @@ import type { AdminDeps } from "./admin.ts";
 import {
   AuthError,
   accessLogin,
+  authState,
   consumeMagic,
+  listMembers,
+  logout,
+  passwordInstall,
+  passwordLogin,
   emailFromCookie,
   githubFinish,
   githubStart,
@@ -15,6 +20,8 @@ import type { SocleConfig } from "./config.ts";
 type Result = { status: number; body: string; headers: Record<string, string> };
 
 const TEXT = { "content-type": "text/plain; charset=utf-8" };
+
+const JSON_TYPE = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
 
 export async function handleAuth(
   method: string,
@@ -60,12 +67,36 @@ export async function handleAuth(
       const session = await accessLogin(deps.store, deps.auth, deps.now(), assertion);
       return redirect("/admin", session);
     }
+    if (path === "/v1/auth/etat" && method === "GET") {
+      const actor = await emailFromCookie(deps.store, deps.now, headers.cookie);
+      return { status: 200, body: JSON.stringify(await authState(deps.store, deps.auth, actor)), headers: JSON_TYPE };
+    }
+    if ((path === "/v1/auth/installation" || path === "/v1/auth/motdepasse") && method === "POST") {
+      // JSON seulement : un formulaire d'un autre site ne peut pas l'envoyer.
+      if (!String(headers["content-type"] ?? "").startsWith("application/json")) throw new AuthError("demande refusée");
+      const body = objectBody(rawBody);
+      if (!body || Object.keys(body).sort().join(",") !== "email,password") throw new AuthError("demande refusée");
+      const session = path === "/v1/auth/installation"
+        ? await passwordInstall(deps.store, deps.auth, deps.now(), body.email, body.password)
+        : await passwordLogin(deps.store, deps.auth, deps.now(), body.email, body.password);
+      return { status: 204, body: "", headers: { "set-cookie": sessionCookie(session) } };
+    }
+    if (path === "/v1/auth/deconnexion" && method === "POST") {
+      await logout(deps.store, headers.cookie);
+      return { status: 204, body: "", headers: { "set-cookie": "socle_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0" } };
+    }
+    if (path === "/v1/auth/membres" && method === "GET") {
+      const actor = await emailFromCookie(deps.store, deps.now, headers.cookie);
+      return { status: 200, body: JSON.stringify(await listMembers(deps.store, actor)), headers: JSON_TYPE };
+    }
     if (path === "/v1/auth/membres" && method === "POST") {
       const body = objectBody(rawBody);
-      if (!body || Object.keys(body).sort().join(",") !== "email,role") throw new AuthError("demande refusée");
+      const keys = body ? Object.keys(body).sort().join(",") : "";
+      if (!body || (keys !== "email,role" && keys !== "email,password,role")) throw new AuthError("demande refusée");
       if (typeof body.email !== "string" || typeof body.role !== "string") throw new AuthError("demande refusée");
+      if (body.password !== undefined && deps.auth?.mode !== "motdepasse") throw new AuthError("demande refusée");
       const actor = await emailFromCookie(deps.store, deps.now, headers.cookie);
-      await saveMember(deps.store, actor, body.email, body.role);
+      await saveMember(deps.store, actor, body.email, body.role, body.password as string | undefined);
       return { status: 204, body: "", headers: {} };
     }
     return { status: 404, body: "", headers: {} };
@@ -77,13 +108,15 @@ export async function handleAuth(
 
 function requireKnownMode(deps: AdminDeps): void {
   const mode = deps.auth?.mode;
-  if (mode !== "magic" && mode !== "github" && mode !== "access") throw new AuthError("mode inconnu");
+  if (mode !== "magic" && mode !== "github" && mode !== "access" && mode !== "motdepasse") throw new AuthError("mode inconnu");
 }
 
 function fail(error: AuthError): Result {
   const message = error.message;
   const status = message === "réservé au responsable" ? 403
     : message === "accès refusé" ? 401
+    : message === "trop d'essais" ? 429
+    : message === "déjà installé" ? 409
     : message === "github refusé" ? 502
     : message === "mode inconnu" || message === "smtp absent" || message === "client absent" || message === "réseau absent" ? 409
     : 400;

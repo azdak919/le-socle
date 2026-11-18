@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, pbkdf2Sync, randomBytes, timingSafeEqual } from "node:crypto";
 
 import { ModuleOffError, type SocleStore } from "./store.ts";
 
@@ -8,7 +8,13 @@ const SESSION_MS = 12 * 60 * 60 * 1000;
 const STATE_MS = 10 * 60 * 1000;
 
 export type OrgRole = (typeof ROLES)[number];
-export type AuthMode = "magic" | "github" | "access";
+export type AuthMode = "magic" | "github" | "access" | "motdepasse";
+
+const PBKDF2_ITERATIONS = 210000;
+const MIN_PASSWORD = 10;
+const MAX_TRIES = 10;
+const TRIES_MS = 15 * 60 * 1000;
+const DUMMY_HASH = "pbkdf2-sha256$210000$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
 export class AuthError extends Error {
   constructor(message: string) {
@@ -29,6 +35,105 @@ export type AuthRuntime = {
 };
 
 export type MemberRecord = { email: string; role: OrgRole };
+
+/**
+ * Mot de passe : PBKDF2-SHA256, sel de 16 octets, 210 000 tours. Même format
+ * en PHP (`hash_pbkdf2`) : `pbkdf2-sha256$tours$sel$empreinte` (base64url).
+ */
+export function hashPassword(password: string, salt: Uint8Array = randomBytes(16)): string {
+  const hash = pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, 32, "sha256");
+  return `pbkdf2-sha256$${PBKDF2_ITERATIONS}$${Buffer.from(salt).toString("base64url")}$${hash.toString("base64url")}`;
+}
+
+export function verifyPassword(password: string, stored: string | null | undefined): boolean {
+  const parts = String(stored ?? "").split("$");
+  if (parts.length !== 4 || parts[0] !== "pbkdf2-sha256") return false;
+  const rounds = Number(parts[1]);
+  if (!Number.isInteger(rounds) || rounds < 1000 || rounds > 2_000_000) return false;
+  const expected = Buffer.from(parts[3], "base64url");
+  const actual = pbkdf2Sync(password, Buffer.from(parts[2], "base64url"), rounds, expected.length, "sha256");
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
+
+function checkPassword(password: unknown): string {
+  if (typeof password !== "string" || password.length < MIN_PASSWORD || password.length > 200) {
+    throw new AuthError("mot de passe trop court");
+  }
+  return password;
+}
+
+async function anyMember(store: SocleStore): Promise<boolean> {
+  return (await store.list("auth")).some((row) => row.key.startsWith("member:") && isRole(row.value));
+}
+
+/** Premier passage : sans aucun membre, la première personne devient responsable. */
+export async function passwordInstall(
+  store: SocleStore,
+  runtime: AuthRuntime | undefined,
+  now: Date,
+  email: unknown,
+  password: unknown,
+): Promise<string> {
+  requireMode(runtime, "motdepasse");
+  const clean = normalizeEmail(email);
+  if (!clean) throw new AuthError("demande refusée");
+  const secret = checkPassword(password);
+  if (await anyMember(store)) throw new AuthError("déjà installé");
+  await store.put("auth", `member:${clean}`, "responsable");
+  await store.put("auth", `password:${clean}`, hashPassword(secret));
+  return createSession(store, runtime, clean, now);
+}
+
+export async function passwordLogin(
+  store: SocleStore,
+  runtime: AuthRuntime | undefined,
+  now: Date,
+  email: unknown,
+  password: unknown,
+): Promise<string> {
+  requireMode(runtime, "motdepasse");
+  const clean = normalizeEmail(email);
+  if (!clean || typeof password !== "string") throw new AuthError("accès refusé");
+  const triesKey = `tries:${clean}`;
+  const tries = JSON.parse((await store.get("auth", triesKey)) ?? "{}") as { n?: number; since?: string };
+  const fresh = tries.since && now.getTime() - Date.parse(tries.since) < TRIES_MS;
+  if (fresh && (tries.n ?? 0) >= MAX_TRIES) throw new AuthError("trop d'essais");
+  // Toujours un calcul PBKDF2, même pour une adresse inconnue : la durée de
+  // la réponse ne dit pas qui a un compte.
+  const known = (await roleOf(store, clean)) !== null;
+  const matches = verifyPassword(password, (known ? await store.get("auth", `password:${clean}`) : null) ?? DUMMY_HASH);
+  const ok = known && matches;
+  if (!ok) {
+    await store.put("auth", triesKey, JSON.stringify({ n: (fresh ? tries.n ?? 0 : 0) + 1, since: fresh ? tries.since : now.toISOString() }));
+    throw new AuthError("accès refusé");
+  }
+  await store.delete("auth", triesKey);
+  await forgetExpired(store, now);
+  return createSession(store, runtime, clean, now);
+}
+
+export async function logout(store: SocleStore, cookie: string | undefined): Promise<void> {
+  const token = readCookie(cookie, "socle_session");
+  if (token) await store.delete("auth", `session:${hashToken(token)}`);
+}
+
+export async function authState(
+  store: SocleStore,
+  runtime: AuthRuntime | undefined,
+  actor: string | null,
+): Promise<{ mode: string | null; installed: boolean; email: string | null; role: OrgRole | null }> {
+  return {
+    mode: runtime?.mode ?? null,
+    installed: await anyMember(store),
+    email: actor,
+    role: actor ? await roleOf(store, actor) : null,
+  };
+}
+
+export async function listMembers(store: SocleStore, actor: string | null): Promise<MemberRecord[]> {
+  if (!actor || (await roleOf(store, actor)) !== "responsable") throw new AuthError("réservé au responsable");
+  return membersForArchive(store);
+}
 
 export function isRole(value: string | null | undefined): value is OrgRole {
   return value !== null && value !== undefined && (ROLES as readonly string[]).includes(value);
@@ -70,11 +175,16 @@ export async function saveMember(
   actor: string | null,
   email: string,
   role: string,
+  password?: string,
 ): Promise<void> {
   if (!actor || (await roleOf(store, actor)) !== "responsable") throw new AuthError("réservé au responsable");
   const clean = normalizeEmail(email);
   if (!clean) throw new AuthError("demande refusée");
   if (!isRole(role)) throw new AuthError("rôle inconnu");
+  if (password !== undefined) {
+    const secret = checkPassword(password);
+    await store.put("auth", `password:${clean}`, hashPassword(secret));
+  }
   await store.put("auth", `member:${clean}`, role);
 }
 

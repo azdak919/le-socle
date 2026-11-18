@@ -130,6 +130,73 @@ function source(kind, id) {
 
 /** En mode socle, l'admin écrit sur le serveur ; sinon dans ce navigateur. */
 const onSocle = () => config.mode === 'socle';
+// Adresse du socle (vide à la racine du domaine, « /journal/socle » dans un sous-dossier).
+const socleRoot = () => String(config.apiBase || '').replace(/\/$/, '');
+const authOn = () => onSocle() && Boolean(backend?.state?.modules?.auth);
+
+async function authCall(method, path, body) {
+  const response = await fetch(`${socleRoot()}/v1/auth/${path}`, {
+    method, credentials: 'same-origin',
+    headers: body === undefined ? { accept: 'application/json' } : { accept: 'application/json', 'content-type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    const messages = { 'accès refusé': 'Courriel ou mot de passe incorrect.', "trop d'essais": 'Trop d’essais : attendez 15 minutes.', 'mot de passe trop court': 'Le mot de passe doit avoir au moins 10 caractères.', 'déjà installé': 'Ce socle a déjà un responsable : connectez-vous.', 'réservé au responsable': 'Réservé au ou à la responsable.', 'rôle inconnu': 'Rôle inconnu.', 'demande refusée': 'Demande refusée : vérifiez le courriel.' };
+    throw new Error(messages[text] || text || `Le socle a refusé (${response.status}).`);
+  }
+  return text ? JSON.parse(text) : null;
+}
+
+/** Écran de connexion (ou de première installation) quand le socle demande une session. */
+async function loginScreen() {
+  let state = null;
+  try { state = await authCall('GET', 'etat'); } catch { state = null; }
+  const mode = state?.mode;
+  if (mode === 'motdepasse') {
+    const first = !state.installed;
+    main.innerHTML = `<section class="panel" style="max-width:32rem"><h2>${first ? 'Installer la rédaction' : 'Se connecter'}</h2><p>${first ? 'Ce socle est neuf. Créez le compte de la personne responsable du journal : elle pourra ensuite ajouter l’équipe. Faites-le tout de suite après la mise en ligne.' : 'Entrez le courriel et le mot de passe que la ou le responsable vous a donnés.'}</p><form id="login-form" class="grid"><div class="field full"><label>Courriel<input name="email" type="email" autocomplete="username" required></label></div><div class="field full"><label>Mot de passe${first ? ' (10 caractères ou plus)' : ''}<input name="password" type="password" autocomplete="${first ? 'new-password' : 'current-password'}" minlength="${first ? 10 : 1}" required></label></div><div class="actions full"><button class="primary">${first ? 'Créer le compte et ouvrir la rédaction' : 'Se connecter'}</button></div><p id="login-error" class="notice" role="alert" hidden></p></form></section>`;
+    document.getElementById('login-form').onsubmit = async (event) => {
+      event.preventDefault();
+      const data = new FormData(event.currentTarget);
+      const error = document.getElementById('login-error');
+      try { await authCall('POST', first ? 'installation' : 'motdepasse', { email: data.get('email').trim(), password: data.get('password') }); location.reload(); }
+      catch (failure) { error.hidden = false; error.textContent = failure.message; }
+    };
+    return;
+  }
+  const links = mode === 'github' ? `<a class="button primary" href="${socleRoot()}/v1/auth/github">Se connecter avec GitHub</a>`
+    : mode === 'access' ? `<a class="button primary" href="${socleRoot()}/v1/auth/access">Se connecter</a>`
+      : mode === 'magic' ? `<form id="magic-form" class="grid"><div class="field full"><label>Courriel<input name="email" type="email" required></label></div><div class="actions full"><button class="primary">Recevoir un lien de connexion</button></div></form>` : '<p>Le mode de connexion du socle n’est pas réglé (SOCLE_AUTH_MODE).</p>';
+  main.innerHTML = `<section class="panel" style="max-width:32rem"><h2>Se connecter</h2>${links}<p id="login-error" class="notice" role="status" hidden></p></section>`;
+  const magic = document.getElementById('magic-form');
+  if (magic) magic.onsubmit = async (event) => { event.preventDefault(); const status = document.getElementById('login-error'); status.hidden = false; try { await fetch(`${socleRoot()}/v1/auth/lien`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: new FormData(magic).get('email').trim() }) }); status.textContent = 'Si cette adresse fait partie de l’équipe, un lien vient de partir.'; } catch { status.textContent = 'Le socle ne répond pas.'; } };
+}
+
+/** Comptes de la rédaction (mode mot de passe), pour la ou le responsable. */
+async function fillAccessPanel() {
+  const panel = document.getElementById('access-panel');
+  if (!panel || !authOn()) return;
+  let members = null;
+  try { members = await authCall('GET', 'membres'); } catch { members = null; }
+  const logout = '<button data-action="logout">Se déconnecter</button>';
+  if (!members) { panel.hidden = false; panel.innerHTML = `<div class="toolbar"><h2>Mon accès</h2>${logout}</div>`; bindLogout(panel); return; }
+  const password = (await authCall('GET', 'etat').catch(() => null))?.mode === 'motdepasse';
+  panel.hidden = false;
+  panel.innerHTML = `<div class="toolbar"><h2>Accès à la rédaction</h2>${logout}</div><p class="notice">Ces comptes ouvrent l’admin. Les signatures, plus bas, sont ce que le public voit.</p><ul class="entity-list">${members.map((member) => `<li><div><strong>${esc(member.email)}</strong><small>${esc(ACCOUNT_LABELS[member.role] || member.role)}</small></div></li>`).join('')}</ul><form id="member-form" class="grid"><div class="field"><label>Courriel<input name="email" type="email" required autocomplete="off"></label></div><div class="field"><label>Rôle<select name="role">${['auteur', 'reviseur', 'editeur', 'responsable'].map((role) => `<option value="${role}">${esc(ACCOUNT_LABELS[role] || role)}</option>`).join('')}</select></label></div>${password ? '<div class="field"><label>Mot de passe à lui transmettre (10 caractères ou plus ; vide = inchangé)<input name="password" type="text" minlength="10" autocomplete="off"></label></div>' : ''}<div class="actions full"><button class="primary">Ajouter ou modifier le compte</button></div></form>`;
+  bindLogout(panel);
+  panel.querySelector('#member-form').onsubmit = async (event) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const body = { email: data.get('email').trim(), role: data.get('role') };
+    if (data.get('password')) body.password = data.get('password');
+    try { await authCall('POST', 'membres', body); notify('Compte enregistré.'); fillAccessPanel(); } catch (error) { notify(error.message, 5000); }
+  };
+}
+
+function bindLogout(root) {
+  root.querySelectorAll('[data-action="logout"]').forEach((button) => button.onclick = async () => { try { await authCall('POST', 'deconnexion'); } catch { /* déjà sorti */ } location.reload(); });
+}
 
 function sanitizePreview(html) {
   const template = document.createElement('template');
@@ -172,6 +239,7 @@ function setView(next) {
 }
 
 const ROLE_LABELS = { auteur: 'Auteur ou autrice', reviseur: 'Réviseur ou réviseure', editeur: 'Éditeur ou éditrice' };
+const ACCOUNT_LABELS = { ...ROLE_LABELS, responsable: 'Responsable' };
 
 /** Licences courantes et leur lien, pour la banque et la photo principale. */
 const LICENSES = {
@@ -211,7 +279,7 @@ function dashboard() {
     <div class="grid stats"><article><h3>${counts.draft}</h3><p>Brouillons, invisibles du public.</p></article><article><h3>${counts['in-review']}</h3><p>Articles en révision, invisibles du public.</p></article><article><h3>${counts.published}</h3><p>Articles publiés dans le journal.</p></article>${counts.scheduled ? `<article><h3>${counts.scheduled}</h3><p>Articles programmés, publiés à leur heure.</p></article>` : ''}<article><h3>${bundle.authors.length}</h3><p>Signatures éditoriales, sans compte ni mot de passe.</p></article></div>
     <div class="actions"><button class="primary" data-action="new-article">Créer un article</button><a class="button" href="${config.publicBasePath}/">Voir le journal</a></div>
     ${onSocle() && missingSettings(bundle.publication).length ? `<div class="notice" role="status" style="margin-top:2rem"><p><strong>Avant la première publication</strong> : il manque ${esc(missingSettings(bundle.publication).join(', '))}. Sans ces renseignements, le site public refuse le contenu.</p><div class="actions">${importButton()}<button data-action="settings-view">Remplir la configuration</button></div></div>` : ''}
-    ${onSocle() ? `<p class="notice" style="margin-top:2rem">Branchée sur le socle${bundle.role ? ` — votre rôle : <strong>${esc(bundle.role)}</strong>` : ''}. Le journal publié se reconstruit à la prochaine synchronisation.</p>` : `<h3 style="margin-top:2rem">Données d’exemple</h3><label><input id="demo-visible" type="checkbox" ${bundle.demoVisible !== false ? 'checked' : ''}> Afficher les exemples publiés dans le front end</label>
+    ${onSocle() ? `<p class="notice" style="margin-top:2rem">Branchée sur le socle${bundle.role ? ` — votre rôle : <strong>${esc(ACCOUNT_LABELS[bundle.role] || bundle.role)}</strong>` : ''}. Le journal publié se reconstruit à la prochaine synchronisation.${authOn() ? ' <button data-action="logout">Se déconnecter</button>' : ''}</p>` : `<h3 style="margin-top:2rem">Données d’exemple</h3><label><input id="demo-visible" type="checkbox" ${bundle.demoVisible !== false ? 'checked' : ''}> Afficher les exemples publiés dans le front end</label>
     <div class="actions"><button data-action="remove-demo">Supprimer les exemples non modifiés</button><button data-action="reset-demo">Restaurer Le Quorum</button></div>`}
   </section>`;
 }
@@ -725,7 +793,7 @@ function articleEditor(article) {
 }
 
 function authors() {
-  return `<section class="panel"><div class="toolbar"><h2>Auteurs et rôles informatifs</h2><button class="primary" data-action="new-author">Nouvelle signature</button></div><div class="notice">Ces rôles ne donnent aucun accès et ne constituent pas une authentification.</div><ul class="entity-list">${bundle.authors.map((author) => `<li><div><strong>${esc(author.name)}</strong><small>${esc([author.role, ROLE_LABELS[author.editorialRole || 'auteur'] || author.editorialRole].filter(Boolean).join(' · '))}</small></div><div><button data-edit-author="${esc(author.id)}">Modifier</button> <button class="danger" data-delete-author="${esc(author.id)}">Supprimer</button></div></li>`).join('')}</ul></section>`;
+  return `${onSocle() ? '<section class="panel" id="access-panel" hidden></section>' : ''}<section class="panel"><div class="toolbar"><h2>Auteurs et rôles informatifs</h2><button class="primary" data-action="new-author">Nouvelle signature</button></div><div class="notice">Ces rôles ne donnent aucun accès et ne constituent pas une authentification.</div><ul class="entity-list">${bundle.authors.map((author) => `<li><div><strong>${esc(author.name)}</strong><small>${esc([author.role, ROLE_LABELS[author.editorialRole || 'auteur'] || author.editorialRole].filter(Boolean).join(' · '))}</small></div><div><button data-edit-author="${esc(author.id)}">Modifier</button> <button class="danger" data-delete-author="${esc(author.id)}">Supprimer</button></div></li>`).join('')}</ul></section>`;
 }
 
 function authorEditor(author) {
@@ -836,7 +904,7 @@ async function readLogo(file, alt) {
 
 function exportsView() {
   if (onSocle()) {
-    return `<section class="panel"><h2>Exporter mon journal</h2><p>Le socle garde le journal. Ces fichiers sont une copie de plus, faite dans ce navigateur, sans mot de passe ni jeton.</p><input id="export-filter" type="hidden" value="all"><div class="actions"><button class="primary" data-action="export-zip">Télécharger le journal Markdown</button><button data-action="export-json">Télécharger la sauvegarde JSON</button></div><p class="notice">Pour restaurer une archive, ouvrez la page <a href="/admin/sauvegarde">Sauvegarde</a>.</p></section>`;
+    return `<section class="panel"><h2>Exporter mon journal</h2><p>Le socle garde le journal. Ces fichiers sont une copie de plus, faite dans ce navigateur, sans mot de passe ni jeton.</p><input id="export-filter" type="hidden" value="all"><div class="actions"><button class="primary" data-action="export-zip">Télécharger le journal Markdown</button><button data-action="export-json">Télécharger la sauvegarde JSON</button></div><p class="notice">Pour restaurer une archive, ouvrez la page <a href="${socleRoot()}/admin/sauvegarde">Sauvegarde</a>.</p></section>`;
   }
   return `<section class="panel"><h2>Exporter mon journal</h2><p>Les archives sont créées dans ce navigateur. Elles ne contiennent aucun mot de passe, jeton ou secret.</p><div class="field"><label>Contenu de l’export<select id="export-filter"><option value="all">Tout, exemples compris</option><option value="without-demo">Exclure les exemples</option><option value="user-content">Créé ou modifié par moi</option></select></label></div><div class="actions"><button class="primary" data-action="export-zip">Télécharger le journal Markdown</button><button data-action="export-json">Télécharger la sauvegarde JSON</button><button data-action="import-json">Importer une sauvegarde</button><input id="import-file" type="file" accept="application/json" hidden></div><hr><h2>Après la démonstration</h2><div class="post-demo"><article><h3>1. Exporter mon journal</h3><p>Gardez le ZIP Markdown et une sauvegarde JSON.</p></article><article><h3>2. Passer à Sveltia + GitHub</h3><p>Créez un dépôt avec « Use this template », copiez l’export, puis activez Actions et Pages. Cette étape est manuelle et demande les droits GitHub du dépôt.</p><a href="https://github.com/azdak919/le-kiosque/generate">Créer le dépôt</a></article><article><h3>3. Future option PocketBase</h3><p>Point d’extension prévu, mais aucun backend PocketBase, compte ou hébergement n’est offert actuellement.</p></article></div><section class="panel danger-zone"><h3>Réinitialiser Le Quorum</h3><p>La réinitialisation complète efface les changements locaux de ce navigateur. Exportez-les d’abord.</p><button class="danger" data-action="full-reset">Réinitialiser Le Quorum</button></section></section>`;
 }
@@ -856,6 +924,8 @@ function bindCommon() {
 
 function render() {
   main.innerHTML = ({ dashboard, articles, media: mediaLibrary, authors, taxonomies, settings, exports: exportsView }[view] || dashboard)();
+  bindLogout(main);
+  if (view === 'authors') fillAccessPanel();
   bindCommon();
   if (view === 'media') bindMediaLibrary();
   if (view === 'dashboard' && !onSocle()) {
@@ -987,6 +1057,9 @@ try {
   await refresh();
   render();
 } catch (error) {
+  if (onSocle() && error.status === 401) await loginScreen();
+  else {
   console.error(error);
   main.innerHTML = `<section class="panel"><h2>${onSocle() ? 'Impossible de joindre le socle' : 'Impossible d’ouvrir les données locales'}</h2><p>${esc(error.message)}</p><div class="actions"><button onclick="location.reload()">Réessayer</button><a class="button" href="${config.publicBasePath}/">Utiliser le journal statique</a></div></section>`;
+  }
 }
