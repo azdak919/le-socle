@@ -112,7 +112,7 @@ function socle_handle_audience(string $method, string $url, array $config, Socle
         }
         if ($path === '/admin/audience/noms' && $method === 'POST') {
             $allowed = socle_may_update($store, $config['modules']['auth'] ? $actor : null, $config['modules']['auth']);
-            if (!$allowed) return socle_text(403, 'réservé au responsable');
+            if (!$allowed) return socle_text(403, 'réservé à l’administrateur');
             $name = socle_posted_name($raw);
             if ($name === null) throw new SocleHttp('demande refusée');
             socle_allow_name($store, $name);

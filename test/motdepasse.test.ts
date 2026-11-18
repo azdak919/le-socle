@@ -44,7 +44,7 @@ test("mot de passe : empreinte PBKDF2 vérifiable, jamais en clair", () => {
   assert.equal(verifyPassword("x", "n'importe quoi"), false);
 });
 
-test("installation : la première personne devient responsable, une seule fois", async () => {
+test("installation : la première personne devient administrateur, une seule fois", async () => {
   const { call, store } = await setup();
   const before = JSON.parse((await call("GET", "/v1/auth/etat")).body);
   assert.deepEqual(before, { mode: "motdepasse", installed: false, email: null, role: null });
@@ -58,7 +58,7 @@ test("installation : la première personne devient responsable, une seule fois",
   const cookie = cookieOf(ok.headers);
   assert.match(cookie, /^socle_session=/);
   const after = JSON.parse((await call("GET", "/v1/auth/etat", undefined, cookie)).body);
-  assert.deepEqual(after, { mode: "motdepasse", installed: true, email: "resp@cegep.example", role: "responsable" });
+  assert.deepEqual(after, { mode: "motdepasse", installed: true, email: "resp@cegep.example", role: "administrateur" });
   const again = await call("POST", "/v1/auth/installation", { email: "intrus@example.org", password: "un autre secret" });
   assert.equal(again.status, 409);
   const raw = JSON.stringify(await store.list("auth"));
@@ -71,12 +71,12 @@ test("connexion, équipe, essais limités, déconnexion", async () => {
   const resp = cookieOf(install.headers);
   assert.equal((await call("POST", "/v1/auth/membres", { email: "ana@cegep.example", role: "auteur", password: "mot de passe d’Ana" }, resp)).status, 204);
   const team = JSON.parse((await call("GET", "/v1/auth/membres", undefined, resp)).body);
-  assert.deepEqual(team, [{ email: "ana@cegep.example", role: "auteur" }, { email: "resp@cegep.example", role: "responsable" }]);
+  assert.deepEqual(team, [{ email: "ana@cegep.example", role: "auteur" }, { email: "resp@cegep.example", role: "administrateur" }]);
   const ana = await call("POST", "/v1/auth/motdepasse", { email: "ana@cegep.example", password: "mot de passe d’Ana" });
   assert.equal(ana.status, 204);
   const anaCookie = cookieOf(ana.headers);
   assert.equal((await call("GET", "/v1/auth/membres", undefined, anaCookie)).status, 403);
-  assert.equal((await call("POST", "/v1/auth/membres", { email: "x@cegep.example", role: "responsable", password: "aaaaaaaaaaaa" }, anaCookie)).status, 403);
+  assert.equal((await call("POST", "/v1/auth/membres", { email: "x@cegep.example", role: "administrateur", password: "aaaaaaaaaaaa" }, anaCookie)).status, 403);
   for (let i = 0; i < 10; i++) {
     assert.equal((await call("POST", "/v1/auth/motdepasse", { email: "ana@cegep.example", password: "mauvais essai" })).status, 401);
   }
@@ -88,4 +88,22 @@ test("connexion, équipe, essais limités, déconnexion", async () => {
   assert.equal(out.status, 204);
   const gone = JSON.parse((await call("GET", "/v1/auth/etat", undefined, anaCookie)).body);
   assert.equal(gone.email, null);
+});
+
+test("un compte « responsable » d'avant 1.2 reste administrateur, sans rien refaire", async () => {
+  const { call, store } = await setup();
+  await store.put("auth", "member:ancien@cegep.example", "responsable");
+  await store.put("auth", "password:ancien@cegep.example", hashPassword("ancien mot de passe"));
+  const login = await call("POST", "/v1/auth/motdepasse", { email: "ancien@cegep.example", password: "ancien mot de passe" });
+  assert.equal(login.status, 204);
+  const cookie = cookieOf(login.headers);
+  const etat = JSON.parse((await call("GET", "/v1/auth/etat", undefined, cookie)).body);
+  assert.equal(etat.role, "administrateur");
+  assert.equal(etat.installed, true);
+  // L'ancien nom est encore accepté en entrée, enregistré sous le nouveau.
+  assert.equal((await call("POST", "/v1/auth/membres", { email: "zoe@cegep.example", role: "responsable", password: "mot de passe de Zoé" }, cookie)).status, 204);
+  assert.equal(await store.get("auth", "member:zoe@cegep.example"), "administrateur");
+  const team = JSON.parse((await call("GET", "/v1/auth/membres", undefined, cookie)).body);
+  assert.deepEqual(team, [{ email: "ancien@cegep.example", role: "administrateur" }, { email: "zoe@cegep.example", role: "administrateur" }]);
+  assert.equal((await call("POST", "/v1/auth/installation", { email: "intrus@example.org", password: "un autre secret" })).status, 409);
 });

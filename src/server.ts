@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { handleAdmin, type AdminDeps } from "./admin.ts";
 import { handleAudience } from "./audience-http.ts";
 import { accessVerifier } from "./access.ts";
-import { emailFromCookie, ensureResponsable } from "./auth.ts";
+import { emailFromCookie, ensureAdministrateur } from "./auth.ts";
 import { handleAuth } from "./auth-http.ts";
 import { defaultConfig, loadConfigFile, stringifyConfig, type SocleConfig } from "./config.ts";
 import { handleEditorial } from "./editorial-http.ts";
@@ -113,7 +113,7 @@ export async function openRunningAdmin(
   await store.resume();
   if (config.modules.auth) {
     try {
-      await ensureResponsable(store, process.env.SOCLE_RESPONSABLE);
+      await ensureAdministrateur(store, process.env.SOCLE_ADMINISTRATEUR ?? process.env.SOCLE_RESPONSABLE);
     } catch (error) {
       if (!(error instanceof ModuleOffError)) throw error;
     }

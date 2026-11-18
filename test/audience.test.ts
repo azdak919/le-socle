@@ -218,7 +218,7 @@ test("la route n'existe pas éteinte, les en-têtes ne sont pas gardés, la page
   }
 });
 
-test("allumer un nom est réservé au responsable", async () => {
+test("allumer un nom est réservé à l’administrateur", async () => {
   const store = await opened(["audience", "auth"]);
   const config = configFor({ audience: true, auth: true });
   const admin = deps(store);
@@ -230,7 +230,7 @@ test("allumer un nom est réservé au responsable", async () => {
       name: "une",
     })), "ada@journal.test");
     assert.equal(blocked.status, 403);
-    assert.match(blocked.body, /réservé au responsable/);
+    assert.match(blocked.body, /réservé à l’administrateur/);
     assert.equal((await store.list("audience")).some((row) => row.key.startsWith("allowed:")), false);
 
     const openedName = await handleAudience("POST", "/admin/audience/noms", config, admin, Buffer.from(JSON.stringify({

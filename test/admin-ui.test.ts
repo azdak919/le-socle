@@ -101,7 +101,7 @@ test("le serveur ne sert l'admin que si editorial est allumé", async () => {
 test("client du socle : un socle neuf ouvre l'admin avec une fiche de départ, rien n'est écrit avant", async () => {
   const { SocleBackend } = await import("../admin/assets/socle-backend.js");
   const calls: Array<{ method: string; url: string; body?: string }> = [];
-  const state = { format: "socle-redaction", version: 1, publication: null, articles: [], authors: [], taxonomies: { sections: [], categories: [], tags: [] }, media: [], role: "responsable", modules: { media: false } };
+  const state = { format: "socle-redaction", version: 1, publication: null, articles: [], authors: [], taxonomies: { sections: [], categories: [], tags: [] }, media: [], role: "administrateur", modules: { media: false } };
   const fetch = async (url: string, init: { method: string; body?: string }) => {
     calls.push({ method: init.method, url, body: init.body });
     return new Response(JSON.stringify(state), { status: 200, headers: { "content-type": "application/json" } });

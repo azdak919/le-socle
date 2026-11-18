@@ -12,7 +12,7 @@
  *   comptes n'accepte pas d'écriture venue d'Internet ;
  * - `auth` allumé : il faut une session et un rôle. Publier, programmer,
  *   archiver, supprimer et toucher à la publication demandent un réviseur,
- *   un éditeur ou le responsable ;
+ *   un éditeur ou l’administrateur ;
  * - chaque écriture exige `content-type: application/json` : un formulaire
  *   d'un autre site ne peut pas l'envoyer sans permission (pas de CORS ici,
  *   l'admin est servie par le socle lui-même).
@@ -37,7 +37,7 @@ type Result = { status: number; body: string | Uint8Array; headers: Record<strin
 
 const JSON_TYPE = "application/json; charset=utf-8";
 const KINDS = ["author", "section", "category", "tag"] as const;
-const EDITORS: OrgRole[] = ["reviseur", "editeur", "responsable"];
+const EDITORS: OrgRole[] = ["reviseur", "editeur", "administrateur"];
 const PUBLIC_STATUSES = ["published", "scheduled", "archived", "retracted"];
 const MAX_BYTES = 8 * 1024 * 1024;
 const IMAGE_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
@@ -154,7 +154,7 @@ export async function handleRedaction(
   let role: OrgRole | null = null;
   if (actor === undefined) {
     if (!local) return fail(403, "Sans le module auth, la rédaction ne s'ouvre que depuis la machine du socle.");
-    role = "responsable";
+    role = "administrateur";
   } else {
     if (!actor) return fail(401, "Connexion requise.");
     role = await roleOf(deps.store, actor);
@@ -201,7 +201,7 @@ export async function handleRedaction(
       const existing = (await readArticles(deps.store)).find((item) => item.id === input.id);
       const article = articleFrom(input, existing, publication.slug, now);
       const touchesPublic = PUBLIC_STATUSES.includes(article.status) || (existing && PUBLIC_STATUSES.includes(existing.status));
-      if (touchesPublic && !editor) return fail(403, "Publier ou programmer demande un réviseur, un éditeur ou le responsable.");
+      if (touchesPublic && !editor) return fail(403, "Publier ou programmer demande un réviseur, un éditeur ou l’administrateur.");
       const clash = (await readArticles(deps.store)).find((item) => item.slug === article.slug && item.id !== article.id);
       if (clash) return fail(409, `L'adresse « ${article.slug} » est déjà prise par un autre article.`);
       return json(200, { article: await saveArticle(deps.store, article, now) });

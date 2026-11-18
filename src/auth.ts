@@ -2,7 +2,9 @@ import { createHash, pbkdf2Sync, randomBytes, timingSafeEqual } from "node:crypt
 
 import { ModuleOffError, type SocleStore } from "./store.ts";
 
-const ROLES = ["auteur", "reviseur", "editeur", "responsable"] as const;
+const ROLES = ["auteur", "reviseur", "editeur", "administrateur"] as const;
+/** Anciens noms de rôle encore lus (comptes et archives d’avant 1.2). */
+const LEGACY_ROLES: Record<string, (typeof ROLES)[number]> = { responsable: "administrateur" };
 const MAGIC_MS = 15 * 60 * 1000;
 const SESSION_MS = 12 * 60 * 60 * 1000;
 const STATE_MS = 10 * 60 * 1000;
@@ -63,10 +65,10 @@ function checkPassword(password: unknown): string {
 }
 
 async function anyMember(store: SocleStore): Promise<boolean> {
-  return (await store.list("auth")).some((row) => row.key.startsWith("member:") && isRole(row.value));
+  return (await store.list("auth")).some((row) => row.key.startsWith("member:") && canonicalRole(row.value) !== null);
 }
 
-/** Premier passage : sans aucun membre, la première personne devient responsable. */
+/** Premier passage : sans aucun membre, la première personne devient administrateur. */
 export async function passwordInstall(
   store: SocleStore,
   runtime: AuthRuntime | undefined,
@@ -79,7 +81,7 @@ export async function passwordInstall(
   if (!clean) throw new AuthError("demande refusée");
   const secret = checkPassword(password);
   if (await anyMember(store)) throw new AuthError("déjà installé");
-  await store.put("auth", `member:${clean}`, "responsable");
+  await store.put("auth", `member:${clean}`, "administrateur");
   await store.put("auth", `password:${clean}`, hashPassword(secret));
   return createSession(store, runtime, clean, now);
 }
@@ -131,12 +133,18 @@ export async function authState(
 }
 
 export async function listMembers(store: SocleStore, actor: string | null): Promise<MemberRecord[]> {
-  if (!actor || (await roleOf(store, actor)) !== "responsable") throw new AuthError("réservé au responsable");
+  if (!actor || (await roleOf(store, actor)) !== "administrateur") throw new AuthError("réservé à l’administrateur");
   return membersForArchive(store);
 }
 
 export function isRole(value: string | null | undefined): value is OrgRole {
   return value !== null && value !== undefined && (ROLES as readonly string[]).includes(value);
+}
+
+/** Rôle à jour : « responsable » (ancien nom) devient « administrateur ». */
+export function canonicalRole(value: string | null | undefined): OrgRole | null {
+  if (isRole(value)) return value;
+  return value ? LEGACY_ROLES[value] ?? null : null;
 }
 
 export function hashToken(token: string): string {
@@ -147,17 +155,19 @@ export function sessionCookie(token: string): string {
   return `socle_session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${SESSION_MS / 1000}`;
 }
 
-export async function ensureResponsable(store: SocleStore, email: string | undefined): Promise<void> {
+/** Ancien nom, gardé pour les intégrations existantes. */
+export const ensureResponsable = (store: SocleStore, email: string | undefined): Promise<void> => ensureAdministrateur(store, email);
+
+export async function ensureAdministrateur(store: SocleStore, email: string | undefined): Promise<void> {
   if (!email?.trim()) return;
   const clean = normalizeEmail(email);
   if (!clean) throw new AuthError("demande refusée");
-  await store.put("auth", `member:${clean}`, "responsable");
+  await store.put("auth", `member:${clean}`, "administrateur");
 }
 
 export async function roleOf(store: SocleStore, email: string): Promise<OrgRole | null> {
   try {
-    const value = await store.get("auth", `member:${email}`);
-    return isRole(value) ? value : null;
+    return canonicalRole(await store.get("auth", `member:${email}`));
   } catch (error) {
     if (error instanceof ModuleOffError) return null;
     throw error;
@@ -167,7 +177,7 @@ export async function roleOf(store: SocleStore, email: string): Promise<OrgRole 
 export async function mayUpdate(store: SocleStore, actor: string | null | undefined): Promise<boolean> {
   if (actor === undefined) return true;
   if (!actor) return false;
-  return (await roleOf(store, actor)) === "responsable";
+  return (await roleOf(store, actor)) === "administrateur";
 }
 
 export async function saveMember(
@@ -177,15 +187,16 @@ export async function saveMember(
   role: string,
   password?: string,
 ): Promise<void> {
-  if (!actor || (await roleOf(store, actor)) !== "responsable") throw new AuthError("réservé au responsable");
+  if (!actor || (await roleOf(store, actor)) !== "administrateur") throw new AuthError("réservé à l’administrateur");
   const clean = normalizeEmail(email);
   if (!clean) throw new AuthError("demande refusée");
-  if (!isRole(role)) throw new AuthError("rôle inconnu");
+  const canonical = canonicalRole(role);
+  if (!canonical) throw new AuthError("rôle inconnu");
   if (password !== undefined) {
     const secret = checkPassword(password);
     await store.put("auth", `password:${clean}`, hashPassword(secret));
   }
-  await store.put("auth", `member:${clean}`, role);
+  await store.put("auth", `member:${clean}`, canonical);
 }
 
 export async function startMagic(
@@ -322,8 +333,9 @@ export async function membersForArchive(store: SocleStore): Promise<MemberRecord
     const members: MemberRecord[] = [];
     for (const row of rows) {
       if (!row.key.startsWith("member:")) continue;
-      if (!isRole(row.value)) continue;
-      members.push({ email: row.key.slice("member:".length), role: row.value });
+      const role = canonicalRole(row.value);
+      if (!role) continue;
+      members.push({ email: row.key.slice("member:".length), role });
     }
     members.sort((a, b) => a.email.localeCompare(b.email));
     return members;
@@ -339,9 +351,10 @@ export async function restoreMembers(store: SocleStore, value: unknown): Promise
     if (item === null || typeof item !== "object") continue;
     const record = item as { email?: unknown; role?: unknown };
     const email = normalizeEmail(record.email);
-    if (!email || !isRole(typeof record.role === "string" ? record.role : null)) continue;
+    const role = canonicalRole(typeof record.role === "string" ? record.role : null);
+    if (!email || !role) continue;
     try {
-      await store.put("auth", `member:${email}`, record.role);
+      await store.put("auth", `member:${email}`, role);
     } catch (error) {
       if (error instanceof ModuleOffError) return;
       throw error;

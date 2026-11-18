@@ -8,7 +8,8 @@
  * - `ASSETS` : les fichiers statiques du dossier `admin/` ; le Worker ne
  *   sert que la page et les fichiers du mode serveur (jamais sql.js).
  * - `SOCLE_CONFIG` : le contenu de `socle.config.json` (modules allumés).
- * - `SOCLE_RESPONSABLE` : l'adresse du responsable, posée au premier appel.
+ * - `SOCLE_ADMINISTRATEUR` : l'adresse de l'administrateur, posée au premier appel
+ *   (`SOCLE_RESPONSABLE`, l'ancien nom, est encore lu).
  * - `SOCLE_ACCESS_TEAM`, `SOCLE_ACCESS_AUD` : Cloudflare Access. Derrière
  *   Cloudflare, aucune requête n'est « locale » : la rédaction demande le
  *   module `auth`, et Access est la porte prévue ici.
@@ -19,7 +20,7 @@
  */
 import { accessVerifier } from "./access.ts";
 import type { AdminDeps } from "./admin.ts";
-import { emailFromCookie, ensureResponsable } from "./auth.ts";
+import { emailFromCookie, ensureAdministrateur } from "./auth.ts";
 import { handleAuth } from "./auth-http.ts";
 import { defaultConfig, parseConfig, type SocleConfig } from "./config.ts";
 import { wrapD1, type D1Database } from "./d1-store.ts";
@@ -36,6 +37,7 @@ export type WorkerEnv = {
   DB: D1Database;
   ASSETS?: { fetch(request: Request): Promise<Response> };
   SOCLE_CONFIG?: string;
+  SOCLE_ADMINISTRATEUR?: string;
   SOCLE_RESPONSABLE?: string;
   SOCLE_AUTH_MODE?: string;
   SOCLE_ACCESS_TEAM?: string;
@@ -45,7 +47,7 @@ export type WorkerEnv = {
 
 type Result = { status: number; body: string | Uint8Array; headers: Record<string, string> };
 
-let responsableSet = false;
+let administrateurSet = false;
 
 function readConfig(env: WorkerEnv): SocleConfig {
   return env.SOCLE_CONFIG ? parseConfig(JSON.parse(env.SOCLE_CONFIG)) : defaultConfig();
@@ -88,10 +90,10 @@ export default {
         const photo = await handlePublicMedia(method, path, config, store);
         return photo ? respond(photo, method) : new Response("", { status: 404 });
       }
-      if (config.modules.auth && !responsableSet) {
+      if (config.modules.auth && !administrateurSet) {
         try {
-          await ensureResponsable(store, env.SOCLE_RESPONSABLE);
-          responsableSet = true;
+          await ensureAdministrateur(store, env.SOCLE_ADMINISTRATEUR ?? env.SOCLE_RESPONSABLE);
+          administrateurSet = true;
         } catch (error) {
           if (!(error instanceof ModuleOffError)) throw error;
         }

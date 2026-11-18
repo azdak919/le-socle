@@ -5,7 +5,7 @@ declare(strict_types=1);
 // Lire l'en-tête de ce fichier Node pour les règles (local, rôles, JSON).
 
 const SOCLE_REDACTION_KINDS = ['author', 'section', 'category', 'tag'];
-const SOCLE_REDACTION_EDITORS = ['reviseur', 'editeur', 'responsable'];
+const SOCLE_REDACTION_EDITORS = ['reviseur', 'editeur', 'administrateur'];
 const SOCLE_REDACTION_PUBLIC = ['published', 'scheduled', 'archived', 'retracted'];
 const SOCLE_REDACTION_MAX = 8388608;
 const SOCLE_REDACTION_EXT = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
@@ -124,7 +124,7 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
     if (!$config['modules']['editorial'] || !str_starts_with($path, '/v1/redaction/')) return socle_result(404);
     if (!$defined) {
         if (!socle_redaction_local()) return socle_redaction_fail(403, "Sans le module auth, la rédaction ne s'ouvre que depuis la machine du socle.");
-        $role = 'responsable';
+        $role = 'administrateur';
     } else {
         if ($actor === null || $actor === '') return socle_redaction_fail(401, 'Connexion requise.');
         $role = socle_role_of($store, $actor);
@@ -185,7 +185,7 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
             elseif (isset($existing['publishedAt'])) $article['publishedAt'] = $existing['publishedAt'];
             else unset($article['publishedAt']);
             $touches = in_array($status, SOCLE_REDACTION_PUBLIC, true) || ($existing !== null && in_array($existing['status'] ?? '', SOCLE_REDACTION_PUBLIC, true));
-            if ($touches && !$editor) return socle_redaction_fail(403, 'Publier ou programmer demande un réviseur, un éditeur ou le responsable.');
+            if ($touches && !$editor) return socle_redaction_fail(403, 'Publier ou programmer demande un réviseur, un éditeur ou l’administrateur.');
             foreach ($articles as $item) {
                 if (($item['slug'] ?? '') === $article['slug'] && ($item['id'] ?? '') !== $id) {
                     return socle_redaction_fail(409, "L'adresse « " . $article['slug'] . ' » est déjà prise par un autre article.');

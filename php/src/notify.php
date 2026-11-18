@@ -314,7 +314,7 @@ function socle_handle_notify(string $method, string $url, array $config, SocleSt
         }
         if ($path === '/admin/abonnements/envoi' && $method === 'POST') {
             $allowed = socle_may_update($store, $config['modules']['auth'] ? $actor : null, $config['modules']['auth']);
-            if (!$allowed) return socle_text(403, 'réservé au responsable');
+            if (!$allowed) return socle_text(403, 'réservé à l’administrateur');
             $text = socle_posted_text($raw);
             if ($text === null) throw new SocleHttp('demande refusée');
             $sent = socle_deliver($store, $runtime, $text);

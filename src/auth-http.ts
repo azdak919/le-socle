@@ -113,7 +113,7 @@ function requireKnownMode(deps: AdminDeps): void {
 
 function fail(error: AuthError): Result {
   const message = error.message;
-  const status = message === "réservé au responsable" ? 403
+  const status = message === "réservé à l’administrateur" ? 403
     : message === "accès refusé" ? 401
     : message === "trop d'essais" ? 429
     : message === "déjà installé" ? 409

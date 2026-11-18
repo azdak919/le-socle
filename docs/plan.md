@@ -186,7 +186,7 @@ Tout est rattaché à une organisation. Une organisation est un média ou une r�
 
 Le module 4 n'écrit que dans `audience_day` et `audience_week`. Pas de colonne d'adresse, d'en-tête, d'identifiant de carte, ni de personne. Les tables des modules 1 et 5 sont un fichier de renseignements personnels au sens de la Loi 25 : finalité, accès, durée, et elles sont dans l'export pour que le journal parte avec. On ne les mélange pas avec l'audience. Un module éteint n'a pas de table consultable de l'extérieur ; les migrations de ce module ne s'appliquent que lorsqu'on l'allume.
 
-Rôles : `auteur`, `reviseur`, `editeur`, plus `responsable` pour les deux personnes qui peuvent récupérer l'accès (le champ `recoveryContacts` de `Governance` en a déjà l'idée). Le rôle ne donne des droits que sur l'API du socle.
+Rôles : `auteur`, `reviseur`, `editeur`, plus `administrateur` (ancien nom : `responsable`, encore lu) pour les deux personnes qui peuvent récupérer l'accès (le champ `recoveryContacts` de `Governance` en a déjà l'idée). Le rôle ne donne des droits que sur l'API du socle.
 
 ### API
 
@@ -431,7 +431,7 @@ Même écran dans le Kiosque, dans la démo, et dans le Radar.
 - « Revenir à la sauvegarde » défait la dernière mise à jour de cette ligne. Le contenu du journal (`content/`, `media/`, `theme/tokens.css`, `kiosque.config.ts`, `OWNERS.md`) n'est pas dans la mise à jour.
 - Une mise à jour du Kiosque reconstruit le site sur la machine qui l'héberge.
 - Une version majeure est montrée à part, avec ce qui casse, et un deuxième oui. Le premier bouton ne la lance pas.
-- Quand les rôles existent, le bouton est au responsable. Les autres rôles voient la version. Tant que le module 1 est éteint, le bouton est à qui peut déjà ouvrir la page.
+- Quand les rôles existent, le bouton est à l’administrateur. Les autres rôles voient la version. Tant que le module 1 est éteint, le bouton est à qui peut déjà ouvrir la page.
 - Pour savoir s'il existe une version plus récente, la page lit seulement le numéro public. Elle n'envoie pas le contenu du journal. Sans réseau, elle affiche la version en place.
 - Sur leur serveur (ordinateur, établissement, petit VPS), le bouton remplace le programme et, pour la ligne Kiosque, reconstruit le site.
 - Sur un hébergement où l'on ne peut qu'envoyer un dossier (souvent le mutualisé PHP), le bouton prépare la sauvegarde et le dossier, et indique l'endroit déjà utilisé.
@@ -467,7 +467,7 @@ Le guide réel s'écrit avec la première pull request de code, quand les comman
 | Le README du Kiosque et le code divergent (jalon 4) | Corrigé dans la pull request d'intégration, pas ici. |
 | Ce dépôt est public et nomme les dépôts privés | Les verdicts restent courts. Si la liste doit sortir, on la retire avant la fusion. |
 | `node:sqlite` change d'API | Version de Node épinglée, la même que le Kiosque (22.18). Pas de module natif tiers. |
-| La page de mise à jour remplace le programme | Bouton réservé au responsable. Sauvegarde nommée avant. Échec = rester sur l'ancienne version. Aucun envoi de la base. |
+| La page de mise à jour remplace le programme | Bouton réservé à l’administrateur. Sauvegarde nommée avant. Échec = rester sur l'ancienne version. Aucun envoi de la base. |
 | L'archive ZIP reste sur le serveur qui va tomber | La notice demande de la télécharger. La restauration part du fichier que l'admin a gardé. |
 
 ## 12. Pull requests à venir

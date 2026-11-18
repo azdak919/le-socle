@@ -58,7 +58,7 @@ function missingSettings(publication) {
 
 /**
  * kiosque-config.json, le fichier du configurateur (dans son ZIP) : nom,
- * adresse, responsables, couleurs, logo, sections, radio, météo. Rien à
+ * adresse, organisme et contacts, couleurs, logo, sections, radio, météo. Rien à
  * ressaisir. Les sections déjà présentes (même nom court) sont gardées.
  */
 async function importKiosqueConfig(file) {
@@ -142,7 +142,7 @@ async function authCall(method, path, body) {
   });
   const text = await response.text();
   if (!response.ok) {
-    const messages = { 'accès refusé': 'Courriel ou mot de passe incorrect.', "trop d'essais": 'Trop d’essais : attendez 15 minutes.', 'mot de passe trop court': 'Le mot de passe doit avoir au moins 10 caractères.', 'déjà installé': 'Ce socle a déjà un responsable : connectez-vous.', 'réservé au responsable': 'Réservé au ou à la responsable.', 'rôle inconnu': 'Rôle inconnu.', 'demande refusée': 'Demande refusée : vérifiez le courriel.' };
+    const messages = { 'accès refusé': 'Courriel ou mot de passe incorrect.', "trop d'essais": 'Trop d’essais : attendez 15 minutes.', 'mot de passe trop court': 'Le mot de passe doit avoir au moins 10 caractères.', 'déjà installé': 'Ce socle a déjà un administrateur : connectez-vous.', 'réservé à l’administrateur': 'Réservé à l’administrateur du journal.', 'réservé au responsable': 'Réservé à l’administrateur du journal.', 'rôle inconnu': 'Rôle inconnu.', 'demande refusée': 'Demande refusée : vérifiez le courriel.' };
     throw new Error(messages[text] || text || `Le socle a refusé (${response.status}).`);
   }
   return text ? JSON.parse(text) : null;
@@ -155,7 +155,7 @@ async function loginScreen() {
   const mode = state?.mode;
   if (mode === 'motdepasse') {
     const first = !state.installed;
-    main.innerHTML = `<section class="panel" style="max-width:32rem"><h2>${first ? 'Installer la rédaction' : 'Se connecter'}</h2><p>${first ? 'Ce socle est neuf. Créez le compte de la personne responsable du journal : elle pourra ensuite ajouter l’équipe. Faites-le tout de suite après la mise en ligne.' : 'Entrez le courriel et le mot de passe que la ou le responsable vous a donnés.'}</p><form id="login-form" class="grid"><div class="field full"><label>Courriel<input name="email" type="email" autocomplete="username" required></label></div><div class="field full"><label>Mot de passe${first ? ' (10 caractères ou plus)' : ''}<input name="password" type="password" autocomplete="${first ? 'new-password' : 'current-password'}" minlength="${first ? 10 : 1}" required></label></div><div class="actions full"><button class="primary">${first ? 'Créer le compte et ouvrir la rédaction' : 'Se connecter'}</button></div><p id="login-error" class="notice" role="alert" hidden></p></form></section>`;
+    main.innerHTML = `<section class="panel" style="max-width:32rem"><h2>${first ? 'Installer la rédaction' : 'Se connecter'}</h2><p>${first ? 'Ce socle est neuf. Créez le compte administrateur du journal : il pourra ensuite ajouter l’équipe. Faites-le tout de suite après la mise en ligne.' : 'Entrez le courriel et le mot de passe que l’administrateur du journal vous a donnés.'}</p><form id="login-form" class="grid"><div class="field full"><label>Courriel<input name="email" type="email" autocomplete="username" required></label></div><div class="field full"><label>Mot de passe${first ? ' (10 caractères ou plus)' : ''}<input name="password" type="password" autocomplete="${first ? 'new-password' : 'current-password'}" minlength="${first ? 10 : 1}" required></label></div><div class="actions full"><button class="primary">${first ? 'Créer le compte et ouvrir la rédaction' : 'Se connecter'}</button></div><p id="login-error" class="notice" role="alert" hidden></p></form></section>`;
     document.getElementById('login-form').onsubmit = async (event) => {
       event.preventDefault();
       const data = new FormData(event.currentTarget);
@@ -173,7 +173,7 @@ async function loginScreen() {
   if (magic) magic.onsubmit = async (event) => { event.preventDefault(); const status = document.getElementById('login-error'); status.hidden = false; try { await fetch(`${socleRoot()}/v1/auth/lien`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: new FormData(magic).get('email').trim() }) }); status.textContent = 'Si cette adresse fait partie de l’équipe, un lien vient de partir.'; } catch { status.textContent = 'Le socle ne répond pas.'; } };
 }
 
-/** Comptes de la rédaction (mode mot de passe), pour la ou le responsable. */
+/** Comptes de la rédaction (mode mot de passe), pour l’administrateur. */
 async function fillAccessPanel() {
   const panel = document.getElementById('access-panel');
   if (!panel || !authOn()) return;
@@ -183,7 +183,7 @@ async function fillAccessPanel() {
   if (!members) { panel.hidden = false; panel.innerHTML = `<div class="toolbar"><h2>Mon accès</h2>${logout}</div>`; bindLogout(panel); return; }
   const password = (await authCall('GET', 'etat').catch(() => null))?.mode === 'motdepasse';
   panel.hidden = false;
-  panel.innerHTML = `<div class="toolbar"><h2>Accès à la rédaction</h2>${logout}</div><p class="notice">Ces comptes ouvrent l’admin. Les signatures, plus bas, sont ce que le public voit.</p><ul class="entity-list">${members.map((member) => `<li><div><strong>${esc(member.email)}</strong><small>${esc(ACCOUNT_LABELS[member.role] || member.role)}</small></div></li>`).join('')}</ul><form id="member-form" class="grid"><div class="field"><label>Courriel<input name="email" type="email" required autocomplete="off"></label></div><div class="field"><label>Rôle<select name="role">${['auteur', 'reviseur', 'editeur', 'responsable'].map((role) => `<option value="${role}">${esc(ACCOUNT_LABELS[role] || role)}</option>`).join('')}</select></label></div>${password ? '<div class="field"><label>Mot de passe à lui transmettre (10 caractères ou plus ; vide = inchangé)<input name="password" type="text" minlength="10" autocomplete="off"></label></div>' : ''}<div class="actions full"><button class="primary">Ajouter ou modifier le compte</button></div></form>`;
+  panel.innerHTML = `<div class="toolbar"><h2>Accès à la rédaction</h2>${logout}</div><p class="notice">Ces comptes ouvrent l’admin. Les signatures, plus bas, sont ce que le public voit.</p><ul class="entity-list">${members.map((member) => `<li><div><strong>${esc(member.email)}</strong><small>${esc(ACCOUNT_LABELS[member.role] || member.role)}</small></div></li>`).join('')}</ul><form id="member-form" class="grid"><div class="field"><label>Courriel<input name="email" type="email" required autocomplete="off"></label></div><div class="field"><label>Rôle<select name="role">${['auteur', 'reviseur', 'editeur', 'administrateur'].map((role) => `<option value="${role}">${esc(ACCOUNT_LABELS[role] || role)}</option>`).join('')}</select></label></div>${password ? '<div class="field"><label>Mot de passe à lui transmettre (10 caractères ou plus ; vide = inchangé)<input name="password" type="text" minlength="10" autocomplete="off"></label></div>' : ''}<div class="actions full"><button class="primary">Ajouter ou modifier le compte</button></div></form>`;
   bindLogout(panel);
   panel.querySelector('#member-form').onsubmit = async (event) => {
     event.preventDefault();
@@ -239,7 +239,8 @@ function setView(next) {
 }
 
 const ROLE_LABELS = { auteur: 'Auteur ou autrice', reviseur: 'Réviseur ou réviseure', editeur: 'Éditeur ou éditrice' };
-const ACCOUNT_LABELS = { ...ROLE_LABELS, responsable: 'Responsable' };
+// « responsable » : ancien nom du rôle administrateur, encore lu.
+const ACCOUNT_LABELS = { ...ROLE_LABELS, administrateur: 'Administrateur', responsable: 'Administrateur' };
 
 /** Licences courantes et leur lien, pour la banque et la photo principale. */
 const LICENSES = {
@@ -559,7 +560,7 @@ function articleEditor(article) {
     <input type="hidden" name="id" value="${esc(current.id)}"><div class="field"><label for="article-title">Titre</label><input id="article-title" name="title" required value="${esc(current.title)}"></div><div class="field"><label for="article-slug">Adresse de l’article</label><input id="article-slug" name="slug" required value="${esc(current.slug)}"><small>Se remplit à partir du titre.</small></div>
     <div class="field full"><label for="article-excerpt">Résumé</label><textarea id="article-excerpt" name="excerpt" required>${esc(current.excerpt)}</textarea></div>
     <div class="field"><label for="article-section">Section</label><select id="article-section" name="section">${orderedSections().map((item) => `<option value="${esc(item.slug)}" ${item.slug === current.section ? 'selected' : ''}>${esc(item.name)}</option>`).join('')}</select></div>
-    <div class="field"><label for="article-status">Statut</label><select id="article-status" name="status"><option value="draft" ${current.status === 'draft' ? 'selected' : ''}>Brouillon</option><option value="in-review" ${current.status === 'in-review' ? 'selected' : ''}>En révision</option><option value="scheduled" ${current.status === 'scheduled' ? 'selected' : (authorOnly ? 'disabled' : '')}>Programmé</option><option value="published" ${current.status === 'published' ? 'selected' : (authorOnly ? 'disabled' : '')}>Publié</option><option value="archived" ${current.status === 'archived' ? 'selected' : (authorOnly ? 'disabled' : '')}>Archivé</option></select><small>${authorOnly ? 'Mettez « En révision » quand c’est prêt : un réviseur, un éditeur ou le responsable publie.' : 'Programmé : publié tout seul à l’heure choisie. Archivé : la page reste, l’article quitte les listes.'}</small></div>
+    <div class="field"><label for="article-status">Statut</label><select id="article-status" name="status"><option value="draft" ${current.status === 'draft' ? 'selected' : ''}>Brouillon</option><option value="in-review" ${current.status === 'in-review' ? 'selected' : ''}>En révision</option><option value="scheduled" ${current.status === 'scheduled' ? 'selected' : (authorOnly ? 'disabled' : '')}>Programmé</option><option value="published" ${current.status === 'published' ? 'selected' : (authorOnly ? 'disabled' : '')}>Publié</option><option value="archived" ${current.status === 'archived' ? 'selected' : (authorOnly ? 'disabled' : '')}>Archivé</option></select><small>${authorOnly ? 'Mettez « En révision » quand c’est prêt : un réviseur, un éditeur ou l’administrateur publie.' : 'Programmé : publié tout seul à l’heure choisie. Archivé : la page reste, l’article quitte les listes.'}</small></div>
     <div class="field" data-scheduled-field ${current.status === 'scheduled' ? '' : 'hidden'}><label for="article-scheduled-at">Programmer pour</label><input id="article-scheduled-at" name="scheduledAt" type="datetime-local" value="${esc(localDateTime(current.scheduledAt))}"></div>
     <div class="field full"><label for="article-published-at">Date et heure de publication</label><input id="article-published-at" name="publishedAt" type="datetime-local" value="${esc(localDateTime(current.publishedAt))}"><small>Heure locale du journal.</small></div>
     <fieldset class="field"><legend>Auteurs</legend>${bundle.authors.map((author) => `<label><input type="checkbox" name="authors" value="${esc(author.slug)}" ${current.authors.includes(author.slug) ? 'checked' : ''}> ${esc(author.name)}</label>`).join('')}</fieldset>
@@ -876,7 +877,7 @@ function settings() {
   const missing = missingSettings(publication);
   return `<section class="panel"><div class="toolbar"><h2>Configuration du journal</h2>${importButton()}</div>${missing.length ? `<p class="notice" role="status">À remplir avant de publier : ${esc(missing.join(', '))}.</p>` : ''}<form id="settings-form" class="grid">
     <div class="field"><label>Nom<input name="name" required value="${esc(publication.name)}"></label></div>
-    <fieldset class="field full"><legend>Adresse et responsables</legend>
+    <fieldset class="field full"><legend>Adresse, organisme et contacts</legend>
       <label>Adresse du site public<input name="siteUrl" type="url" placeholder="https://votre-organisation.github.io/votre-journal/" value="${esc(publication.siteUrl || '')}"></label>
       <label>Nom court du journal, utilisé dans les adresses<input name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" value="${esc(publication.slug === 'mon-journal' ? slugify(publication.name || '') : publication.slug || '')}"></label><small>Lettres minuscules, chiffres et tirets, par exemple la-boussole.</small>
       <label>Organisme ou personne responsable<input name="owner" placeholder="Association étudiante du cégep" value="${esc(governance.owner || '')}"></label>

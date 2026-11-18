@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 
-const SOCLE_ROLES = ['auteur', 'reviseur', 'editeur', 'responsable'];
+const SOCLE_ROLES = ['auteur', 'reviseur', 'editeur', 'administrateur'];
+/** Anciens noms de rôle encore lus (comptes et archives d’avant 1.2). */
+const SOCLE_LEGACY_ROLES = ['responsable' => 'administrateur'];
 const SOCLE_MAGIC_MS = 900000;
 const SOCLE_SESSION_MS = 43200000;
 const SOCLE_STATE_MS = 600000;
@@ -36,7 +38,7 @@ function socle_check_password(mixed $password): string {
 
 function socle_any_member(SocleStore $store): bool {
     foreach ($store->list('auth') as $row) {
-        if (str_starts_with($row['key'], 'member:') && socle_is_role($row['value'])) return true;
+        if (str_starts_with($row['key'], 'member:') && socle_canonical_role($row['value']) !== null) return true;
     }
     return false;
 }
@@ -47,7 +49,7 @@ function socle_password_install(SocleStore $store, DateTimeImmutable $now, mixed
     if ($clean === null) throw new SocleHttp('demande refusée');
     $secret = socle_check_password($password);
     if (socle_any_member($store)) throw new SocleHttp('déjà installé', 409);
-    $store->put('auth', 'member:' . $clean, 'responsable');
+    $store->put('auth', 'member:' . $clean, 'administrateur');
     $store->put('auth', 'password:' . $clean, socle_hash_password($secret));
     return socle_create_session($store, $clean, $now);
 }
@@ -78,6 +80,12 @@ function socle_is_role(?string $value): bool {
     return $value !== null && in_array($value, SOCLE_ROLES, true);
 }
 
+/** Rôle à jour : « responsable » (ancien nom) devient « administrateur ». */
+function socle_canonical_role(?string $value): ?string {
+    if (socle_is_role($value)) return $value;
+    return $value !== null ? (SOCLE_LEGACY_ROLES[$value] ?? null) : null;
+}
+
 function socle_normalize_email(mixed $value): ?string {
     if (!is_string($value)) return null;
     $email = strtolower(trim($value));
@@ -93,17 +101,21 @@ function socle_new_token(): string {
     return socle_b64url(random_bytes(32));
 }
 
+/** Ancien nom, gardé pour les intégrations existantes. */
 function socle_ensure_responsable(SocleStore $store, ?string $email): void {
+    socle_ensure_administrateur($store, $email);
+}
+
+function socle_ensure_administrateur(SocleStore $store, ?string $email): void {
     if ($email === null || trim($email) === '') return;
     $clean = socle_normalize_email($email);
     if ($clean === null) throw new SocleHttp('demande refusée');
-    $store->put('auth', 'member:' . $clean, 'responsable');
+    $store->put('auth', 'member:' . $clean, 'administrateur');
 }
 
 function socle_role_of(SocleStore $store, string $email): ?string {
     try {
-        $value = $store->get('auth', 'member:' . $email);
-        return socle_is_role($value) ? $value : null;
+        return socle_canonical_role($store->get('auth', 'member:' . $email));
     } catch (ModuleOff) {
         return null;
     }
@@ -112,23 +124,24 @@ function socle_role_of(SocleStore $store, string $email): ?string {
 function socle_may_update(SocleStore $store, ?string $actor, bool $defined): bool {
     if (!$defined) return true;
     if ($actor === null || $actor === '') return false;
-    return socle_role_of($store, $actor) === 'responsable';
+    return socle_role_of($store, $actor) === 'administrateur';
 }
 
 function socle_may_review(SocleStore $store, ?string $actor, bool $defined): bool {
     if (!$defined) return true;
     if ($actor === null || $actor === '') return false;
     $role = socle_role_of($store, $actor);
-    return $role === 'reviseur' || $role === 'editeur' || $role === 'responsable';
+    return $role === 'reviseur' || $role === 'editeur' || $role === 'administrateur';
 }
 
 function socle_save_member(SocleStore $store, ?string $actor, string $email, string $role, ?string $password = null): void {
-    if ($actor === null || socle_role_of($store, $actor) !== 'responsable') throw new SocleHttp('réservé au responsable', 403);
+    if ($actor === null || socle_role_of($store, $actor) !== 'administrateur') throw new SocleHttp('réservé à l’administrateur', 403);
     $clean = socle_normalize_email($email);
     if ($clean === null) throw new SocleHttp('demande refusée');
-    if (!socle_is_role($role)) throw new SocleHttp('rôle inconnu');
+    $canonical = socle_canonical_role($role);
+    if ($canonical === null) throw new SocleHttp('rôle inconnu');
     if ($password !== null) $store->put('auth', 'password:' . $clean, socle_hash_password(socle_check_password($password)));
-    $store->put('auth', 'member:' . $clean, $role);
+    $store->put('auth', 'member:' . $clean, $canonical);
 }
 
 function socle_auth_runtime(): array {
@@ -356,8 +369,9 @@ function socle_members_for_archive(SocleStore $store): array {
         $members = [];
         foreach ($store->list('auth') as $row) {
             if (!str_starts_with($row['key'], 'member:')) continue;
-            if (!socle_is_role($row['value'])) continue;
-            $members[] = ['email' => substr($row['key'], strlen('member:')), 'role' => $row['value']];
+            $role = socle_canonical_role($row['value']);
+            if ($role === null) continue;
+            $members[] = ['email' => substr($row['key'], strlen('member:')), 'role' => $role];
         }
         usort($members, static fn (array $a, array $b): int => strcmp($a['email'], $b['email']));
         return $members;
@@ -371,8 +385,8 @@ function socle_restore_members(SocleStore $store, mixed $value): void {
     foreach ($value as $item) {
         if (!is_array($item)) continue;
         $email = socle_normalize_email($item['email'] ?? null);
-        $role = is_string($item['role'] ?? null) ? $item['role'] : null;
-        if ($email === null || !socle_is_role($role)) continue;
+        $role = socle_canonical_role(is_string($item['role'] ?? null) ? $item['role'] : null);
+        if ($email === null || $role === null) continue;
         try {
             $store->put('auth', 'member:' . $email, $role);
         } catch (ModuleOff) {
@@ -447,7 +461,7 @@ function socle_handle_auth(string $method, string $url, array $config, SocleStor
         }
         if ($path === '/v1/auth/membres' && $method === 'GET') {
             $actor = socle_email_from_cookie($store, $now, $cookie);
-            if ($actor === null || socle_role_of($store, $actor) !== 'responsable') throw new SocleHttp('réservé au responsable', 403);
+            if ($actor === null || socle_role_of($store, $actor) !== 'administrateur') throw new SocleHttp('réservé à l’administrateur', 403);
             return socle_result(200, socle_json(socle_members_for_archive($store)), $jsonType);
         }
         if ($path === '/v1/auth/membres' && $method === 'POST') {

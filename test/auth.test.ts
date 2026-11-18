@@ -356,7 +356,7 @@ test("le bouton de mise à jour est au responsable seulement quand l'identité e
     const files = unzip(zip);
     const members = JSON.parse(new TextDecoder().decode(files.get("auth/members.json")!)) as Array<{ email: string; role: string }>;
     assert.deepEqual(members, [
-      { email: "ada@journal.test", role: "responsable" },
+      { email: "ada@journal.test", role: "administrateur" },
       { email: "ben@journal.test", role: "auteur" },
     ]);
     const index = new TextDecoder().decode(files.get("index.html")!);
@@ -371,7 +371,7 @@ test("le bouton de mise à jour est au responsable seulement quand l'identité e
 
     const restored = await migrated(["auth", "export"]);
     await restoreZip(restored, zip);
-    assert.equal(await restored.get("auth", "member:ada@journal.test"), "responsable");
+    assert.equal(await restored.get("auth", "member:ada@journal.test"), "administrateur");
     assert.equal((await restored.list("auth")).some((row) => row.key.startsWith("session:")), false);
     await restored.close();
   } finally {
