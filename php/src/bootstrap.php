@@ -38,6 +38,10 @@ function socle_dispatch(string $method, string $uri, string $path, string $raw):
     $cookie = $_SERVER['HTTP_COOKIE'] ?? null;
     $actor = $actorDefined ? socle_email_from_cookie($store, socle_now(), is_string($cookie) ? $cookie : null) : null;
     $access = $_SERVER['HTTP_CF_ACCESS_JWT_ASSERTION'] ?? null;
+    if ($config['modules']['editorial']) {
+        $page = socle_serve_redaction_page($path, $method);
+        if ($page !== null) return $page;
+    }
     if (str_starts_with($path, '/v1/redaction/')) return socle_handle_redaction($method, $uri, $config, $store, $raw, $actor, $actorDefined);
     if (str_starts_with($path, '/v1/auth')) {
         return socle_handle_auth($method, $uri, $config, $store, $raw, is_string($cookie) ? $cookie : null, is_string($access) ? $access : null, $smtp);

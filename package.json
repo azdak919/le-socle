@@ -11,13 +11,22 @@
     "test": "node --test 'test/*.test.ts'",
     "start": "node src/server.ts",
     "migrate": "node src/cli.ts migrate",
-    "export": "node src/cli.ts export"
+    "export": "node src/cli.ts export",
+    "ui": "node tools/build-ui.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.4",
-    "miniflare": "4.20260730.0"
+    "@tailwindcss/cli": "4.3.5",
+    "basecoat-css": "1.1.0",
+    "miniflare": "4.20260730.0",
+    "tailwindcss": "4.3.5"
   },
   "allowScripts": {
     "workerd@1.20260730.1": true
+  },
+  "exports": {
+    "./admin/page.js": "./admin/page.js",
+    "./admin/assets/*": "./admin/assets/*",
+    "./package.json": "./package.json"
   }
 }

@@ -2,6 +2,7 @@
 
 ## Non publié
 
+- L'admin de rédaction vit dans le socle (`admin/`) : la page, ses scripts, le client `/v1/redaction/` et la démo en mode navigateur. Le socle la sert lui-même sous `/redaction/` quand `editorial` est allumé, en Node et en PHP, avec les mêmes octets ; PGlite n'est jamais servi. `npm run ui` compile sa feuille (Tailwind CSS, Basecoat) et écrit la page du mode serveur. Un socle neuf ouvre l'admin avec une fiche de départ, écrite au premier enregistrement de la configuration. Le Kiosque l'importera comme dépendance versionnée.
 - AGENTS : règle de fusion écrite telle qu'elle s'applique (CI verte, accord du propriétaire, squash).
 - API de rédaction `/v1/redaction/`, en Node et en PHP, pour que l'admin du Kiosque écrive dans le socle : articles, auteurs, sections, catégories, étiquettes, publication, et une banque de photos réutilisable avec crédit obligatoire. Sans `auth`, seulement depuis la machine du socle (un mandataire est refusé). Avec `auth`, les gestes de publication sont aux réviseurs, éditeurs et responsable. Même parcours testé sur SQLite, PGlite, D1, Node et PHP.
 - Node sert aussi `SOCLE_STATIC`, comme PHP : le site construit et l'admin sous `/redaction/`.

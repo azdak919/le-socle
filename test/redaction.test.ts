@@ -117,7 +117,10 @@ test("le serveur Node : local, mandataire et pages construites", async () => {
     const proxied = await fetch(base + "/v1/redaction/etat", { headers: { "x-forwarded-for": "203.0.113.9" } });
     assert.equal(proxied.status, 403, "derrière un mandataire, on n'est plus local");
     assert.equal(await (await fetch(base + "/")).text(), "<p>journal</p>");
-    assert.equal(await (await fetch(base + "/redaction/")).text(), "<p>admin</p>");
+    // L'admin vient du socle lui-même, pas du site construit.
+    const admin = await (await fetch(base + "/redaction/")).text();
+    assert.match(admin, /"mode":"socle"/);
+    assert.ok(!admin.includes("<p>admin</p>"));
     assert.equal((await fetch(base + "/fuite.txt")).status, 404, "un lien symbolique ne sort pas de la racine");
     assert.equal((await fetch(base + "/%2e%2e/secret.txt")).status, 404);
     assert.equal((await fetch(base + "/v1/inconnu")).status, 404);
