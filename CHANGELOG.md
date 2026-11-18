@@ -1,6 +1,7 @@
 # Journal
 
 ## Non publié
+- Version 1.2.1.
 - Assistant d’installation : courriel de la rédaction demandé à part ; le courriel du compte administrateur n’est plus affiché dans le pied de page du site.
 - Version 1.2.0 : paquet complet (site vivant servi par le socle PHP), assistant d’installation, mise à jour en un clic.
 - Mise à jour en un clic (paquet complet, PHP) : la page Mise à jour lit la dernière Release du dépôt nommé dans `paquet.json` (sans serveur central), montre les nouveautés, et l’administrateur installe d’un bouton. Avant : copie du programme (ZIP) et de la base dans `donnees/mises-a-jour/` (trois dernières gardées). Le ZIP téléchargé est vérifié (un seul dossier, `index.php`, `paquet.json`, `php/src/bootstrap.php`) ; `donnees/` n’est jamais touché ; un fichier retiré par la nouvelle version disparaît ; si l’installation casse en route, la version d’avant est remise toute seule. « Revenir à la version … » réinstalle la sauvegarde, sans perdre les articles écrits depuis. Marche à la main gardée en dessous. `php/src/maj.php`, test `php-maj-paquet`.
