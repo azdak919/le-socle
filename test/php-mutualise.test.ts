@@ -107,6 +107,18 @@ return true;
     const zoeCookie = String(zoe.headers.get("set-cookie")).split(";")[0];
     assert.equal(JSON.parse((await call(`${base}/v1/auth/etat`, { headers: { cookie: zoeCookie } })).text).role, "administrateur");
     assert.equal((await call(`${base}/v1/auth/membres`, { headers: { cookie: zoeCookie } })).status, 200);
+    // Sans session, les pages /admin ne donnent rien : ni archive, ni restauration, ni article.
+    const anonZip = await call(`${base}/admin/sauvegarde/site.zip`, { redirect: "manual" });
+    assert.equal(anonZip.status, 303);
+    assert.equal(anonZip.headers.get("location"), "/journal/socle/redaction/");
+    assert.equal((await call(`${base}/admin/sauvegarde/restaurer`, { method: "POST", headers: { "content-type": "application/zip" }, body: "PK" })).status, 401);
+    assert.equal((await call(`${base}/admin/articles`, { method: "POST", body: "title=x&slug=x&status=published" })).status, 401);
+    assert.equal((await call(`${base}/admin/mise-a-jour`, { method: "POST", body: "confirm=1" })).status, 401);
+    // Une autrice n'a pas la sauvegarde ; l'administrateur, si.
+    const anaCookie = String(ana.headers.get("set-cookie")).split(";")[0];
+    assert.equal((await call(`${base}/admin/sauvegarde/site.zip`, { headers: { cookie: anaCookie } })).status, 403);
+    assert.equal((await call(`${base}/admin/articles`, { method: "POST", headers: { cookie: anaCookie }, body: "title=x&slug=x&status=published" })).status, 403);
+    assert.equal((await call(`${base}/admin/sauvegarde/site.zip`, { headers: { cookie } })).status, 200);
     const admin = await call(`${base}/admin`, { headers: { cookie }, redirect: "manual" });
     assert.equal(admin.status, 303);
     assert.equal(admin.headers.get("location"), "/journal/socle/redaction/");
