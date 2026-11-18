@@ -190,6 +190,8 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
                 'canonicalUrl' => socle_redaction_text($input['canonicalUrl'] ?? null, 500) ?: ($existing['canonicalUrl'] ?? ''),
                 'source' => ['backend' => 'socle', 'backendId' => $id, 'fetchedAt' => $now],
             ]);
+            if (!empty($input['featured'])) $article['featured'] = true;
+            else unset($article['featured']);
             $section = socle_redaction_text($input['section'] ?? null, 96);
             if ($section === '') unset($article['section']); else $article['section'] = $section;
             $published = socle_redaction_text($input['publishedAt'] ?? null, 40);

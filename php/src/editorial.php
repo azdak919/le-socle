@@ -74,7 +74,17 @@ function socle_save_article(SocleStore $store, array $article, string $now): arr
     $article['source'] = $source;
     if (($article['status'] ?? '') === 'in-review' && empty($article['submittedAt'])) $article['submittedAt'] = $now;
     socle_check_article($article);
+    if (empty($article['featured'])) unset($article['featured']);
+    else $article['featured'] = true;
     $store->put('editorial', 'article:' . $article['id'], socle_json($article));
+    if (!empty($article['featured'])) {
+        foreach (socle_read_articles($store) as $other) {
+            if (($other['id'] ?? '') === ($article['id'] ?? '') || empty($other['featured'])) continue;
+            unset($other['featured']);
+            $other['updatedAt'] = $now;
+            $store->put('editorial', 'article:' . $other['id'], socle_json($other));
+        }
+    }
     return $article;
 }
 
