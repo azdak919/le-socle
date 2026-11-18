@@ -1,0 +1,36 @@
+# Page de présentation du Socle, sur GitHub Pages.
+# Ne tourne que dans azdak919/le-socle.
+#
+# Avant la première publication : activer GitHub Pages dans les réglages du
+# dépôt, source « GitHub Actions ». Sans cela, ce workflow échoue.
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publier:
+    if: github.repository == 'azdak919/le-socle'
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+      - id: pages
+        uses: actions/deploy-pages@v5
