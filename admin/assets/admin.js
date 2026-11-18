@@ -137,7 +137,7 @@ function source(kind, id) {
 
 /** En mode socle, l'admin écrit sur le serveur ; sinon dans ce navigateur. */
 const onSocle = () => config.mode === 'socle';
-// Adresse du socle (vide à la racine du domaine, « /journal/socle » dans un sous-dossier).
+// Adresse de Le Socle (vide à la racine du domaine, un chemin dans un sous-dossier).
 const socleRoot = () => String(config.apiBase || '').replace(/\/$/, '');
 const authOn = () => onSocle() && Boolean(backend?.state?.modules?.auth);
 
@@ -1189,6 +1189,109 @@ function taxonomyEditor(kind, current) {
   };
 }
 
+
+function detectedSiteUrl() {
+  return `${location.origin}${socleRoot()}/`;
+}
+
+function parseScoreLine(line, teamId) {
+  const parts = String(line || '').split(',').map((item) => item.trim()).filter(Boolean);
+  if (parts.length < 3) return null;
+  const date = parts[0];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const score = parts[2].match(/^(\d+)\s*[-–]\s*(\d+)$/);
+  if (!score) return null;
+  const venue = (parts[3] || '').toLowerCase();
+  const home = venue.startsWith('dom') ? true : (venue.startsWith('ext') ? false : undefined);
+  const forScore = Number(score[1]);
+  const against = Number(score[2]);
+  const result = forScore > against ? 'W' : forScore < against ? 'L' : 'D';
+  return { date, opponent: parts[1], scoreFor: forScore, scoreAgainst: against, result, home, teamId };
+}
+
+function parseNextLine(line, teamId) {
+  const parts = String(line || '').split(',').map((item) => item.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  const date = parts[0];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const time = parts[1] && /^\d{1,2}:\d{2}$/.test(parts[1]) ? parts[1] : '';
+  const opponent = time ? (parts[2] || '') : parts[1];
+  if (!opponent) return null;
+  const venue = (time ? parts[3] : parts[2] || '').toLowerCase();
+  const home = venue.startsWith('dom') ? true : (venue.startsWith('ext') ? false : undefined);
+  const next = { date, opponent, teamId };
+  if (time) next.time = time;
+  if (home !== undefined) next.home = home;
+  return next;
+}
+
+function formatScoreLine(game) {
+  if (!game) return '';
+  const venue = game.home === true ? 'domicile' : game.home === false ? 'extérieur' : '';
+  return [game.date, game.opponent, `${game.scoreFor}-${game.scoreAgainst}`, venue].filter(Boolean).join(', ');
+}
+
+function formatNextLine(game) {
+  if (!game) return '';
+  const venue = game.home === true ? 'domicile' : game.home === false ? 'extérieur' : '';
+  return [game.date, game.time, game.opponent, venue].filter(Boolean).join(', ');
+}
+
+function sportsTeamsFromPublication(publication) {
+  const sports = publication?.masthead?.sports || {};
+  if (Array.isArray(sports.teams) && sports.teams.length) return sports.teams;
+  return sports.team ? [sports.team] : [];
+}
+
+function sportsTeamFields(team = {}) {
+  const results = (team.results || []).map(formatScoreLine).filter(Boolean).join('\n');
+  const next = formatNextLine(team.nextGame);
+  return `<fieldset class="field full" data-sports-team>
+    <input type="hidden" data-team-id value="${esc(team.id || '')}">
+    <label>Nom de l’équipe<input data-team-name placeholder="Les Hiboux" value="${esc(team.name || '')}"></label>
+    <label>Code court, 2 à 4 lettres<input data-team-code maxlength="4" placeholder="HIB" value="${esc(team.code || '')}"></label>
+    <label>Sport<input data-team-sport placeholder="Hockey" value="${esc(team.sport || '')}"></label>
+    <label>Établissement<input data-team-institution placeholder="Cégep de Sainte-Foy" value="${esc(team.institution || '')}"></label>
+    <label>Résultats, un par ligne<textarea data-team-results rows="3" placeholder="2026-11-12, Carabins, 4-2, domicile">${esc(results)}</textarea></label>
+    <small>Format : date (AAAA-MM-JJ), adversaire, vos points-leurs points, domicile ou extérieur.</small>
+    <label>Prochain match<input data-team-next placeholder="2026-11-20, 19:00, Carabins, domicile" value="${esc(next)}"></label>
+    <small>Format : date, heure facultative, adversaire, domicile ou extérieur.</small>
+    <div class="actions"><button type="button" data-remove-team>Retirer cette équipe</button></div>
+  </fieldset>`;
+}
+
+function readSportsForm(form) {
+  const teams = [];
+  form.querySelectorAll('[data-sports-team]').forEach((block) => {
+    const name = block.querySelector('[data-team-name]').value.trim();
+    const sport = block.querySelector('[data-team-sport]').value.trim();
+    if (!name && !sport) return;
+    const id = block.querySelector('[data-team-id]').value.trim() || (crypto.randomUUID ? crypto.randomUUID() : `equipe-${teams.length + 1}`);
+    const code = block.querySelector('[data-team-code]').value.trim().toUpperCase();
+    const institution = block.querySelector('[data-team-institution]').value.trim();
+    const results = block.querySelector('[data-team-results]').value.split('\n').map((line) => parseScoreLine(line, id)).filter(Boolean);
+    const nextGame = parseNextLine(block.querySelector('[data-team-next]').value, id);
+    const team = { id, name: name || sport || 'Équipe', code, sport: sport || 'Sport' };
+    if (institution) team.institution = institution;
+    if (results.length) team.results = results;
+    if (nextGame) team.nextGame = nextGame;
+    teams.push(team);
+  });
+  return { enabled: form.elements.sportsEnabled.checked, teams };
+}
+
+function bindSportsForm(form) {
+  const list = form.querySelector('[data-sports-teams]');
+  form.querySelector('[data-add-team]').addEventListener('click', () => {
+    list.insertAdjacentHTML('beforeend', sportsTeamFields());
+  });
+  list.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-remove-team]');
+    if (!button) return;
+    button.closest('[data-sports-team]')?.remove();
+  });
+}
+
 function settings() {
   const publication = bundle.publication;
   const masthead = publication.masthead || {};
@@ -1198,7 +1301,7 @@ function settings() {
     <p class="media-quality full">Les exemples en gris pâle disparaissent quand vous écrivez ; ils ne sont jamais enregistrés.</p>
     <div class="field"><label>Nom (obligatoire)<input name="name" required placeholder="La Vigie" value="${esc(publication.name)}"></label></div>
     <fieldset class="field full"><legend>Adresse, organisme et contacts</legend>
-      <label>Adresse du site public<input name="siteUrl" type="url" placeholder="https://votre-organisation.github.io/votre-journal/" value="${esc(publication.siteUrl || '')}"></label>
+      <label>Adresse du site public<input name="siteUrl" type="url" placeholder="https://votre-journal.com/" value="${esc(publication.siteUrl || detectedSiteUrl())}"></label><small>${(() => { const detected = detectedSiteUrl(); const current = String(publication.siteUrl || '').replace(/\/+$/, ''); return !onSocle() || !current || current === detected.replace(/\/+$/, '') ? `Détectée automatiquement : ${esc(detected)}` : `L’adresse enregistrée ne correspond plus à l’emplacement actuel du site (${esc(detected)}). Enregistrez pour la mettre à jour, ou corrigez-la.`; })()}</small>
       <label>Nom court du journal, utilisé dans les adresses (obligatoire)<input name="slug" required placeholder="la-vigie" pattern="[a-z0-9]+(-[a-z0-9]+)*" value="${esc(publication.slug === 'mon-journal' ? slugify(publication.name || '') : publication.slug || '')}"></label><small>Lettres minuscules, chiffres et tirets, par exemple la-boussole.</small>
       <label>Organisme ou personne responsable<input name="owner" placeholder="Association étudiante du Cégep de Sainte-Foy" value="${esc(governance.owner || '')}"></label>
       <label>Courriel de la rédaction<input name="contact" type="email" placeholder="redaction@exemple.ca" value="${esc(governance.contact || '')}"></label>
@@ -1209,6 +1312,12 @@ function settings() {
     <div class="field"><label>Couleur principale<input name="accent" type="color" value="${esc(publication.theme?.accent || '#6c2163')}"></label></div><div class="field"><label>Couleur sombre<input name="accentDark" type="color" value="${esc(publication.theme?.accentDark || '#cf7ec1')}"></label></div><div id="admin-contrast" class="notice full" role="status"></div>
     <fieldset class="field full"><legend>Mât illustré</legend><label><input name="backgroundsEnabled" type="checkbox" ${masthead.backgrounds?.enabled !== false ? 'checked' : ''}> Afficher les images de fond</label><label>Ajouter mes propres images<input id="background-files" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><div class="actions"><button type="button" data-action="choose-masthead-media">Choisir une photo</button><button type="button" data-action="clear-backgrounds">Retirer toutes les images</button></div><p>${masthead.backgrounds?.images?.length || 0} image(s) enregistrée(s). Un nouvel envoi les ajoute à la rotation.</p><label>Cadrage horizontal<input name="mastheadFocalX" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.x ?? 50}"></label><label>Cadrage vertical<input name="mastheadFocalY" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.y ?? 50}"></label><label>Assombrir l’image derrière le titre<input name="overlayStrength" type="range" min="0" max="0.9" step="0.05" value="${masthead.overlayStrength ?? 0.55}"></label><label>Alignement du titre<select name="textAlignment"><option value="left">Gauche</option><option value="center" ${masthead.textAlignment === 'center' ? 'selected' : ''}>Centre</option><option value="right" ${masthead.textAlignment === 'right' ? 'selected' : ''}>Droite</option></select></label><div id="masthead-crop-preview">${cropFrames(masthead.backgrounds?.images?.[0], 'masthead')}</div></fieldset>
     <fieldset class="field"><legend>Météo</legend><label><input name="weatherEnabled" type="checkbox" ${masthead.weather?.enabled ? 'checked' : ''}> Afficher la météo</label><label>Localités, séparées par des virgules<input name="weatherLocalities" value="${esc((masthead.weather?.localities || []).join(', '))}" placeholder="Québec"></label><small>Maximum quatre.</small></fieldset>
+    <fieldset class="field full"><legend>Sports — Au tableau</legend>
+      <label><input name="sportsEnabled" type="checkbox" ${(masthead.sports?.enabled !== false && sportsTeamsFromPublication(publication).length) || masthead.sports?.enabled ? 'checked' : ''}> Afficher les scores dans le mât et la page « Au tableau »</label>
+      <p class="muted">Ajoutez à la main les équipes du cégep, leurs résultats et le prochain match. La page « Au tableau » n’apparaît que si au moins une équipe est enregistrée.</p>
+      <div data-sports-teams>${sportsTeamsFromPublication(publication).map((team) => sportsTeamFields(team)).join('') || sportsTeamFields()}</div>
+      <div class="actions"><button type="button" data-add-team>Ajouter une équipe</button></div>
+    </fieldset>
     <fieldset class="field"><legend>Outils</legend><label><input name="pomodoro" type="checkbox" ${masthead.tools?.pomodoro !== false ? 'checked' : ''}> Pomodoro LE-RADAR.ca</label><label><input name="solitaire" type="checkbox" ${masthead.tools?.solitaire !== false ? 'checked' : ''}> Solitaire LE-RADAR.ca</label></fieldset>
     <fieldset class="field full"><legend>Radio étudiante</legend><label><input name="radioEnabled" type="checkbox" ${publication.radio?.enabled !== false ? 'checked' : ''}> Afficher la barre radio sous le mât</label><label>Station<select name="station" id="radar-stations"><option value="">Choisir une station</option>${publication.radio?.station ? `<option value="${esc(publication.radio.station)}" selected>${esc(publication.radio.station)}</option>` : ''}</select></label><small>La barre est le module de LE-RADAR : ses stations et son lecteur se mettent à jour chez LE-RADAR, sans toucher au journal. Éteinte, la barre n’existe pas et rien ne part vers le-radar.ca.</small></fieldset>
     <fieldset class="field full"><legend>Photos d’articles</legend>
@@ -1380,7 +1489,8 @@ function render() {
       document.getElementById('masthead-crop-preview').innerHTML = cropFrames({ src: URL.createObjectURL(chosen), focalPoint: { x: Number(form.elements.mastheadFocalX.value), y: Number(form.elements.mastheadFocalY.value) } }, 'masthead');
     });
     bindRequiredFlags(form);
-    form.onsubmit = async (event) => { event.preventDefault(); if (!flagInvalidFields(form)) { notify('Remplissez les champs signalés.'); return; } const data = new FormData(form); const publication = structuredClone(bundle.publication); publication.name = data.get('name').trim(); publication.tagline = data.get('tagline').trim(); publication.institution = data.get('institution').trim(); publication.founded = String(data.get('founded') || '').trim(); publication.license = String(data.get('license') || ''); publication.timeZone = data.get('timeZone'); publication.siteUrl = data.get('siteUrl').trim(); publication.slug = slugify(data.get('slug')) || publication.slug; publication.governance = { ...publication.governance, owner: data.get('owner').trim(), contact: data.get('contact').trim(), repo: data.get('repo').trim() }; publication.noindex = data.has('noindex'); publication.fictif = data.has('fictif'); publication.theme = { accent: data.get('accent'), accentDark: data.get('accentDark'), typography: data.get('typography') }; publication.radio = { ...publication.radio, enabled: data.has('radioEnabled'), station: String(data.get('station') || '').trim().toLowerCase(), theme: 'dark', position: 'top' }; delete publication.radio.stream; delete publication.radio.name; delete publication.radio.frequency; delete publication.radio.website; publication.media = { ...publication.media, autoStockPhoto: data.has('autoStockPhoto') }; const localities = data.get('weatherLocalities').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4); const priorImages = clearMastheadImages ? [] : (publication.masthead?.backgrounds?.images || []); const selected = selectedMasthead ? { ...selectedMasthead, focalPoint: { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } } : null; publication.masthead = { backgrounds: { enabled: data.has('backgroundsEnabled'), images: selected ? [selected, ...priorImages.filter((item) => item.id !== selected.id)] : priorImages }, weather: { enabled: data.has('weatherEnabled'), localities }, tools: { pomodoro: data.has('pomodoro'), solitaire: data.has('solitaire') }, overlayStrength: Math.min(0.9, Math.max(0, Number(data.get('overlayStrength')))), textAlignment: data.get('textAlignment') }; for (const file of document.getElementById('background-files').files) publication.masthead.backgrounds.images.push({ ...await readArticleImage(file, { alt: `Arrière-plan du journal ${publication.name}` }), focalPoint: { x: 50, y: 50 } }); const logoFile = document.getElementById('logo-file').files[0]; if (logoFile) publication.logo = await readLogo(logoFile, data.get('logoAlt').trim()); else if (publication.logo) publication.logo.alt = data.get('logoAlt').trim() || publication.name; await backend.savePublication(publication); await refresh(); notify('Configuration enregistrée.'); render(); };
+    bindSportsForm(form);
+    form.onsubmit = async (event) => { event.preventDefault(); if (!flagInvalidFields(form)) { notify('Remplissez les champs signalés.'); return; } const data = new FormData(form); const publication = structuredClone(bundle.publication); publication.name = data.get('name').trim(); publication.tagline = data.get('tagline').trim(); publication.institution = data.get('institution').trim(); publication.founded = String(data.get('founded') || '').trim(); publication.license = String(data.get('license') || ''); publication.timeZone = data.get('timeZone'); publication.siteUrl = data.get('siteUrl').trim(); publication.slug = slugify(data.get('slug')) || publication.slug; publication.governance = { ...publication.governance, owner: data.get('owner').trim(), contact: data.get('contact').trim(), repo: data.get('repo').trim() }; publication.noindex = data.has('noindex'); publication.fictif = data.has('fictif'); publication.theme = { accent: data.get('accent'), accentDark: data.get('accentDark'), typography: data.get('typography') }; publication.radio = { ...publication.radio, enabled: data.has('radioEnabled'), station: String(data.get('station') || '').trim().toLowerCase(), theme: 'dark', position: 'top' }; delete publication.radio.stream; delete publication.radio.name; delete publication.radio.frequency; delete publication.radio.website; publication.media = { ...publication.media, autoStockPhoto: data.has('autoStockPhoto') }; const localities = data.get('weatherLocalities').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4); const priorImages = clearMastheadImages ? [] : (publication.masthead?.backgrounds?.images || []); const selected = selectedMasthead ? { ...selectedMasthead, focalPoint: { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } } : null; publication.masthead = { backgrounds: { enabled: data.has('backgroundsEnabled'), images: selected ? [selected, ...priorImages.filter((item) => item.id !== selected.id)] : priorImages }, weather: { enabled: data.has('weatherEnabled'), localities }, sports: readSportsForm(form), tools: { pomodoro: data.has('pomodoro'), solitaire: data.has('solitaire') }, overlayStrength: Math.min(0.9, Math.max(0, Number(data.get('overlayStrength')))), textAlignment: data.get('textAlignment') }; for (const file of document.getElementById('background-files').files) publication.masthead.backgrounds.images.push({ ...await readArticleImage(file, { alt: `Arrière-plan du journal ${publication.name}` }), focalPoint: { x: 50, y: 50 } }); const logoFile = document.getElementById('logo-file').files[0]; if (logoFile) publication.logo = await readLogo(logoFile, data.get('logoAlt').trim()); else if (publication.logo) publication.logo.alt = data.get('logoAlt').trim() || publication.name; await backend.savePublication(publication); await refresh(); notify('Configuration enregistrée.'); render(); };
     main.querySelector('[data-action="clear-backgrounds"]').onclick = () => { selectedMasthead = null; clearMastheadImages = true; form.elements.backgroundsEnabled.checked = false; document.getElementById('masthead-crop-preview').innerHTML = cropFrames(null, 'masthead'); notify('Les images seront retirées à l’enregistrement.'); };
     main.querySelector('[data-action="recommended-theme"]').onclick = () => { form.elements.typography.value = 'modern-accessible'; form.elements.accent.value = '#6c2163'; form.elements.accentDark.value = '#cf7ec1'; };
   }

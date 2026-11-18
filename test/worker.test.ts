@@ -115,13 +115,13 @@ test("Worker D1 : santé, page de rédaction, connexion Access, parcours complet
     assert.equal(health.status, 200);
     assert.equal(((await health.json()) as { version: string }).version, VERSION);
 
-    const page = await mf.dispatchFetch(`${base}/redaction/`);
+    const page = await mf.dispatchFetch(`${base}/admin/`);
     assert.equal(page.status, 200);
     assert.match(await page.text(), /<html/i);
     assert.equal(page.headers.get("x-frame-options"), "DENY");
-    assert.equal((await mf.dispatchFetch(`${base}/redaction/assets/admin.js`)).status, 200);
-    assert.equal((await mf.dispatchFetch(`${base}/redaction/assets/sql-wasm.wasm`)).status, 404);
-    assert.equal((await mf.dispatchFetch(`${base}/redaction/assets/demo-backend.js`)).status, 404);
+    assert.equal((await mf.dispatchFetch(`${base}/admin/assets/admin.js`)).status, 200);
+    assert.equal((await mf.dispatchFetch(`${base}/admin/assets/sql-wasm.wasm`)).status, 404);
+    assert.equal((await mf.dispatchFetch(`${base}/admin/assets/demo-backend.js`)).status, 404);
     assert.equal((await mf.dispatchFetch(`${base}/redaction`, { redirect: "manual" })).status, 301);
 
     // Sans session : refus. Derrière Cloudflare, rien n'est « local ».

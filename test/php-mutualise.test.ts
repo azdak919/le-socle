@@ -71,12 +71,12 @@ return true;
       try { if ((await call(`${base}/v1/health`)).status) break; } catch { /* démarre */ }
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
-    const page = await call(`${base}/redaction/`);
+    const page = await call(`${base}/admin/`);
     assert.equal(page.status, 200, logs);
     const html = page.text;
     assert.match(html, /"apiBase":"\/journal\/socle"/);
-    assert.match(html, /src="\/journal\/socle\/redaction\/assets\/admin\.js"/);
-    assert.equal((await call(`${base}/redaction/assets/admin.js`)).status, 200);
+    assert.match(html, /src="\/journal\/socle\/admin\/assets\/admin\.js"/);
+    assert.equal((await call(`${base}/admin/assets/admin.js`)).status, 200);
     assert.equal((await call(`${base}/v1/redaction/etat`)).status, 401);
     assert.equal((await call(`${base}/donnees/socle.sqlite`)).status, 404, "la base n’est jamais servie");
     const state = JSON.parse((await call(`${base}/v1/auth/etat`)).text);
@@ -110,7 +110,7 @@ return true;
     // Sans session, les pages /admin ne donnent rien : ni archive, ni restauration, ni article.
     const anonZip = await call(`${base}/admin/sauvegarde/site.zip`, { redirect: "manual" });
     assert.equal(anonZip.status, 303);
-    assert.equal(anonZip.headers.get("location"), "/journal/socle/redaction/");
+    assert.equal(anonZip.headers.get("location"), "/journal/socle/admin/");
     assert.equal((await call(`${base}/admin/sauvegarde/restaurer`, { method: "POST", headers: { "content-type": "application/zip" }, body: "PK" })).status, 401);
     assert.equal((await call(`${base}/admin/articles`, { method: "POST", body: "title=x&slug=x&status=published" })).status, 401);
     assert.equal((await call(`${base}/admin/mise-a-jour`, { method: "POST", body: "confirm=1" })).status, 401);
@@ -181,8 +181,9 @@ return true;
     const reused = await call(`${base}/admin/sauvegarde/restaurer`, { method: "POST", headers: { "content-type": "application/json", cookie }, body: JSON.stringify({ jeton }) });
     assert.equal(reused.status, 400);
     const admin = await call(`${base}/admin`, { headers: { cookie }, redirect: "manual" });
-    assert.equal(admin.status, 303);
-    assert.equal(admin.headers.get("location"), "/journal/socle/redaction/");
+    assert.equal(admin.status, 301);
+    assert.equal(admin.headers.get("location"), "/journal/socle/admin/");
+    assert.equal((await call(`${base}/admin/`, { headers: { cookie } })).status, 200);
   } finally {
     child.kill();
   }

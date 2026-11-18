@@ -1,5 +1,5 @@
 /**
- * L'admin de rédaction, servie par le socle lui-même sous `/redaction/`.
+ * L'admin de rédaction, servie par le socle lui-même sous `/admin/`. L'ancienne adresse `/redaction/` redirige vers `/admin/`.
  * La page (`admin/serveur.html`) et ses fichiers (`admin/assets/`) sont dans
  * ce dépôt : l'admin se développe à un seul endroit, et chaque journal reçoit
  * la même avec la mise à jour du socle. Même règle en PHP

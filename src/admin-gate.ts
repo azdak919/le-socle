@@ -32,7 +32,7 @@ export async function adminGate(
     return local ? null : { status: 403, body: "Sans le module auth, l'administration ne s'ouvre que depuis la machine du socle.", headers: TEXT };
   }
   if (!actor) {
-    if (method === "GET" && config.modules.editorial) return { status: 303, body: "", headers: { location: "/redaction/", "cache-control": "no-store" } };
+    if (method === "GET" && config.modules.editorial) return { status: 303, body: "", headers: { location: "/admin/", "cache-control": "no-store" } };
     return { status: 401, body: "Connexion requise.", headers: TEXT };
   }
   const role = await roleOf(store, actor);
