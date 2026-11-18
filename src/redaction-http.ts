@@ -29,6 +29,7 @@ import {
   EditorialError,
   readArticles,
   readPublication,
+  refreshCanonicalUrls,
   saveArticle,
   type SocleArticle,
 } from "./editorial.ts";
@@ -255,7 +256,11 @@ export async function handleRedaction(
       if (!publication || !text(publication.name) || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(text(publication.slug, 96))) {
         return fail(400, "La publication a besoin d'un nom et d'un identifiant.");
       }
+      const previous = await readPublication(deps.store);
       await deps.store.put("editorial", "publication", JSON.stringify(publication));
+      const nextUrl = String((publication as { siteUrl?: string }).siteUrl ?? "").replace(/\/$/, "");
+      const prevUrl = String(previous?.siteUrl ?? "").replace(/\/$/, "");
+      if (nextUrl && nextUrl !== prevUrl) await refreshCanonicalUrls(deps.store, nextUrl);
       return json(200, { publication });
     }
     if (path === "/v1/redaction/exemples") {
