@@ -625,6 +625,15 @@ function articleEditor(article) {
     const copy = document.createElement('template');
     copy.innerHTML = visual.innerHTML;
     copy.content.querySelectorAll('img[data-src]').forEach((image) => { image.setAttribute('src', image.dataset.src); image.removeAttribute('data-src'); });
+    // La première ligne tapée reste un texte nu : on la range dans un <p>, comme les suivantes.
+    let paragraph = null;
+    for (const node of [...copy.content.childNodes]) {
+      const inline = node.nodeType === 3 ? Boolean(paragraph) || node.textContent.trim() !== '' : node.nodeType === 1 && /^(A|B|BR|CODE|EM|I|MARK|S|SMALL|SPAN|STRONG|SUB|SUP|U)$/.test(node.nodeName);
+      if (!inline) { paragraph = null; continue; }
+      if (!paragraph) { paragraph = document.createElement('p'); copy.content.insertBefore(paragraph, node); }
+      paragraph.appendChild(node);
+    }
+    copy.content.querySelectorAll('p').forEach((item) => { if (!item.textContent.trim() && !item.querySelector('img')) item.remove(); });
     return sanitizePreview(copy.innerHTML);
   };
   const keepVisual = () => {
@@ -699,7 +708,7 @@ function articleEditor(article) {
     const answer = await askForm({ title: 'Photo dans le texte', submitLabel: 'Ajouter', fields: [{ name: 'alt', label: 'Ce que montre la photo', required: true }, { name: 'credit', label: 'Crédit photo (qui l’a prise)', required: true }, { name: 'license', label: 'Licence, facultative', placeholder: 'CC BY-SA 4.0, Tous droits réservés…' }] });
     if (!answer?.alt || !answer?.credit) { notify('La description et le crédit sont obligatoires.'); return; }
     try {
-      const details = { alt: answer.alt, credit: answer.credit, license: answer.license || '' };
+      const details = { alt: answer.alt, credit: answer.credit, license: answer.license || '', licenseUrl: LICENSES[answer.license] || '' };
       const media = onSocle()
         ? await backend.uploadPhoto({ asset: { id: crypto.randomUUID(), ...details, ...await imageSize(file) }, file, bank: false })
         : await readArticleImage(file, details);
@@ -729,7 +738,8 @@ function articleEditor(article) {
       if (!details.alt) { notify('Décrivez ce que montre la photo principale.'); return; }
       try {
         if (toBank || onSocle()) {
-          lead = { ...await backend.uploadPhoto({ asset: { id: crypto.randomUUID(), ...details, ...await imageSize(leadFile), usages: ['article'], focalPoint }, file: leadFile, bank: toBank }), caption: details.caption, focalPoint };
+          const saved = await backend.uploadPhoto({ asset: { id: crypto.randomUUID(), ...details, licenseUrl: LICENSES[details.license] || '', ...await imageSize(leadFile), usages: ['article'], focalPoint }, file: leadFile, bank: toBank });
+          lead = { ...saved, license: details.license || saved.license || '', licenseUrl: LICENSES[details.license] || saved.licenseUrl || '', caption: details.caption, focalPoint };
         } else {
           lead = { ...await readArticleImage(leadFile, details), focalPoint };
         }

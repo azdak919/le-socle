@@ -249,6 +249,10 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
                 if ($alt === '') return socle_redaction_fail(400, 'fiche incomplète');
                 $image = ['id' => $id, 'kind' => 'image', 'src' => $src, 'alt' => $alt];
                 if ($credit !== '') $image['credit'] = $credit;
+                $license = socle_redaction_text($input['license'] ?? null, 100);
+                $licenseUrl = socle_redaction_text($input['licenseUrl'] ?? null, 500);
+                if ($license !== '') $image['license'] = $license;
+                if ($licenseUrl !== '') $image['licenseUrl'] = $licenseUrl;
                 $image['source'] = $mark;
                 $store->put('media', 'image:' . $id, socle_json($image));
                 $store->put('media', 'bytes:' . socle_media_path($src), base64_encode($bytes));

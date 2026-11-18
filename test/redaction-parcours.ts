@@ -69,6 +69,10 @@ export async function scenario(call: Call): Promise<string[]> {
   const photo = await step("photo de la banque", "POST", "/v1/redaction/photo", { asset: { id: "p1", alt: "La cour", credit: "Léa Roy", keywords: ["cour", "été"], usages: ["exterior"], width: 1, height: 1, focalPoint: { x: 40, y: 120 } }, data: `data:image/png;base64,${PNG.toString("base64")}` }, 200);
   assert.equal(photo.json.asset.src, "/media/banque/p1.png");
   assert.deepEqual(photo.json.asset.focalPoint, { x: 40, y: 100 });
+  // Une photo d'un seul article garde sa licence à côté du crédit.
+  const seule = await step("photo d'article", "POST", "/v1/redaction/photo", { asset: { id: "pa", alt: "Le parc", credit: "Serge M. / Wikimedia Commons", license: "CC BY 2.0", licenseUrl: "https://creativecommons.org/licenses/by/2.0/deed.fr" }, data: PNG.toString("base64"), bank: false }, 200);
+  assert.equal(seule.json.asset.license, "CC BY 2.0");
+  assert.equal(seule.json.asset.licenseUrl, "https://creativecommons.org/licenses/by/2.0/deed.fr");
   const file = await step("fichier", "GET", "/v1/redaction/fichier?src=%2Fmedia%2Fbanque%2Fp1.png", undefined, 200);
   assert.equal(file.type, "image/png");
   assert.deepEqual(file.bytes, PNG);
