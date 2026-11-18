@@ -41,6 +41,8 @@ function socle_dispatch(string $method, string $uri, string $path, string $raw):
     if ($config['modules']['editorial']) {
         $page = socle_serve_redaction_page($path, $method);
         if ($page !== null) return $page;
+        $photo = socle_public_media($method, $path, $config, $store);
+        if ($photo !== null) return $photo;
     }
     if (str_starts_with($path, '/v1/redaction/')) return socle_handle_redaction($method, $uri, $config, $store, $raw, $actor, $actorDefined);
     if (str_starts_with($path, '/v1/auth')) {

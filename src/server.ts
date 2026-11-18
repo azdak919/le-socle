@@ -12,6 +12,7 @@ import { handleEditorial } from "./editorial-http.ts";
 import { handleRequest } from "./health.ts";
 import { handleMedia } from "./media-http.ts";
 import { handleNotify } from "./notify-http.ts";
+import { handlePublicMedia } from "./public-media.ts";
 import { handleRedaction } from "./redaction-http.ts";
 import { serveRedactionPage } from "./redaction-page.ts";
 import { handleReview } from "./review-http.ts";
@@ -45,8 +46,11 @@ export function createSocleServer(config: SocleConfig, admin?: AdminDeps) {
       const forwarded = Boolean(headers["x-forwarded-for"] || headers.forwarded || headers["x-real-ip"] || headers["cf-connecting-ip"]);
       const local = isLoopback(request.socket.remoteAddress) && !forwarded;
       const page = admin && config.modules.editorial ? serveRedactionPage(path, method) : null;
+      const photo = !page && admin ? await handlePublicMedia(method, path, config, admin.store) : null;
       const result = page
         ? page
+        : photo
+        ? photo
         : admin && path.startsWith("/v1/redaction/")
         ? await handleRedaction(method, url, config, admin, rawBody, headers, actor, local)
         : admin && path.startsWith("/v1/auth")

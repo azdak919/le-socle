@@ -67,8 +67,16 @@ export async function scenario(call: Call): Promise<string[]> {
   assert.deepEqual(file.bytes, PNG);
   await step("fiche sans crédit", "POST", "/v1/redaction/photo/fiche", { asset: { id: "p1", credit: "" } }, 400);
   await step("fiche", "POST", "/v1/redaction/photo/fiche", { asset: { id: "p1", credit: "Léa Roy", license: "CC BY 4.0", keywords: ["cour"], usages: ["exterior", "article"], focalPoint: { x: 50, y: 30 } } }, 200);
+  // Une photo de la banque qui n'illustre rien de publié reste privée.
+  await step("photo pas encore publique", "GET", "/media/banque/p1.png", undefined, 404);
   const lead = { id: "p1", kind: "image", src: "/media/banque/p1.png", alt: "La cour", credit: "Léa Roy" };
   await step("publié", "POST", "/v1/redaction/article", { article: { ...draft, status: "published", section: "campus", publishedAt: NOW, lead } }, 200);
+  // Publiée, elle se lit à l'adresse que donne l'instantané : c'est là que
+  // `sync` du Kiosque la rapatrie.
+  const publicPhoto = await step("photo publique", "GET", "/media/banque/p1.png", undefined, 200);
+  assert.equal(publicPhoto.type, "image/png");
+  assert.deepEqual(publicPhoto.bytes, PNG);
+  await step("chemin refusé", "GET", "/media/banque/%2e%2e/p1.png", undefined, 404);
   await step("adresse prise", "POST", "/v1/redaction/article", { article: { ...draft, id: "art-2" } }, 409);
   await step("photo utilisée", "POST", "/v1/redaction/photo/supprimer", { id: "p1" }, 409);
   const state = await step("état", "GET", "/v1/redaction/etat", undefined, 200);
@@ -82,6 +90,7 @@ export async function scenario(call: Call): Promise<string[]> {
   assert.equal(state.json.media[0].license, "CC BY 4.0");
   await step("supprimer l'article", "POST", "/v1/redaction/supprimer", { kind: "article", id: "art-1" }, 200);
   await step("retirer la photo", "POST", "/v1/redaction/photo/supprimer", { id: "p1" }, 200);
+  await step("photo publique retirée", "GET", "/media/banque/p1.png", undefined, 404);
   await step("fichier retiré", "GET", "/v1/redaction/fichier?src=%2Fmedia%2Fbanque%2Fp1.png", undefined, 404);
   await step("exemples", "POST", "/v1/redaction/exemples", { visible: false }, 200);
   const after = await step("état final", "GET", "/v1/redaction/etat", undefined, 200);

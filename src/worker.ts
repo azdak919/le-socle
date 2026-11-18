@@ -25,6 +25,7 @@ import { defaultConfig, parseConfig, type SocleConfig } from "./config.ts";
 import { wrapD1, type D1Database } from "./d1-store.ts";
 import { handleEditorial } from "./editorial-http.ts";
 import { handleRequest } from "./health.ts";
+import { handlePublicMedia } from "./public-media.ts";
 import { handleRedaction } from "./redaction-http.ts";
 import { REDACTION_HEADERS, redactionTarget } from "./redaction-assets.ts";
 import { createModuleStore } from "./sql.ts";
@@ -79,10 +80,14 @@ export default {
         const page = await servePage(request, env, path);
         if (page) return page;
       }
-      if (!path.startsWith("/v1/")) return new Response("", { status: 404 });
+      if (!path.startsWith("/v1/") && !path.startsWith("/media/")) return new Response("", { status: 404 });
       if (path === "/v1/health") return respond(handleRequest(method, path, config), method);
       const store = createModuleStore(wrapD1(env.DB, async () => {}));
       await store.resume();
+      if (path.startsWith("/media/")) {
+        const photo = await handlePublicMedia(method, path, config, store);
+        return photo ? respond(photo, method) : new Response("", { status: 404 });
+      }
       if (config.modules.auth && !responsableSet) {
         try {
           await ensureResponsable(store, env.SOCLE_RESPONSABLE);

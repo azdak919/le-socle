@@ -6,6 +6,7 @@ import test from "node:test";
 
 import type { SocleConfig } from "../src/config.ts";
 import { openD1Memory } from "../src/d1.ts";
+import { handlePublicMedia } from "../src/public-media.ts";
 import { handleRedaction } from "../src/redaction-http.ts";
 import { createSocleServer } from "../src/server.ts";
 import { openSqliteMemory } from "../src/sqlite.ts";
@@ -16,7 +17,9 @@ function direct(store: SocleStore, cfg: SocleConfig, actor: string | null | unde
   const d = deps(store);
   return async (method, path, body, type) => {
     const raw = body === undefined ? new Uint8Array() : Buffer.from(typeof body === "string" ? body : JSON.stringify(body));
-    const result = await handleRedaction(method, path, cfg, d, raw, { "content-type": type ?? "application/json" }, actor, local);
+    const result = path.startsWith("/media/")
+      ? (await handlePublicMedia(method, path, cfg, store)) ?? { status: 404, body: new Uint8Array(), headers: {} as Record<string, string> }
+      : await handleRedaction(method, path, cfg, d, raw, { "content-type": type ?? "application/json" }, actor, local);
     const bytes = Buffer.from(result.body);
     const ctype = result.headers["content-type"] ?? "";
     return { status: result.status, bytes, type: ctype, json: ctype.startsWith("application/json") ? JSON.parse(bytes.toString("utf8") || "null") : null };
