@@ -432,6 +432,11 @@ function socle_admin_document(string $lang, string $title, string $body): array 
   button.danger:hover { background: #7f1d1d; }
   button:disabled { opacity: 0.6; cursor: default; }
   h3 { margin: 1rem 0 0.25rem; font-size: 0.95rem; }
+  .versions { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.9rem; }
+  .versions th, .versions td { text-align: left; vertical-align: top; padding: 0.5rem 0.75rem 0.5rem 0; border-bottom: 1px solid var(--border); }
+  .versions thead th { color: var(--muted); font-weight: 500; font-size: 0.8rem; }
+  .versions tbody th small { display: block; color: var(--muted); font-weight: 400; font-size: 0.8rem; }
+  .nouveautes ul { margin: 0.25rem 0 0.75rem; padding-left: 1.25rem; } .nouveautes li { margin: 0.3rem 0; }
   #restaurer label { flex-wrap: wrap; }
   form { margin: 0.75rem 0; }
   @page letter { size: letter; }

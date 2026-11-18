@@ -52,7 +52,7 @@ test("paquet complet : mise à jour en un clic, sauvegarde et retour arrière", 
   const v1 = paquet(work, "1.0.0", { "index.html": "<html><head></head><body>version 1</body></html>", "kiosque-vivant.json": "{}", "ancien.html": "<p>ancien</p>" });
   const v2 = paquet(work, "1.1.0", { "index.html": "<html><head></head><body>version 2</body></html>", "kiosque-vivant.json": "{}", "nouveau.html": "<p>nouveau</p>" });
   const release = join(work, "release.json");
-  writeFileSync(release, JSON.stringify({ tag_name: "v1.1.0", body: "Ce qui change dans 1.1.0", html_url: "https://example.org/releases/v1.1.0", assets: [{ name: "kiosque-journal.zip", browser_download_url: `file://${v2}` }] }));
+  writeFileSync(release, JSON.stringify({ tag_name: "v1.1.0", body: "<!-- kiosque-paquet {\"kiosque\":\"1.1.0\",\"socle\":\"9.9.9\"} -->\nCe qui change dans 1.1.0\n\n## Site Web du journal (Kiosque 1.1.0)\n- Nouveau mât\n\n## Espace de rédaction (socle 9.9.9)\n- **Restauration** en deux temps", html_url: "https://example.org/releases/v1.1.0", assets: [{ name: "kiosque-journal.zip", browser_download_url: `file://${v2}` }] }));
   const host = join(work, "public_html");
   for (const [name, data] of unzip(new Uint8Array(readFileSync(v1)))) {
     mkdirSync(dirname(join(host, name)), { recursive: true });
@@ -93,7 +93,14 @@ return true;
 
     const page = await call(`${base}/admin/mise-a-jour?verifier=1`, { headers: { cookie } });
     assert.equal(page.status, 200, page.text);
-    assert.match(page.text, /Version du journal<\/dt><dd>1\.0\.0/);
+    // Deux parties : site Web (Kiosque) et espace de rédaction (socle), chacune avec ses versions et nouveautés.
+    assert.match(page.text, /Site Web public du journal<small>[^<]*<\/small><\/th><td>1\.0\.0<\/td><td><strong>1\.1\.0<\/strong><\/td>/);
+    assert.match(page.text, /Espace de rédaction<small>[^<]*<\/small><\/th><td>[0-9.]+<\/td><td><strong>9\.9\.9<\/strong><\/td>/);
+    assert.match(page.text, /Nouveautés du site Web<\/h3><ul><li>Nouveau mât<\/li><\/ul>/);
+    assert.match(page.text, /Nouveautés de l’espace de rédaction<\/h3><ul><li><strong>Restauration<\/strong> en deux temps<\/li><\/ul>/);
+    assert.match(page.text, /Dernière vérification : \d{1,2} [a-zéû]+ \d{4} à \d{1,2} h \d{2}\./);
+    assert.match(page.text, />Rechercher des mises à jour<\/button>/);
+    assert.doesNotMatch(page.text, /donnees\/|journal\/ par-dessus|back-office/i);
     assert.match(page.text, /Mettre à jour vers la version 1\.1\.0/);
     assert.match(page.text, /Ce qui change dans 1\.1\.0/);
     assert.match(page.text, /action="\/journal\/admin\/mise-a-jour\/paquet"/);
@@ -114,7 +121,7 @@ return true;
     const again = await call(`${base}/v1/auth/motdepasse`, { method: "POST", headers: json, body: JSON.stringify({ email: "admin@journal.example", password: "un long secret" }) });
     assert.equal(again.status, 204, "les comptes (donnees/) sont intacts");
     const after = await call(`${base}/admin/mise-a-jour`, { headers: { cookie } });
-    assert.match(after.text, /Version du journal<\/dt><dd>1\.1\.0/);
+    assert.match(after.text, /Site Web public du journal<small>[^<]*<\/small><\/th><td>1\.1\.0<\/td>/);
     assert.match(after.text, /Le journal est à jour/);
     assert.match(after.text, /Revenir à la version 1\.0\.0/);
 
