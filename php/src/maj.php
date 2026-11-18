@@ -85,7 +85,9 @@ function socle_maj_offer(bool $fresh = false): ?array {
     if ($url === null) throw new RuntimeException('la dernière version ne contient pas ' . $paquet['fichier']);
     $offer = [
         'version' => ltrim($release['tag_name'], 'v'),
-        'notes' => mb_substr((string) ($release['body'] ?? ''), 0, 2000),
+        // Notes entières : les deux parties (site Web, espace de rédaction) dépassent
+        // souvent 2 000 caractères ; GitHub plafonne déjà le texte d'une Release.
+        'notes' => mb_substr((string) ($release['body'] ?? ''), 0, 100_000),
         'page' => is_string($release['html_url'] ?? null) ? $release['html_url'] : 'https://github.com/' . $paquet['depot'] . '/releases/latest',
         'url' => $url,
     ];
