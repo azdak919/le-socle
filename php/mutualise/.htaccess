@@ -1,4 +1,8 @@
 Options -Indexes -MultiViews
+# Le dossier admin/ est sur le disque (page et fichiers de la rédaction).
+# Sans cette consigne, Apache renvoie /admin vers /admin/, ce qui, une
+# fois la session ouverte, donnait une page introuvable.
+DirectorySlash Off
 RewriteEngine On
 RewriteRule ^index\.php$ - [L]
 RewriteRule ^ index.php [L]
