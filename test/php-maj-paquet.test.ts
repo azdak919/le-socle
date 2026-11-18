@@ -52,7 +52,7 @@ test("paquet complet : mise à jour en un clic, sauvegarde et retour arrière", 
   const v1 = paquet(work, "1.0.0", { "index.html": "<html><head></head><body>version 1</body></html>", "kiosque-vivant.json": "{}", "ancien.html": "<p>ancien</p>" });
   const v2 = paquet(work, "1.1.0", { "index.html": "<html><head></head><body>version 2</body></html>", "kiosque-vivant.json": "{}", "nouveau.html": "<p>nouveau</p>" });
   const release = join(work, "release.json");
-  writeFileSync(release, JSON.stringify({ tag_name: "v1.1.0", body: "<!-- kiosque-paquet {\"kiosque\":\"1.1.0\",\"socle\":\"9.9.9\"} -->\nCe qui change dans 1.1.0\n\n## Site Web du journal (Kiosque 1.1.0)\n- Nouveau mât\n\n## Espace de rédaction (socle 9.9.9)\n- **Restauration** en deux temps", html_url: "https://example.org/releases/v1.1.0", assets: [{ name: "kiosque-journal.zip", browser_download_url: `file://${v2}` }] }));
+  writeFileSync(release, JSON.stringify({ tag_name: "v1.1.0", body: "<!-- kiosque-paquet {\"kiosque\":\"1.1.0\",\"socle\":\"9.9.9\"} -->\nCe qui change dans 1.1.0\n\n## Site Web du journal (Kiosque 1.1.0)\n- Nouveau mât\n" + "- Une longue note pour dépasser l’ancienne limite de 2 000 caractères.\n".repeat(40) + "\n## Espace de rédaction (socle 9.9.9)\n- **Restauration** en deux temps", html_url: "https://example.org/releases/v1.1.0", assets: [{ name: "kiosque-journal.zip", browser_download_url: `file://${v2}` }] }));
   const host = join(work, "public_html");
   for (const [name, data] of unzip(new Uint8Array(readFileSync(v1)))) {
     mkdirSync(dirname(join(host, name)), { recursive: true });
@@ -96,7 +96,7 @@ return true;
     // Deux parties : site Web (Kiosque) et espace de rédaction (socle), chacune avec ses versions et nouveautés.
     assert.match(page.text, /Site Web public du journal<small>[^<]*<\/small><\/th><td>1\.0\.0<\/td><td><strong>1\.1\.0<\/strong><\/td>/);
     assert.match(page.text, /Espace de rédaction<small>[^<]*<\/small><\/th><td>[0-9.]+<\/td><td><strong>9\.9\.9<\/strong><\/td>/);
-    assert.match(page.text, /Nouveautés du site Web<\/h3><ul><li>Nouveau mât<\/li><\/ul>/);
+    assert.match(page.text, /Nouveautés du site Web<\/h3><ul><li>Nouveau mât<\/li><li>Une longue note/);
     assert.match(page.text, /Nouveautés de l’espace de rédaction<\/h3><ul><li><strong>Restauration<\/strong> en deux temps<\/li><\/ul>/);
     assert.match(page.text, /Dernière vérification : \d{1,2} [a-zéû]+ \d{4} à \d{1,2} h \d{2}\./);
     assert.match(page.text, />Rechercher des mises à jour<\/button>/);

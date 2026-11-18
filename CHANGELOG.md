@@ -1,6 +1,7 @@
 # Journal
 
 ## Non publié
+- Page Mise à jour : les nouveautés de la Release sont lues en entier (elles étaient coupées à 2 000 caractères, au milieu d’un mot, et la partie « Espace de rédaction » disparaissait).
 - Réseaux sociaux du journal : une section « Réseaux sociaux » dans Configuration et une étape facultative dans l’assistant (Facebook, Instagram, X, Bluesky, Mastodon, TikTok, YouTube, LinkedIn, Threads, courriel). Chaque champ montre un exemple pâle et vérifie l’adresse (une adresse Facebook dans le champ X est refusée, « instagram.com/… » reçoit son « https:// ») ; les adresses vont dans `publication.social` et dans `kiosque-config.json` (`journal.reseaux`). Le site Web (le Kiosque) les affiche en icônes.
 - Version 1.3.0.
 - Le paquet complet s’installe à la racine du domaine (votre-journal.com) : le ZIP n’enveloppe plus les fichiers dans un dossier `journal/`. Un sous-dossier reste possible, le préfixe est détecté tout seul. L’espace de rédaction reste à `/redaction/` ; `/admin` y redirige. Sauvegarde et Mise à jour restent sous `/admin/sauvegarde` et `/admin/mise-a-jour`. La mise à jour en un clic accepte l’ancien ZIP (dossier `journal/`) comme le nouveau (fichiers à la racine).
