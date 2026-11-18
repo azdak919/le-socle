@@ -33,8 +33,11 @@ function contrastRatio(hex, other = '#ffffff') {
 }
 
 function source(kind, id) {
-  return { backend: 'demo-pglite', backendId: id, fetchedAt: new Date().toISOString() };
+  return { backend: backend?.id || 'demo-pglite', backendId: id, fetchedAt: new Date().toISOString() };
 }
+
+/** En mode socle, l'admin écrit sur le serveur ; sinon dans ce navigateur. */
+const onSocle = () => config.mode === 'socle';
 
 function sanitizePreview(html) {
   const template = document.createElement('template');
@@ -85,8 +88,8 @@ function dashboard() {
   return `<section class="panel"><h2>Tableau de bord</h2>
     <div class="grid stats"><article><h3>${counts.draft}</h3><p>Brouillons, invisibles du public.</p></article><article><h3>${counts['in-review']}</h3><p>Articles en révision, invisibles du public.</p></article><article><h3>${counts.published}</h3><p>Articles publiés dans le front end.</p></article>${counts.scheduled ? `<article><h3>${counts.scheduled}</h3><p>Articles programmés, publiés à leur heure.</p></article>` : ''}<article><h3>${bundle.authors.length}</h3><p>Signatures éditoriales, sans compte ni mot de passe.</p></article></div>
     <div class="actions"><button class="primary" data-action="new-article">Créer un article</button><a class="button" href="${config.publicBasePath}/">Voir le front end</a></div>
-    <h3 style="margin-top:2rem">Données d’exemple</h3><label><input id="demo-visible" type="checkbox" ${bundle.demoVisible !== false ? 'checked' : ''}> Afficher les exemples publiés dans le front end</label>
-    <div class="actions"><button data-action="remove-demo">Supprimer les exemples non modifiés</button><button data-action="reset-demo">Restaurer Le Quorum</button></div>
+    ${onSocle() ? `<p class="notice" style="margin-top:2rem">Branchée sur le socle${bundle.role ? ` — votre rôle : <strong>${esc(bundle.role)}</strong>` : ''}. Le journal publié se reconstruit à la prochaine synchronisation.</p>` : `<h3 style="margin-top:2rem">Données d’exemple</h3><label><input id="demo-visible" type="checkbox" ${bundle.demoVisible !== false ? 'checked' : ''}> Afficher les exemples publiés dans le front end</label>
+    <div class="actions"><button data-action="remove-demo">Supprimer les exemples non modifiés</button><button data-action="reset-demo">Restaurer Le Quorum</button></div>`}
   </section>`;
 }
 
@@ -100,7 +103,17 @@ const MEDIA_USAGE_LABELS = {
 
 function mediaSrc(media) {
   const src = String(media?.src || '');
+  if (backend?.displaySrc && src.startsWith('/media/')) return backend.displaySrc(src);
   return src.startsWith('/') ? `${config.publicBasePath}${src}` : src;
+}
+
+/** Une photo ajoutée par la rédaction (et non une photo libre du Quorum). */
+function ownPhoto(media) {
+  return media?.bank === 'redaction' || media?.source?.backend === 'socle';
+}
+
+function usageCount(media) {
+  return bundle.articles.filter((article) => article.lead?.src === media.src || (article.media || []).some((item) => item.src === media.src)).length;
 }
 
 function cropFrames(media, prefix) {
@@ -114,11 +127,13 @@ function cropFrames(media, prefix) {
 }
 
 function mediaCards(selectable = false) {
-  return (bundle.media || []).map((media) => `<article class="media-card" data-media-card data-search="${esc([media.institution, media.campus, ...(media.keywords || [])].join(' ').toLowerCase())}" data-usages="${esc((media.usages || []).join(' '))}">
+  return (bundle.media || []).map((media) => `<article class="media-card" data-media-card data-search="${esc([media.institution, media.campus, media.alt, media.credit, ...(media.keywords || [])].join(' ').toLowerCase())}" data-usages="${esc((media.usages || []).join(' '))}">
     <img src="${esc(mediaSrc(media))}" alt="${esc(media.alt)}" loading="lazy" style="object-position:${media.focalPoint?.x ?? 50}% ${media.focalPoint?.y ?? 50}%">
-    <div class="media-card-body"><h3>${esc(media.institution)}</h3><p>${esc(media.campus)}</p><p class="media-tags">${(media.usages || []).map((usage) => esc(MEDIA_USAGE_LABELS[usage] || usage)).join(' · ')}</p>
-    <p><a href="${esc(media.creditUrl)}" target="_blank" rel="noopener">Photo : ${esc(media.credit)}</a> · <a href="${esc(media.licenseUrl)}" target="_blank" rel="noopener">${esc(media.license)}</a></p>
-    ${selectable ? `<button type="button" class="primary" data-select-media="${esc(media.id)}">Choisir cette photo</button>` : `<a href="${esc(media.sourceUrl)}" target="_blank" rel="noopener">Voir la source</a>`}</div>
+    <div class="media-card-body">${ownPhoto(media) ? '<p class="status-pill status-in-review">Banque de la rédaction</p>' : ''}<h3>${esc(media.institution || media.alt)}</h3><p>${esc(media.campus || media.caption || '')}</p><p class="media-tags">${(media.usages || []).map((usage) => esc(MEDIA_USAGE_LABELS[usage] || usage)).join(' · ')}</p>
+    <p>${media.creditUrl ? `<a href="${esc(media.creditUrl)}" target="_blank" rel="noopener">Photo : ${esc(media.credit)}</a>` : `Photo : ${esc(media.credit || 'crédit à compléter')}`}${media.license ? ` · ${media.licenseUrl ? `<a href="${esc(media.licenseUrl)}" target="_blank" rel="noopener">${esc(media.license)}</a>` : esc(media.license)}` : ''}</p>
+    ${selectable ? `<button type="button" class="primary" data-select-media="${esc(media.id)}">Choisir cette photo</button>`
+      : ownPhoto(media) ? `<p class="media-quality">${usageCount(media) ? `Utilisée dans ${usageCount(media)} article(s).` : 'Pas encore utilisée.'}</p><div class="actions"><button type="button" data-edit-photo="${esc(media.id)}">Modifier la fiche</button><button type="button" class="danger" data-remove-photo="${esc(media.id)}">Retirer</button></div>`
+      : media.sourceUrl ? `<a href="${esc(media.sourceUrl)}" target="_blank" rel="noopener">Voir la source</a>` : ''}</div>
   </article>`).join('');
 }
 
@@ -139,8 +154,85 @@ function bindMediaFilters(host) {
   usage.addEventListener('change', filter);
 }
 
+function photoFields(media = {}) {
+  return `<div class="field"><label>Description accessible <small>(obligatoire)</small><input name="alt" required value="${esc(media.alt || '')}" placeholder="Ce que montre la photo"></label></div>
+    <div class="field"><label>Crédit <small>(obligatoire)</small><input name="credit" required value="${esc(media.credit || '')}" placeholder="Prénom Nom ou agence"></label></div>
+    <div class="field"><label>Licence<input name="license" value="${esc(media.license || '')}" placeholder="Tous droits réservés, CC BY 4.0…"></label></div>
+    <div class="field"><label>Lien du crédit<input name="creditUrl" type="url" value="${esc(media.creditUrl || '')}" placeholder="https://"></label></div>
+    <div class="field full"><label>Mots-clés, séparés par des virgules<input name="keywords" value="${esc((media.keywords || []).join(', '))}" placeholder="Ex. : cafétéria, rentrée, sport"></label></div>
+    <fieldset class="field full"><legend>Usages</legend>${Object.entries(MEDIA_USAGE_LABELS).map(([value, label]) => `<label><input type="checkbox" name="usages" value="${value}" ${(media.usages || ['article']).includes(value) ? 'checked' : ''}> ${label}</label>`).join('')}</fieldset>`;
+}
+
+function photoDetails(form) {
+  const data = new FormData(form);
+  return {
+    alt: String(data.get('alt') || '').trim(),
+    credit: String(data.get('credit') || '').trim(),
+    license: String(data.get('license') || '').trim(),
+    creditUrl: String(data.get('creditUrl') || '').trim(),
+    keywords: String(data.get('keywords') || '').split(',').map((item) => item.trim()).filter(Boolean),
+    usages: data.getAll('usages').map(String),
+  };
+}
+
 function mediaLibrary() {
-  return `<section class="panel"><div class="toolbar"><div><h2>Photos</h2><p>Photos libres utilisées pour illustrer les articles et le mât. Les campus réels ne représentent pas l’établissement fictif du journal.</p></div></div>${mediaFilters()}<div class="media-grid">${mediaCards()}</div></section>`;
+  const own = (bundle.media || []).filter(ownPhoto).length;
+  return `<section class="panel"><div class="toolbar"><div><h2>Photos</h2><p>La banque du journal : vos photos, réutilisables dans tous les articles et le mât, avec leur crédit. ${onSocle() ? 'Elles sont gardées sur le serveur du journal.' : 'En démonstration, elles restent dans ce navigateur. Les photos libres du Quorum montrent de vrais campus, pas l’établissement fictif du journal.'}</p></div></div>
+    <details class="photo-add" ${own ? '' : 'open'}><summary>Ajouter une photo à la banque</summary><form id="photo-form" class="grid"><div class="field full"><label>Photo JPEG, PNG ou WebP, 8 Mo au plus<input name="file" type="file" accept="image/jpeg,image/png,image/webp" required></label></div>${photoFields()}<div class="actions full"><button class="primary" type="submit">Ajouter à la banque</button></div></form><p class="media-quality">Sans crédit, une photo ne va pas dans la banque. Vérifiez que vous avez le droit de la publier.</p></details>
+    ${mediaFilters()}<div class="media-grid">${mediaCards()}</div></section>`;
+}
+
+function photoEditor(media) {
+  const dialog = document.createElement('dialog');
+  dialog.className = 'media-picker';
+  dialog.innerHTML = `<div class="toolbar"><h2>Fiche de la photo</h2><button type="button" data-close-media aria-label="Fermer">×</button></div><form class="grid" method="dialog"><img class="full" src="${esc(mediaSrc(media))}" alt="" style="max-height:220px;object-fit:contain">${photoFields(media)}<div class="actions full"><button class="primary" type="submit">Enregistrer la fiche</button></div></form>`;
+  document.body.append(dialog);
+  dialog.querySelector('[data-close-media]').onclick = () => dialog.close();
+  dialog.addEventListener('close', () => dialog.remove());
+  dialog.querySelector('form').onsubmit = async (event) => {
+    event.preventDefault();
+    const details = photoDetails(event.currentTarget);
+    if (!details.credit || !details.alt) { notify('La description et le crédit sont obligatoires.'); return; }
+    try {
+      await backend.save('media', { ...media, ...details });
+      dialog.close();
+      await refresh();
+      render();
+      notify('Fiche enregistrée.');
+    } catch (error) { notify(error.message); }
+  };
+  dialog.showModal();
+}
+
+async function imageSize(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    return await new Promise((resolve) => { const image = new Image(); image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight }); image.onerror = () => resolve({}); image.src = url; });
+  } finally { URL.revokeObjectURL(url); }
+}
+
+function bindMediaLibrary() {
+  const form = document.getElementById('photo-form');
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    const file = form.elements.file.files[0];
+    const details = photoDetails(form);
+    if (!file) { notify('Choisissez une photo.'); return; }
+    if (!details.alt || !details.credit) { notify('La description et le crédit sont obligatoires.'); return; }
+    const button = form.querySelector('button[type="submit"]');
+    button.disabled = true;
+    try {
+      await backend.uploadPhoto({ asset: { id: crypto.randomUUID(), ...details, ...await imageSize(file), focalPoint: { x: 50, y: 50 } }, file, bank: true });
+      await refresh();
+      render();
+      notify('Photo ajoutée à la banque.');
+    } catch (error) { notify(error.message, 5000); button.disabled = false; }
+  };
+  main.querySelectorAll('[data-edit-photo]').forEach((button) => button.onclick = () => photoEditor(bundle.media.find((item) => item.id === button.dataset.editPhoto)));
+  main.querySelectorAll('[data-remove-photo]').forEach((button) => button.onclick = async () => {
+    if (!confirm('Retirer cette photo de la banque?')) return;
+    try { await backend.removePhoto(button.dataset.removePhoto); await refresh(); render(); notify('Photo retirée.'); } catch (error) { notify(error.message, 6000); }
+  });
 }
 
 function chooseSharedMedia(onSelect, usage = '', suggestContext = null) {
@@ -278,9 +370,9 @@ function articleEditor(article) {
     <fieldset class="field"><legend>Auteurs</legend>${bundle.authors.map((author) => `<label><input type="checkbox" name="authors" value="${esc(author.slug)}" ${current.authors.includes(author.slug) ? 'checked' : ''}> ${esc(author.name)}</label>`).join('')}</fieldset>
     <fieldset class="field"><legend>Catégories</legend>${bundle.taxonomies.categories.map((item) => `<label><input type="checkbox" name="categories" value="${esc(item.slug)}" ${current.categories.includes(item.slug) ? 'checked' : ''}> ${esc(item.name)}</label>`).join('')}</fieldset>
     <fieldset class="field full"><legend>Mots-clés</legend>${bundle.taxonomies.tags.map((item) => `<label><input type="checkbox" name="tags" value="${esc(item.slug)}" ${current.tags.includes(item.slug) ? 'checked' : ''}> ${esc(item.name)}</label>`).join('')}</fieldset>
-    <fieldset class="field full media-editor"><legend>Photo principale</legend><label>Photo JPEG, PNG ou WebP<input id="article-lead-file" type="file" accept="image/jpeg,image/png,image/webp"></label><button type="button" data-action="choose-lead-media">Choisir une photo</button><button type="button" data-action="suggest-lead-media">Suggérer (contenu → banque libre)</button><label>Description accessible<input name="leadAlt" value="${esc(current.lead?.alt || '')}"></label><label>Crédit<input name="leadCredit" value="${esc(current.lead?.credit || '')}"></label><label>Légende<input name="leadCaption" value="${esc(current.lead?.caption || '')}"></label><label>Licence<input name="leadLicense" value="${esc(current.lead?.license || '')}"></label><label>Point focal X<input name="leadFocalX" type="range" min="0" max="100" value="${current.lead?.focalPoint?.x ?? 50}"></label><label>Point focal Y<input name="leadFocalY" type="range" min="0" max="100" value="${current.lead?.focalPoint?.y ?? 50}"></label><div id="article-lead-preview" class="full">${cropFrames(current.lead, 'article')}</div>${current.lead ? `<p class="media-quality">Photo actuelle : ${current.lead.width || '?'} × ${current.lead.height || '?'} px${current.lead.width && (current.lead.width < 720 || current.lead.height < 405) ? ' — résolution faible pour la vedette' : ''}.</p>` : ''}</fieldset>
+    <fieldset class="field full media-editor"><legend>Photo principale</legend><label>Photo JPEG, PNG ou WebP<input id="article-lead-file" type="file" accept="image/jpeg,image/png,image/webp"></label><label><input type="checkbox" name="leadToBank"> Ajouter aussi cette photo à la banque (crédit obligatoire)</label><button type="button" data-action="choose-lead-media">Choisir une photo</button><button type="button" data-action="suggest-lead-media">Suggérer (contenu → banque libre)</button><label>Description accessible<input name="leadAlt" value="${esc(current.lead?.alt || '')}"></label><label>Crédit<input name="leadCredit" value="${esc(current.lead?.credit || '')}"></label><label>Légende<input name="leadCaption" value="${esc(current.lead?.caption || '')}"></label><label>Licence<input name="leadLicense" value="${esc(current.lead?.license || '')}"></label><label>Point focal X<input name="leadFocalX" type="range" min="0" max="100" value="${current.lead?.focalPoint?.x ?? 50}"></label><label>Point focal Y<input name="leadFocalY" type="range" min="0" max="100" value="${current.lead?.focalPoint?.y ?? 50}"></label><div id="article-lead-preview" class="full">${cropFrames(current.lead, 'article')}</div>${current.lead ? `<p class="media-quality">Photo actuelle : ${current.lead.width || '?'} × ${current.lead.height || '?'} px${current.lead.width && (current.lead.width < 720 || current.lead.height < 405) ? ' — résolution faible pour la vedette' : ''}.</p>` : ''}</fieldset>
     <div class="field full"><label for="article-format">Format du texte</label><select id="article-format" name="bodyFormat"><option value="markdown" ${current.body?.format !== 'html' ? 'selected' : ''}>Markdown</option><option value="html" ${current.body?.format === 'html' ? 'selected' : ''}>HTML assaini</option></select></div>
-    <div class="field full editor-shell"><div class="editor-toolbar"><button type="button" data-editor-mode="visual">Visuel</button><button type="button" data-editor-mode="source">Source</button><span data-html-tools><button type="button" data-command="bold"><strong>G</strong></button><button type="button" data-command="italic"><em>I</em></button><button type="button" data-command="formatBlock" data-value="h2">Titre</button><button type="button" data-command="createLink">Lien</button></span><label class="button">Ajouter une photo<input id="article-inline-file" type="file" accept="image/jpeg,image/png,image/webp" hidden></label></div><label for="article-body" class="sr-only">Texte de l’article</label><textarea class="body" id="article-body" name="body">${esc(current.body?.raw || '')}</textarea><div id="article-visual" class="visual-editor" contenteditable="true"></div><p class="media-quality">Les photos téléversées restent dans ce navigateur et seront incluses dans les exports. Recommandation : 720 × 405 px pour une vedette.</p></div>
+    <div class="field full editor-shell"><div class="editor-toolbar"><button type="button" data-editor-mode="visual">Visuel</button><button type="button" data-editor-mode="source">Source</button><span data-html-tools><button type="button" data-command="bold"><strong>G</strong></button><button type="button" data-command="italic"><em>I</em></button><button type="button" data-command="formatBlock" data-value="h2">Titre</button><button type="button" data-command="createLink">Lien</button></span><label class="button">Ajouter une photo<input id="article-inline-file" type="file" accept="image/jpeg,image/png,image/webp" hidden></label></div><label for="article-body" class="sr-only">Texte de l’article</label><textarea class="body" id="article-body" name="body">${esc(current.body?.raw || '')}</textarea><div id="article-visual" class="visual-editor" contenteditable="true"></div><p class="media-quality">${onSocle() ? 'Les photos téléversées sont gardées sur le serveur du journal.' : 'Les photos téléversées restent dans ce navigateur et seront incluses dans les exports.'} Recommandation : 720 × 405 px pour une vedette.</p></div>
     <div class="actions full"><button class="primary" type="submit">Enregistrer</button><button type="button" data-action="preview">Prévisualiser sans publier</button></div></form><div id="article-preview"></div></section>`;
   const title = document.getElementById('article-title');
   const slug = document.getElementById('article-slug');
@@ -361,7 +453,10 @@ function articleEditor(article) {
     const answer = await askForm({ title: 'Photo dans le texte', submitLabel: 'Ajouter', fields: [{ name: 'alt', label: 'Ce que montre la photo', required: true }, { name: 'credit', label: 'Crédit photo, facultatif' }] });
     if (!answer?.alt) { notify('Description obligatoire.'); return; }
     try {
-      const media = await readArticleImage(file, { alt: answer.alt, credit: answer.credit || '' });
+      const details = { alt: answer.alt, credit: answer.credit || '' };
+      const media = onSocle()
+        ? await backend.uploadPhoto({ asset: { id: crypto.randomUUID(), ...details, ...await imageSize(file) }, file, bank: false })
+        : await readArticleImage(file, details);
       current.media.push(media);
       if (format.value === 'html') {
         syncEditor('visual'); visual.focus(); document.execCommand('insertHTML', false, `<figure><img src="${media.src}" alt="${esc(media.alt)}"><figcaption>${esc(media.credit ? `Photo : ${media.credit}` : '')}</figcaption></figure>`);
@@ -378,7 +473,20 @@ function articleEditor(article) {
     let lead = current.lead;
     const leadFile = document.getElementById('article-lead-file').files[0];
     let autoStockNote = '';
-    if (leadFile) lead = { ...await readArticleImage(leadFile, { alt: form.get('leadAlt').trim(), credit: form.get('leadCredit').trim(), caption: form.get('leadCaption').trim(), license: form.get('leadLicense').trim() }), focalPoint: { x: Number(form.get('leadFocalX')), y: Number(form.get('leadFocalY')) } };
+    if (leadFile) {
+      const details = { alt: form.get('leadAlt').trim(), credit: form.get('leadCredit').trim(), caption: form.get('leadCaption').trim(), license: form.get('leadLicense').trim() };
+      const focalPoint = { x: Number(form.get('leadFocalX')), y: Number(form.get('leadFocalY')) };
+      const toBank = form.get('leadToBank') === 'on';
+      if (toBank && !details.credit) { notify('Pour ajouter la photo à la banque, indiquez son crédit (ou décochez la case).', 5000); return; }
+      if (!details.alt) { notify('Décrivez ce que montre la photo principale.'); return; }
+      try {
+        if (toBank || onSocle()) {
+          lead = { ...await backend.uploadPhoto({ asset: { id: crypto.randomUUID(), ...details, ...await imageSize(leadFile), usages: ['article'], focalPoint }, file: leadFile, bank: toBank }), caption: details.caption, focalPoint };
+        } else {
+          lead = { ...await readArticleImage(leadFile, details), focalPoint };
+        }
+      } catch (error) { notify(error.message, 5000); return; }
+    }
     else if (lead) lead = { ...lead, alt: form.get('leadAlt').trim(), credit: form.get('leadCredit').trim(), caption: form.get('leadCaption').trim(), license: form.get('leadLicense').trim(), focalPoint: { x: Number(form.get('leadFocalX')), y: Number(form.get('leadFocalY')) } };
     // Option journal : algo stock si aucune photo principale (ne remplace jamais une photo fournie).
     if (!lead?.src && bundle.publication?.media?.autoStockPhoto) {
@@ -430,6 +538,7 @@ function articleEditor(article) {
     if (editorMode === 'visual' && format.value === 'html') body.value = sanitizePreview(visual.innerHTML);
     const html = format.value === 'html' ? sanitizePreview(body.value) : sanitizePreview(marked.parse(body.value, { async: false }));
     document.getElementById('article-preview').innerHTML = `<article class="preview-frame"><p class="status-pill">Prévisualisation privée</p><h1>${esc(title.value)}</h1>${html}</article>`;
+    document.querySelectorAll('#article-preview img[src^="/media/"]').forEach((image) => { image.src = mediaSrc({ src: image.getAttribute('src') }); });
   });
   syncEditor(editorMode);
   main.querySelector('[data-action="articles"]').onclick = () => setView('articles');
@@ -530,6 +639,9 @@ async function readLogo(file, alt) {
 }
 
 function exportsView() {
+  if (onSocle()) {
+    return `<section class="panel"><h2>Exporter mon journal</h2><p>Le socle garde le journal. Ces fichiers sont une copie de plus, faite dans ce navigateur, sans mot de passe ni jeton.</p><input id="export-filter" type="hidden" value="all"><div class="actions"><button class="primary" data-action="export-zip">Télécharger le journal Markdown</button><button data-action="export-json">Télécharger la sauvegarde JSON</button></div><p class="notice">Pour restaurer, passez par la page Sauvegarde du socle (<a href="/admin">/admin</a>) : elle fait une copie avant d’écrire.</p></section>`;
+  }
   return `<section class="panel"><h2>Exporter mon journal</h2><p>Les archives sont créées dans ce navigateur. Elles ne contiennent aucun mot de passe, jeton ou secret.</p><div class="field"><label>Contenu de l’export<select id="export-filter"><option value="all">Tout, exemples compris</option><option value="without-demo">Exclure les exemples</option><option value="user-content">Créé ou modifié par moi</option></select></label></div><div class="actions"><button class="primary" data-action="export-zip">Télécharger le journal Markdown</button><button data-action="export-json">Télécharger la sauvegarde JSON</button><button data-action="import-json">Importer une sauvegarde</button><input id="import-file" type="file" accept="application/json" hidden></div><hr><h2>Après la démonstration</h2><div class="post-demo"><article><h3>1. Exporter mon journal</h3><p>Gardez le ZIP Markdown et une sauvegarde JSON.</p></article><article><h3>2. Passer à Sveltia + GitHub</h3><p>Créez un dépôt avec « Use this template », copiez l’export, puis activez Actions et Pages. Cette étape est manuelle et demande les droits GitHub du dépôt.</p><a href="https://github.com/azdak919/le-kiosque/generate">Créer le dépôt</a></article><article><h3>3. Future option PocketBase</h3><p>Point d’extension prévu, mais aucun backend PocketBase, compte ou hébergement n’est offert actuellement.</p></article></div><section class="panel danger-zone"><h3>Réinitialiser Le Quorum</h3><p>La réinitialisation complète efface les changements locaux de ce navigateur. Exportez-les d’abord.</p><button class="danger" data-action="full-reset">Réinitialiser Le Quorum</button></section></section>`;
 }
 
@@ -547,7 +659,8 @@ function bindCommon() {
 function render() {
   main.innerHTML = ({ dashboard, articles, media: mediaLibrary, authors, taxonomies, settings, exports: exportsView }[view] || dashboard)();
   bindCommon();
-  if (view === 'dashboard') {
+  if (view === 'media') bindMediaLibrary();
+  if (view === 'dashboard' && !onSocle()) {
     document.getElementById('demo-visible').onchange = async (event) => { await backend.setDemoVisibility(event.target.checked); await refresh(); notify('Affichage des exemples mis à jour.'); };
     main.querySelector('[data-action="remove-demo"]').onclick = async () => { if (!confirm('Supprimer uniquement les exemples jamais modifiés? Vos contenus seront conservés.')) return; await backend.removeDemo(); await refresh(); render(); };
     main.querySelector('[data-action="reset-demo"]').onclick = async (event) => {
@@ -636,6 +749,7 @@ function render() {
     const backup = () => backend.createBackup({ filter: document.getElementById('export-filter').value });
     main.querySelector('[data-action="export-json"]').onclick = async () => download(`${bundle.publication.slug}-sauvegarde.json`, JSON.stringify(await backup(), null, 2), 'application/json');
     main.querySelector('[data-action="export-zip"]').onclick = async () => { const data = await backup(); download(`${bundle.publication.slug}-journal.zip`, zipStore(await markdownFiles(data, config.publicBasePath))); };
+    if (onSocle()) return;
     const input = document.getElementById('import-file'); main.querySelector('[data-action="import-json"]').onclick = () => input.click(); input.onchange = async () => { const file = input.files[0]; if (!file) return; const data = JSON.parse(await file.text()); if (!confirm(`Importer la sauvegarde « ${data.bundle?.publication?.name || file.name} »? Les données locales actuelles seront remplacées.`)) return; await backend.restoreBackup(data); await refresh(); notify('Sauvegarde importée.'); setView('dashboard'); };
     main.querySelector('[data-action="full-reset"]').onclick = async () => { if (!confirm('Réinitialiser complètement Le Quorum et effacer tous les changements locaux? Cette action est irréversible sans sauvegarde.')) return; await backend.resetDemo({ full: true }); await refresh(); notify('Le Quorum a été réinitialisé.'); setView('dashboard'); };
   }
@@ -656,5 +770,5 @@ try {
   render();
 } catch (error) {
   console.error(error);
-  main.innerHTML = `<section class="panel"><h2>Impossible d’ouvrir les données locales</h2><p>${esc(error.message)}</p><div class="actions"><button onclick="location.reload()">Réessayer</button><a class="button" href="${config.publicBasePath}/">Utiliser le journal statique</a></div></section>`;
+  main.innerHTML = `<section class="panel"><h2>${onSocle() ? 'Impossible de joindre le socle' : 'Impossible d’ouvrir les données locales'}</h2><p>${esc(error.message)}</p><div class="actions"><button onclick="location.reload()">Réessayer</button><a class="button" href="${config.publicBasePath}/">Utiliser le journal statique</a></div></section>`;
 }
