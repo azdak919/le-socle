@@ -34,7 +34,8 @@ const m = join(root, "php", "mutualise");
 add("index.php", readFileSync(join(m, "index.php")));
 add(".htaccess", readFileSync(join(m, ".htaccess")));
 add(".user.ini", readFileSync(join(root, "php", "public", ".user.ini")));
-add("LISEZMOI.txt", readFileSync(join(m, "LISEZMOI.txt")));
+// Le paquet complet (site + rédaction) a son propre mode d'emploi.
+add("LISEZMOI.txt", readFileSync(join(m, site ? "LISEZMOI-journal.txt" : "LISEZMOI.txt")));
 add("donnees/socle.config.json", readFileSync(join(m, "socle.config.json")));
 add("donnees/.htaccess", readFileSync(join(m, "deny.htaccess")));
 add("php/.htaccess", readFileSync(join(m, "deny.htaccess")));
