@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 
 import { handleAdmin, type AdminDeps } from "./admin.ts";
 import { handleAudience } from "./audience-http.ts";
+import { accessVerifier } from "./access.ts";
 import { emailFromCookie, ensureResponsable } from "./auth.ts";
 import { handleAuth } from "./auth-http.ts";
 import { defaultConfig, loadConfigFile, stringifyConfig, type SocleConfig } from "./config.ts";
@@ -136,6 +137,9 @@ export async function openRunningAdmin(
             publicOrigin: process.env.SOCLE_PUBLIC_ORIGIN,
             githubClientId: process.env.SOCLE_GITHUB_CLIENT_ID,
             githubClientSecret: process.env.SOCLE_GITHUB_CLIENT_SECRET,
+            verifyAccess: process.env.SOCLE_ACCESS_TEAM
+              ? accessVerifier({ team: process.env.SOCLE_ACCESS_TEAM, aud: process.env.SOCLE_ACCESS_AUD ?? "" })
+              : undefined,
             mailer: smtp
               ? async (to, url) => {
                   await sendSmtp(smtp, to, "Lien de connexion", url);

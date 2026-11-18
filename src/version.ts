@@ -1,8 +1,6 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const packageJson = join(dirname(fileURLToPath(import.meta.url)), "..", "package.json");
-const parsed = JSON.parse(readFileSync(packageJson, "utf8")) as { version: string };
-
-export const VERSION: string = parsed.version;
+/**
+ * Version du socle. Écrite ici plutôt que lue dans package.json au
+ * chargement : le Worker (Cloudflare) n'a pas de système de fichiers. Un test
+ * vérifie qu'elle suit package.json.
+ */
+export const VERSION: string = "1.0.0";

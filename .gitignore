@@ -6,3 +6,5 @@ socle.version
 sauvegardes/
 php/data/*.sqlite
 php/data/*.sqlite-*
+wrangler.toml
+.wrangler/

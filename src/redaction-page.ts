@@ -9,39 +9,18 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { REDACTION_HEADERS, redactionTarget } from "./redaction-assets.ts";
+
 const ADMIN_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "admin");
 
-/** Fichiers servis en mode serveur. Pas la base de la démo (sql.js) : elle ne sert qu'au mode navigateur. */
-export const SERVER_ASSETS: ReadonlySet<string> = new Set([
-  "admin.js", "admin.css", "runtime.js", "util.js", "export.js",
-  "stock-photo-match.js", "marked.esm.js", "socle-backend.js",
-]);
-
-const HEADERS = {
-  "x-content-type-options": "nosniff",
-  "referrer-policy": "same-origin",
-  "x-frame-options": "DENY",
-  "cache-control": "no-cache",
-};
+export { SERVER_ASSETS } from "./redaction-assets.ts";
 
 type Result = { status: number; body: string | Uint8Array; headers: Record<string, string> };
 
 /** `null` : ce chemin n'est pas l'admin, la requête continue ailleurs. */
 export function serveRedactionPage(path: string, method: string): Result | null {
-  if (path !== "/redaction" && !path.startsWith("/redaction/")) return null;
-  if (method !== "GET" && method !== "HEAD") return { status: 405, body: "", headers: { allow: "GET, HEAD" } };
-  if (path === "/redaction") return { status: 301, body: "", headers: { location: "/redaction/" } };
-  let file: string;
-  let type: string;
-  if (path === "/redaction/") {
-    file = join(ADMIN_DIR, "serveur.html");
-    type = "text/html; charset=utf-8";
-  } else {
-    const name = path.slice("/redaction/assets/".length);
-    if (!path.startsWith("/redaction/assets/") || !SERVER_ASSETS.has(name)) return { status: 404, body: "", headers: {} };
-    file = join(ADMIN_DIR, "assets", name);
-    type = name.endsWith(".css") ? "text/css; charset=utf-8" : "text/javascript; charset=utf-8";
-  }
-  const body = readFileSync(file);
-  return { status: 200, body: method === "HEAD" ? "" : body, headers: { "content-type": type, ...HEADERS } };
+  const target = redactionTarget(path, method);
+  if (!target || "status" in target) return target;
+  const body = readFileSync(join(ADMIN_DIR, target.file));
+  return { status: 200, body: method === "HEAD" ? "" : body, headers: { "content-type": target.type, ...REDACTION_HEADERS } };
 }
