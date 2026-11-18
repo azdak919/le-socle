@@ -632,7 +632,9 @@ function socle_live_feed(?SocleStore $store): string {
     $entries = '';
     foreach (array_slice($articles, 0, 30) as $article) {
         $slug = (string) ($article['slug'] ?? '');
-        $url = (string) ($article['canonicalUrl'] ?? '') !== '' ? (string) $article['canonicalUrl'] : $base . '/articles/' . rawurlencode($slug) . '/';
+        // Toujours l’adresse courante (comme le plan du site), jamais un canonicalUrl
+        // périmé après un déplacement (ex. /journal/ vers la racine).
+        $url = $base . '/articles/' . rawurlencode($slug) . '/';
         $names = [];
         foreach ((array) ($article['authors'] ?? []) as $slugAuthor) {
             $found = $slugAuthor;
@@ -683,12 +685,32 @@ function socle_live_sitemap(?SocleStore $store): string {
  * partir du Socle. `noindex` de la publication ajoute la balise robots, ferme
  * robots.txt, et n'annonce pas le plan du site ; le flux RSS reste servi.
  */
+
+/**
+ * La coquille du paquet complet est construite avec le nom « Le journal ».
+ * On y inscrit le vrai nom dès la première réponse, sans attendre le dessin
+ * dans le navigateur (titre, mât, pied de page).
+ */
+function socle_live_fill_shell(string $html, array $publication): string {
+    $name = trim((string) ($publication['name'] ?? ''));
+    if ($name === '' || $name === 'Le journal') return $html;
+    $safe = socle_escape($name);
+    $html = preg_replace('#<title>Le journal</title>#', '<title>' . $safe . '</title>', $html, 1) ?? $html;
+    $html = str_replace('content="Le journal"', 'content="' . $safe . '"', $html);
+    $html = str_replace('title="Le journal"', 'title="' . $safe . '"', $html);
+    $html = str_replace('<span class="wordmark-name">Le journal</span>', '<span class="wordmark-name">' . $safe . '</span>', $html);
+    $html = str_replace('<p class="site-foot__wordmark">Le journal</p>', '<p class="site-foot__wordmark">' . $safe . '</p>', $html);
+    $html = preg_replace('#(© \d{4}(?:–\d{4})? )Le journal\.#u', '$1' . $safe . '.', $html) ?? $html;
+    return $html;
+}
+
 function socle_serve_site(string $uri, ?SocleStore $store): array {
     $root = socle_static_root();
     $live = $root !== null && is_file($root . '/kiosque-vivant.json');
     $path = socle_request_path($uri);
     $noindex = false;
     $fictif = false;
+    $publication = null;
     if ($live && $store !== null) {
         try {
             $publication = socle_read_publication($store);
@@ -724,6 +746,7 @@ function socle_serve_site(string $uri, ?SocleStore $store): array {
         $result['headers']['cache-control'] = 'no-cache';
         if ($noindex) $result['body'] = preg_replace('#</head>#i', '<meta name="robots" content="noindex, nofollow"></head>', (string) $result['body'], 1) ?? $result['body'];
         if ($fictif) $result['body'] = preg_replace('#<body([^>]*)>#i', '<body$1>' . SOCLE_BANDEAU_FICTIF, (string) $result['body'], 1) ?? $result['body'];
+        if (is_array($publication)) $result['body'] = socle_live_fill_shell((string) $result['body'], $publication);
     }
     // Un journal dans un sous-dossier n'a pas la main sur le robots.txt du
     // domaine : l'en-tête suit chaque réponse du site.

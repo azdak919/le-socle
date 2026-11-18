@@ -178,6 +178,19 @@ export async function buildSiteZip(store: SocleStore, now: Date): Promise<Uint8A
     if (!used) continue;
     files.push({ name: path, data: Buffer.from(row.value, "base64") });
   }
+  // Banque de photos et images d’articles : fichiers inspectables, en plus
+  // de redaction/donnees.json. Sans ce passage, le ZIP n’avait que les
+  // images citées dans le Markdown, pas celles de la banque.
+  const already = new Set(files.map((file) => file.name));
+  for (const module of ["media", "editorial"] as const) {
+    for (const row of await rowsOf(store, module)) {
+      if (!row.key.startsWith("bytes:")) continue;
+      const path = row.key.slice("bytes:".length).replace(/^\/+/, "");
+      if (!path || path.includes("..") || already.has(path)) continue;
+      files.push({ name: path, data: Buffer.from(row.value, "base64") });
+      already.add(path);
+    }
+  }
   // La rédaction entière (fiche du journal, articles avec photos et signatures,
   // sections, banque de photos) : c'est elle qu'une restauration remet en place.
   files.push(textFile("redaction/donnees.json", JSON.stringify(await backupRows(store))));

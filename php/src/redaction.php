@@ -245,7 +245,11 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
             if ($publication === null || socle_redaction_text($publication['name'] ?? null) === '' || preg_match(SOCLE_SLUG, socle_redaction_text($publication['slug'] ?? null, 96)) !== 1) {
                 return socle_redaction_fail(400, "La publication a besoin d'un nom et d'un identifiant.");
             }
+            $previous = socle_read_publication($store);
             $store->put('editorial', 'publication', socle_json($publication));
+            $nextUrl = rtrim(socle_redaction_text($publication['siteUrl'] ?? null, 500), '/');
+            $prevUrl = rtrim((string) (($previous['siteUrl'] ?? '')), '/');
+            if ($nextUrl !== '' && $nextUrl !== $prevUrl) socle_refresh_canonical_urls($store, $nextUrl);
             return socle_redaction_json(200, ['publication' => $publication]);
         }
         if ($path === '/v1/redaction/exemples') {

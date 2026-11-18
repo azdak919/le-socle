@@ -120,6 +120,27 @@ export async function readPublication(store: SocleStore): Promise<SoclePublicati
   return parse<SoclePublication>(await store.get("editorial", "publication"));
 }
 
+/** Adresse publique d’un article, d’après l’adresse courante du journal (pas un chemin périmé). */
+export function articlePublicUrl(siteUrl: string, slug: string): string {
+  return `${siteUrl.replace(/\/$/, "")}/articles/${encodeURIComponent(slug)}/`;
+}
+
+/** Quand siteUrl change, les canonicalUrl stockées suivent, pour le flux et les liens. */
+export async function refreshCanonicalUrls(store: SocleStore, siteUrl: string): Promise<number> {
+  const base = siteUrl.replace(/\/$/, "");
+  if (!base) return 0;
+  let count = 0;
+  for (const article of await readArticles(store)) {
+    const slug = String(article.slug ?? "");
+    if (!slug || !article.id) continue;
+    const next = articlePublicUrl(base, slug);
+    if (article.canonicalUrl === next) continue;
+    await store.put("editorial", `article:${article.id}`, JSON.stringify({ ...article, canonicalUrl: next }));
+    count += 1;
+  }
+  return count;
+}
+
 export async function readArticles(store: SocleStore): Promise<SocleArticle[]> {
   const articles: SocleArticle[] = [];
   for (const row of await rows(store)) {

@@ -2,6 +2,9 @@
 
 ## Non publié
 - Articles : une case « Mettre à la une » dans le formulaire. L’étiquette n’apparaît sur le site que pour l’article ainsi choisi (un seul à la fois). Un monogramme d’initiales généré, encore stocké comme logo dans une ancienne configuration, est ignoré : sans vrai logo téléversé, c’est le nom du journal qui s’affiche.
+- Flux RSS (`/feed.xml`) : les liens d’articles suivent l’adresse courante du site, comme le plan du site, et non un `canonicalUrl` périmé (par exemple après un déplacement de `/journal/` vers la racine). Quand on change `siteUrl` dans la configuration, les adresses stockées des articles sont mises à jour.
+- Premier chargement du site vivant : le vrai nom du journal est inscrit dans la coquille (titre, mât, pied de page), à la place du nom provisoire « Le journal ».
+- Sauvegarde complète : le ZIP contient aussi les photos de la banque (`media/banque/…`), en fichiers inspectables, en plus de `redaction/donnees.json`.
 - `/admin` et `/admin/` mènent à l’espace de rédaction (`/redaction/`), à la racine du domaine ou dans un sous-dossier, que l’on soit connecté ou non. Les pages Sauvegarde et Mise à jour acceptent une barre finale. Sur un hébergeur Apache, le dossier `admin/` présent sur le disque ne produit plus une page introuvable.
 - Version 1.3.1.
 - Le ZIP du paquet complet, à l’adresse fixe, contient de nouveau un seul dossier (`kiosque-journal/`), avec le fichier `INSTALLER-A-LA-RACINE.txt` : son contenu s’installe là où le site est déjà. L’installateur accepte aussi un ZIP plat (fichiers à la racine) et l’ancien dossier `journal/` des sauvegardes. Un journal en 0.2.x peut ainsi se mettre à jour en un clic. Un test rejoue l’installateur réel de la 0.2.1 (Socle 1.2.2).
