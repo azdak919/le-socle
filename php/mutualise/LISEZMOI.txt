@@ -15,3 +15,8 @@ LE SOCLE — installation sur un hébergement PHP (serveur du cégep, hébergeur
 
 Les données (articles, photos, comptes) sont dans socle/donnees/. Ce dossier est fermé au
 public. Sauvegarde : dans la rédaction, Sauvegarde → Télécharger le site.
+
+Dernière version, toujours à la même adresse (sans compte GitHub) :
+  https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip
+Mettre à jour : faites une sauvegarde, puis envoyez le nouveau dossier « socle » par-dessus
+l'ancien SANS remplacer socle/donnees/ (vos articles, photos et comptes y sont).

@@ -117,7 +117,7 @@ test("ouvrir la base ne migre pas", async () => {
     assert.equal(await opened.admin.store.tableReady("export"), false);
     assert.equal(opened.admin.release(), null);
     assert.equal(opened.admin.version(), VERSION);
-    assert.equal(opened.admin.version(), "1.0.0");
+    assert.equal(opened.admin.version(), VERSION);
   } finally {
     await opened.admin.store.close();
   }

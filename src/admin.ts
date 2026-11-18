@@ -64,7 +64,8 @@ const COPY = {
     line: "Socle",
     installed: "Version en place",
     offered: "Version proposée",
-    none: "Aucune version proposée. Sans réseau, seule la version en place est affichée.",
+    none: "Aucune nouvelle version n’est préparée sur ce serveur.",
+    latest: "<h2>Installer la dernière version</h2><p>Les nouveautés sont sur la <a href=\"https://github.com/azdak919/le-socle/releases/latest\">page de la dernière version</a>. Sur un hébergement PHP : faites une sauvegarde, <a href=\"https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip\">téléchargez le-socle-php.zip</a>, puis envoyez le dossier socle/ par-dessus l’ancien, sans remplacer donnees/.</p>",
     backupWill: "Sauvegarde du programme, avant",
     notContent: "Le contenu du journal n'est pas dans cette sauvegarde.",
     major: "Cette version casse quelque chose. Je confirme.",
@@ -102,7 +103,8 @@ const COPY = {
     line: "Socle",
     installed: "Installed version",
     offered: "Offered version",
-    none: "No offered version. Offline, only the installed version is shown.",
+    none: "No new version is prepared on this server.",
+    latest: "<h2>Install the latest version</h2><p>What is new is on the <a href=\"https://github.com/azdak919/le-socle/releases/latest\">latest release page</a>. On PHP hosting: make a backup, <a href=\"https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip\">download le-socle-php.zip</a>, then upload the socle/ folder over the old one, without replacing donnees/.</p>",
     backupWill: "Program backup, before",
     notContent: "The journal content is not in this backup.",
     major: "This version breaks something. I confirm.",
@@ -329,7 +331,8 @@ ${extra}
       : "";
     return adminDocument(lang, copy.updateTitle, `<h2>${copy.line}</h2><p>${copy.installed} : ${current}.</p>${offer}${backup}
 ${form}
-${revert}`);
+${revert}
+${copy.latest}`);
   }
 
   if (path === "/admin/mise-a-jour" && method === "POST") {

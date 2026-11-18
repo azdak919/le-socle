@@ -13,7 +13,7 @@ test("GET /v1/health dit la version et les interrupteurs", () => {
   assert.equal(result.headers["content-type"], "application/json; charset=utf-8");
   const body = JSON.parse(result.body);
   assert.equal(body.version, VERSION);
-  assert.equal(body.version, "1.0.0");
+  assert.equal(body.version, VERSION);
   assert.equal(body.modules.export, true);
   assert.equal(body.modules.auth, false);
   assert.equal(body.modules.editorial, false);
@@ -45,7 +45,7 @@ test("le serveur répond sur /v1/health", async () => {
     const response = await fetch(`http://127.0.0.1:${address.port}/v1/health`);
     assert.equal(response.status, 200);
     const body = await response.json();
-    assert.equal(body.version, "1.0.0");
+    assert.equal(body.version, VERSION);
     assert.equal(body.modules.auth, false);
     const missing = await fetch(`http://127.0.0.1:${address.port}/v1/export`);
     assert.equal(missing.status, 404);
