@@ -1,8 +1,10 @@
-# Le socle
+# Le Socle
+
+*Système Ouvert de Collaboration en Ligne pour l’Édition.*
 
 **Espace de rédaction des journaux étudiants.** C’est l’interface d’administration et son serveur : on y écrit les articles, on gère les photos, les rôles, les sauvegardes et les mises à jour.
 
-Le socle n’est pas un service central. Chaque journal installe sa propre copie, chez lui, et reçoit les versions publiées à appliquer. Dans le cas le plus simple, le socle arrive déjà dans le paquet complet du [Kiosque](https://azdak919.github.io/le-kiosque/), `kiosque-journal.zip`. Ce dépôt est le programme lui-même.
+Le Socle n’est pas un service central. Chaque journal installe sa propre copie, chez lui, et reçoit les versions publiées à appliquer. Dans le cas le plus simple, le Socle arrive déjà dans le paquet complet du [Kiosque](https://azdak919.github.io/le-kiosque/), `kiosque-journal.zip`. Ce dépôt est le programme lui-même.
 
 [![Tableau de bord de l’espace de rédaction](site/assets/captures/tableau-de-bord.jpg)](https://azdak919.github.io/le-socle/)
 
@@ -41,7 +43,7 @@ Aux équipes qui utilisent le Kiosque, et à qui veut faire tourner l’espace d
 
 **Chemin recommandé :** installer le [paquet complet du Kiosque](https://github.com/azdak919/le-kiosque/releases/latest/download/kiosque-journal.zip). L’assistant dans le navigateur installe le site public et l’espace de rédaction en même temps. Voir le [guide d’une page](https://azdak919.github.io/le-kiosque/guide/).
 
-**Pour faire tourner le socle seul** (PHP, Node ou Worker), le guide court est [`docs/adoption.md`](docs/adoption.md). En PHP, le contrôleur est `php/public/index.php` et la base, `php/data/socle.sqlite`, reste hors de la racine Web. Il faut PHP 8.1 ou plus récent, avec SQLite.
+**Pour faire tourner le Socle seul** (PHP, Node ou Worker), le guide court est [`docs/adoption.md`](docs/adoption.md). En PHP, le contrôleur est `php/public/index.php` et la base, `php/data/socle.sqlite`, reste hors de la racine Web. Il faut PHP 8.1 ou plus récent, avec SQLite.
 
 ```bash
 git clone https://github.com/azdak919/le-socle.git
