@@ -92,6 +92,7 @@ async function applyKiosqueConfig(data) {
   const localities = String(options.localites || '').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4);
   publication.masthead = { ...publication.masthead, weather: { enabled: Boolean(options.meteo && localities.length), localities } };
   if (typeof options.noindex === 'boolean') publication.noindex = options.noindex;
+  if (typeof options.fictif === 'boolean') publication.fictif = options.fictif;
   publication.governance = {
     ...publication.governance,
     owner: pick(people.proprietaire, publication.governance?.owner || ''),
@@ -271,6 +272,7 @@ function assistantForm() {
 <label><input name="radio" type="checkbox"> Afficher la radio étudiante (barre de LE-RADAR sous le mât)</label>
 <label data-station hidden>Station<select name="station" id="assistant-stations"><option value="">Choisir une station</option></select></label>
 <label><input name="noindex" type="checkbox" checked> Cacher le journal des moteurs de recherche (conseillé pendant les essais)</label>
+<label><input name="fictif" type="checkbox"> Afficher le bandeau « Journal étudiant fictif » (essai ou démonstration)</label>
 </fieldset>
 <fieldset class="field full"><legend>Compte administrateur</legend>
 <p class="muted">Ce compte ajoute ensuite l’équipe (auteurs, photographes, réviseurs…). Son courriel n’est pas affiché sur le site. Notez le mot de passe en lieu sûr.</p>
@@ -322,7 +324,7 @@ function bindAssistant() {
         format: 'kiosque-config',
         journal: { nom, slug: slugify(nom), etablissement: String(data.get('etablissement') || '').trim(), signature: String(data.get('signature') || '').trim(), adresse: `${location.origin}${socleRoot()}/` },
         apparence: { couleur: data.get('couleur'), logo, logoAlt: nom },
-        options: { radio: Boolean(data.get('radio')), station: String(data.get('station') || ''), noindex: Boolean(data.get('noindex')) },
+        options: { radio: Boolean(data.get('radio')), station: String(data.get('station') || ''), noindex: Boolean(data.get('noindex')), fictif: Boolean(data.get('fictif')) },
         gouvernance: (() => {
           const organisme = String(data.get('organisme') || '').trim() || String(data.get('etablissement') || '').trim() || nom;
           // Le courriel du compte reste privé : seul le courriel de la rédaction est public.
@@ -537,6 +539,7 @@ const LICENSES = {
   'CC BY 2.0': 'https://creativecommons.org/licenses/by/2.0/deed.fr',
   'CC BY-SA 2.0': 'https://creativecommons.org/licenses/by-sa/2.0/deed.fr',
   'CC0 1.0': 'https://creativecommons.org/publicdomain/zero/1.0/deed.fr',
+  CC0: 'https://creativecommons.org/publicdomain/zero/1.0/deed.fr',
   'Domaine public': '',
   'Tous droits réservés (avec permission)': '',
 };
@@ -549,6 +552,13 @@ document.addEventListener('change', (event) => {
   const url = input.form?.elements?.licenseUrl;
   if (url && !url.value && LICENSES[input.value.trim()]) url.value = LICENSES[input.value.trim()];
 });
+
+/** Un lien collé à la suite du lien rempli tout seul : on garde le dernier. */
+function cleanLicenseUrl(value) {
+  const text = String(value || '').trim();
+  const starts = [...text.matchAll(/https?:\/\//g)].map((match) => match.index);
+  return starts.length > 1 ? text.slice(starts[starts.length - 1]) : text;
+}
 
 function articleDate(article) {
   const value = article.publishedAt || article.scheduledAt || article.updatedAt;
@@ -648,7 +658,7 @@ function photoDetails(form) {
     alt: String(data.get('alt') || '').trim(),
     credit: String(data.get('credit') || '').trim(),
     license: String(data.get('license') || '').trim(),
-    licenseUrl: String(data.get('licenseUrl') || '').trim(),
+    licenseUrl: cleanLicenseUrl(data.get('licenseUrl')),
     creditUrl: String(data.get('creditUrl') || '').trim(),
     keywords: String(data.get('keywords') || '').split(',').map((item) => item.trim()).filter(Boolean),
     usages: data.getAll('usages').map(String),
@@ -1184,7 +1194,7 @@ function settings() {
       <label>Organisme ou personne responsable<input name="owner" placeholder="Association étudiante du Cégep de Sainte-Foy" value="${esc(governance.owner || '')}"></label>
       <label>Courriel de la rédaction<input name="contact" type="email" placeholder="redaction@exemple.ca" value="${esc(governance.contact || '')}"></label>
       <label>Dépôt GitHub du journal, facultatif<input name="repo" placeholder="organisation/journal" value="${esc(governance.repo || '')}"></label>
-      <label><input name="noindex" type="checkbox" ${publication.noindex ? 'checked' : ''}> Cacher le journal des moteurs de recherche (journal d’essai ou fictif)</label>
+      <label><input name="noindex" type="checkbox" ${publication.noindex ? 'checked' : ''}> Cacher le journal des moteurs de recherche (journal d’essai ou fictif)</label><label><input name="fictif" type="checkbox" ${publication.fictif ? 'checked' : ''}> Afficher le bandeau « Journal étudiant fictif »</label>
     </fieldset><div class="field"><label>Signature<input name="tagline" placeholder="Le journal étudiant du Cégep de Sainte-Foy" value="${esc(publication.tagline || '')}"></label></div><div class="field"><label>Institution<input name="institution" placeholder="Cégep de Sainte-Foy" value="${esc(publication.institution || '')}"></label></div><div class="field"><label>Typographie<select name="typography"><option value="modern-accessible">Moderne accessible</option><option value="editorial-classic" ${publication.theme?.typography === 'editorial-classic' ? 'selected' : ''}>Éditoriale classique</option><option value="institutional" ${publication.theme?.typography === 'institutional' ? 'selected' : ''}>Institutionnelle</option></select></label></div>
     <div class="field"><label>Fuseau horaire<select name="timeZone"><option value="America/Toronto" ${publication.timeZone !== 'America/Blanc-Sablon' ? 'selected' : ''}>Heure de l’Est — majorité du Québec</option><option value="America/Blanc-Sablon" ${publication.timeZone === 'America/Blanc-Sablon' ? 'selected' : ''}>Heure de l’Atlantique — Blanc-Sablon</option></select></label></div>
     <div class="field"><label>Couleur principale<input name="accent" type="color" value="${esc(publication.theme?.accent || '#6c2163')}"></label></div><div class="field"><label>Couleur sombre<input name="accentDark" type="color" value="${esc(publication.theme?.accentDark || '#cf7ec1')}"></label></div><div id="admin-contrast" class="notice full" role="status"></div>
@@ -1360,7 +1370,7 @@ function render() {
       document.getElementById('masthead-crop-preview').innerHTML = cropFrames({ src: URL.createObjectURL(chosen), focalPoint: { x: Number(form.elements.mastheadFocalX.value), y: Number(form.elements.mastheadFocalY.value) } }, 'masthead');
     });
     bindRequiredFlags(form);
-    form.onsubmit = async (event) => { event.preventDefault(); if (!flagInvalidFields(form)) { notify('Remplissez les champs signalés.'); return; } const data = new FormData(form); const publication = structuredClone(bundle.publication); publication.name = data.get('name').trim(); publication.tagline = data.get('tagline').trim(); publication.institution = data.get('institution').trim(); publication.timeZone = data.get('timeZone'); publication.siteUrl = data.get('siteUrl').trim(); publication.slug = slugify(data.get('slug')) || publication.slug; publication.governance = { ...publication.governance, owner: data.get('owner').trim(), contact: data.get('contact').trim(), repo: data.get('repo').trim() }; publication.noindex = data.has('noindex'); publication.theme = { accent: data.get('accent'), accentDark: data.get('accentDark'), typography: data.get('typography') }; publication.radio = { ...publication.radio, enabled: data.has('radioEnabled'), station: String(data.get('station') || '').trim().toLowerCase(), theme: 'dark', position: 'top' }; delete publication.radio.stream; delete publication.radio.name; delete publication.radio.frequency; delete publication.radio.website; publication.media = { ...publication.media, autoStockPhoto: data.has('autoStockPhoto') }; const localities = data.get('weatherLocalities').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4); const priorImages = clearMastheadImages ? [] : (publication.masthead?.backgrounds?.images || []); const selected = selectedMasthead ? { ...selectedMasthead, focalPoint: { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } } : null; publication.masthead = { backgrounds: { enabled: data.has('backgroundsEnabled'), images: selected ? [selected, ...priorImages.filter((item) => item.id !== selected.id)] : priorImages }, weather: { enabled: data.has('weatherEnabled'), localities }, tools: { pomodoro: data.has('pomodoro'), solitaire: data.has('solitaire') }, overlayStrength: Math.min(0.9, Math.max(0, Number(data.get('overlayStrength')))), textAlignment: data.get('textAlignment') }; for (const file of document.getElementById('background-files').files) publication.masthead.backgrounds.images.push({ ...await readArticleImage(file, { alt: `Arrière-plan du journal ${publication.name}` }), focalPoint: { x: 50, y: 50 } }); const logoFile = document.getElementById('logo-file').files[0]; if (logoFile) publication.logo = await readLogo(logoFile, data.get('logoAlt').trim()); else if (publication.logo) publication.logo.alt = data.get('logoAlt').trim() || publication.name; await backend.savePublication(publication); await refresh(); notify('Configuration enregistrée.'); render(); };
+    form.onsubmit = async (event) => { event.preventDefault(); if (!flagInvalidFields(form)) { notify('Remplissez les champs signalés.'); return; } const data = new FormData(form); const publication = structuredClone(bundle.publication); publication.name = data.get('name').trim(); publication.tagline = data.get('tagline').trim(); publication.institution = data.get('institution').trim(); publication.timeZone = data.get('timeZone'); publication.siteUrl = data.get('siteUrl').trim(); publication.slug = slugify(data.get('slug')) || publication.slug; publication.governance = { ...publication.governance, owner: data.get('owner').trim(), contact: data.get('contact').trim(), repo: data.get('repo').trim() }; publication.noindex = data.has('noindex'); publication.fictif = data.has('fictif'); publication.theme = { accent: data.get('accent'), accentDark: data.get('accentDark'), typography: data.get('typography') }; publication.radio = { ...publication.radio, enabled: data.has('radioEnabled'), station: String(data.get('station') || '').trim().toLowerCase(), theme: 'dark', position: 'top' }; delete publication.radio.stream; delete publication.radio.name; delete publication.radio.frequency; delete publication.radio.website; publication.media = { ...publication.media, autoStockPhoto: data.has('autoStockPhoto') }; const localities = data.get('weatherLocalities').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4); const priorImages = clearMastheadImages ? [] : (publication.masthead?.backgrounds?.images || []); const selected = selectedMasthead ? { ...selectedMasthead, focalPoint: { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } } : null; publication.masthead = { backgrounds: { enabled: data.has('backgroundsEnabled'), images: selected ? [selected, ...priorImages.filter((item) => item.id !== selected.id)] : priorImages }, weather: { enabled: data.has('weatherEnabled'), localities }, tools: { pomodoro: data.has('pomodoro'), solitaire: data.has('solitaire') }, overlayStrength: Math.min(0.9, Math.max(0, Number(data.get('overlayStrength')))), textAlignment: data.get('textAlignment') }; for (const file of document.getElementById('background-files').files) publication.masthead.backgrounds.images.push({ ...await readArticleImage(file, { alt: `Arrière-plan du journal ${publication.name}` }), focalPoint: { x: 50, y: 50 } }); const logoFile = document.getElementById('logo-file').files[0]; if (logoFile) publication.logo = await readLogo(logoFile, data.get('logoAlt').trim()); else if (publication.logo) publication.logo.alt = data.get('logoAlt').trim() || publication.name; await backend.savePublication(publication); await refresh(); notify('Configuration enregistrée.'); render(); };
     main.querySelector('[data-action="clear-backgrounds"]').onclick = () => { selectedMasthead = null; clearMastheadImages = true; form.elements.backgroundsEnabled.checked = false; document.getElementById('masthead-crop-preview').innerHTML = cropFrames(null, 'masthead'); notify('Les images seront retirées à l’enregistrement.'); };
     main.querySelector('[data-action="recommended-theme"]').onclick = () => { form.elements.typography.value = 'modern-accessible'; form.elements.accent.value = '#6c2163'; form.elements.accentDark.value = '#cf7ec1'; };
   }

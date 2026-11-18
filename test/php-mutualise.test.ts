@@ -139,6 +139,23 @@ return true;
     assert.equal((await post("/v1/redaction/article", piece("conseil", "s-campus"), chef)).status, 403);
     assert.equal((await post("/v1/redaction/article", piece("photo-article", "s-sports"), photo)).status, 403);
     assert.equal(JSON.parse((await call(`${base}/v1/redaction/etat`, { headers: { cookie: chef } })).text).scope.join(), "sports");
+    // Sauvegarde complète : un vrai ZIP (lisible par unzip, Windows, macOS) qui
+    // remet en place un article supprimé, avec sa rubrique, et la fiche du journal.
+    const backup = await fetch(`${base}/admin/sauvegarde/site.zip`, { headers: { cookie } });
+    assert.equal(backup.status, 200);
+    const backupBytes = new Uint8Array(await backup.arrayBuffer());
+    const backupPath = join(work, "sauvegarde.zip");
+    writeFileSync(backupPath, backupBytes);
+    const checked = spawnSync("python3", ["-c", "import sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); assert z.testzip() is None; print('\\n'.join(z.namelist()))", backupPath], { encoding: "utf8" });
+    assert.equal(checked.status, 0, checked.stderr);
+    assert.match(checked.stdout, /redaction\/donnees\.json/);
+    assert.equal((await post("/v1/redaction/supprimer", { kind: "article", id: "match" }, cookie)).status, 200);
+    assert.equal(JSON.parse((await call(`${base}/v1/redaction/etat`, { headers: { cookie } })).text).articles.some((a: { id: string }) => a.id === "match"), false);
+    const restored = await call(`${base}/admin/sauvegarde/restaurer`, { method: "POST", headers: { "content-type": "application/zip", cookie }, body: backupBytes });
+    assert.equal(restored.status, 200, restored.text);
+    const after = JSON.parse((await call(`${base}/v1/redaction/etat`, { headers: { cookie } })).text) as { articles: Array<{ id: string; section?: string }>; publication: { name: string } };
+    assert.equal(after.articles.find((a) => a.id === "match")?.section, "s-sports");
+    assert.equal(after.publication.name, "La Vigie");
     const admin = await call(`${base}/admin`, { headers: { cookie }, redirect: "manual" });
     assert.equal(admin.status, 303);
     assert.equal(admin.headers.get("location"), "/journal/socle/redaction/");
