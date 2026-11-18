@@ -156,3 +156,12 @@
 .update-form .major { @apply m-0 w-full; }
 .update-form [role="status"] { @apply m-0 text-sm font-medium; }
 #admin-main .lede { @apply mt-0 mb-5 max-w-prose text-sm text-muted-foreground; }
+
+/* Banque de photos : formulaire d'ajout repliable, fiches de la rédaction */
+.photo-add { @apply my-4 rounded-xl ring-1 ring-foreground/10 bg-muted/40 p-4; }
+.photo-add > summary { @apply cursor-pointer font-semibold text-base; }
+.photo-add[open] > summary { @apply mb-3; }
+.photo-add form { @apply gap-3; }
+.media-card-body .actions { @apply flex flex-wrap gap-2 mt-2; }
+.media-card-body .status-pill { @apply mb-2; }
+.media-picker form img { @apply w-full rounded-lg bg-muted; }

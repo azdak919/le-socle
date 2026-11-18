@@ -462,6 +462,48 @@ export class DemoBackendPGlite {
     this.#emit({ kind, id });
   }
 
+  /**
+   * Banque de photos de la rédaction : la photo est gardée dans ce
+   * navigateur (data URL) et réutilisable dans tous les articles. Le crédit
+   * est exigé pour la banque, comme dans le socle.
+   */
+  async uploadPhoto({ asset, file, bank = true }) {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type)) throw new Error('Seules les photos JPEG, PNG ou WebP sont acceptées.');
+    if (file.size > 8 * 1024 * 1024) throw new Error('Photo trop lourde (8 Mo au plus).');
+    if (!String(asset.alt || '').trim()) throw new Error('Décrivez ce que montre la photo.');
+    if (bank && !String(asset.credit || '').trim()) throw new Error('Une photo de la banque a toujours un crédit.');
+    const src = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Lecture de la photo impossible.'));
+      reader.readAsDataURL(file);
+    });
+    const entity = {
+      ...asset,
+      id: asset.id || crypto.randomUUID(),
+      kind: 'image',
+      src,
+      mime: file.type,
+      bank: bank ? 'redaction' : undefined,
+      addedAt: now(),
+      source: { backend: this.id, backendId: asset.id || file.name, fetchedAt: now() },
+    };
+    if (!bank) return entity;
+    return this.save('media', entity);
+  }
+
+  /** Retire une photo de la banque, sauf si un article ou le mât l'utilise encore. */
+  async removePhoto(id) {
+    const snapshot = await this.getSnapshot({ audience: 'editorial', includeDemo: true });
+    const asset = snapshot.media.find((item) => item.id === id);
+    if (!asset) throw new Error('Photo absente de la banque.');
+    const users = snapshot.articles.filter((article) => article.lead?.src === asset.src || (article.media || []).some((item) => item.src === asset.src));
+    if (users.length) throw new Error(`Cette photo illustre encore ${users.length} article(s) : ${users.map((item) => item.title).join(', ')}.`);
+    if ((snapshot.publication.masthead?.backgrounds?.images || []).some((image) => image.src === asset.src)) throw new Error('Cette photo est encore dans le mât illustré.');
+    await this.remove('media', id);
+  }
+
   async savePublication(publication) {
     const entity = clone(publication);
     await this.db.query(
