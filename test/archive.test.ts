@@ -114,6 +114,25 @@ test("restaurer le site dit les années absentes", async () => {
   }
 });
 
+test("la sauvegarde complète remet la rédaction en place", async () => {
+  const { store } = await seeded();
+  try {
+    await store.migrate(["export", "editorial", "media"]);
+    await store.put("editorial", "publication", JSON.stringify({ name: "La Vigie", slug: "la-vigie" }));
+    await store.put("editorial", "article:a1", JSON.stringify({ id: "a1", title: "Gardé", status: "published", section: "sports", publishedAt: "2026-11-18T15:00:00.000Z", body: { raw: "x" } }));
+    await store.put("media", "bytes:banque/p1.jpg", "AAAA");
+    const zip = await buildSiteZip(store, NOW);
+    assert.ok(unzip(zip).has("redaction/donnees.json"));
+    await store.delete("editorial", "article:a1");
+    await store.delete("media", "bytes:banque/p1.jpg");
+    await restoreZip(store, zip);
+    assert.equal(JSON.parse((await store.get("editorial", "article:a1"))!).section, "sports");
+    assert.equal(await store.get("media", "bytes:banque/p1.jpg"), "AAAA");
+  } finally {
+    await store.close();
+  }
+});
+
 test("la notice reste tant que l'archive n'est pas téléchargée", async () => {
   const { store, config } = await seeded();
   config.modules.export = false;
