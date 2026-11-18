@@ -59,7 +59,7 @@ const COPY = {
     downloadSite: "Télécharger le site",
     sessionOf: "Session",
     articlesOnly: "articles seulement",
-    restoreHint: "La restauration se fait en envoyant l'archive à cette adresse.",
+    restoreHint: "<h2>Restaurer une archive</h2><p>Choisissez un ZIP téléchargé ici (site ou session). Une archive de session ne remplace que ses articles.</p><form class=\"noprint\" id=\"restaurer\"><input type=\"file\" name=\"archive\" accept=\".zip,application/zip\" required> <button type=\"submit\">Restaurer</button></form><p id=\"restaurer-etat\" role=\"status\"></p>",
     updateTitle: "Mise à jour",
     line: "Socle",
     installed: "Version en place",
@@ -97,7 +97,7 @@ const COPY = {
     downloadSite: "Download the site",
     sessionOf: "Session",
     articlesOnly: "articles only",
-    restoreHint: "Restore by sending the archive to this address.",
+    restoreHint: "<h2>Restore an archive</h2><p>Choose a ZIP downloaded here (site or session). A session archive only replaces its articles.</p><form class=\"noprint\" id=\"restaurer\"><input type=\"file\" name=\"archive\" accept=\".zip,application/zip\" required> <button type=\"submit\">Restore</button></form><p id=\"restaurer-etat\" role=\"status\"></p>",
     updateTitle: "Update",
     line: "Socle",
     installed: "Installed version",
@@ -212,6 +212,9 @@ export async function handleAdmin(
   const exportOn = config.modules.export;
 
   if (path === "/admin" && method === "GET") {
+    // Une seule admin : avec le module éditorial, c'est la rédaction. Ces pages
+    // restent le recours sans JavaScript, atteintes depuis elle.
+    if (config.modules.editorial && !parsed.searchParams.has("outils")) return { status: 303, body: "", headers: { location: "/redaction/" } };
     const downloaded = exportOn ? await wasDownloaded(deps.store) : false;
     const notice = !exportOn || !downloaded ? `<p><strong>${copy.notice}</strong></p>` : "";
     const articlesLink = config.modules.editorial
@@ -258,13 +261,13 @@ export async function handleAdmin(
     const sessions = [...SEASONS, ...named];
     const links = sessions.map((session) => {
       const href = withLang(`/admin/sauvegarde/session.zip?session=${encodeURIComponent(session)}`, lang);
-      return `<li><a href="${href}">${copy.sessionOf} ${session}, ${copy.articlesOnly}</a></li>`;
+      return `<li><a href="${href}">${copy.sessionOf} ${session === "ete" ? "été" : session}, ${copy.articlesOnly}</a></li>`;
     }).join("");
     return adminDocument(lang, copy.saveTitle, `<p>${copy.yearsHelp}</p>
 <form class="noprint" method="post" action="${withLang("/admin/sauvegarde/prefs", lang)}">${boxes}<p><button type="submit">${copy.savePrefs}</button></p></form>
 <p class="noprint"><a href="${withLang("/admin/sauvegarde/site.zip", lang)}">${copy.downloadSite}</a></p>
 <ul class="noprint">${links}</ul>
-<p>${copy.restoreHint}</p>`);
+${copy.restoreHint}<script>document.getElementById('restaurer').onsubmit=async function(e){e.preventDefault();var f=this.archive.files[0];if(!f)return;var s=document.getElementById('restaurer-etat');s.textContent='…';var r=await fetch(location.pathname+'/restaurer'+location.search,{method:'POST',headers:{'content-type':'application/zip'},body:f});var t=await r.text();s.textContent=r.ok?'OK : '+t:'Erreur '+r.status;};</script>`);
   }
 
   if (path === "/admin/sauvegarde/prefs" && method === "POST") {
@@ -318,7 +321,7 @@ export async function handleAdmin(
     const revert = allowed && saved
       ? `<form class="noprint" method="post" action="${withLang("/admin/mise-a-jour/revenir", lang)}"><button type="submit">${copy.revert}</button></form>`
       : "";
-    const form = allowed
+    const form = allowed && offered
       ? `<form class="noprint" method="post" action="${withLang("/admin/mise-a-jour", lang)}">
 ${extra}
 <p><button type="submit" name="confirm" value="1">${copy.updateBtn}</button></p>

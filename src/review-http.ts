@@ -24,7 +24,7 @@ const COPY = {
     empty: "Rien en relecture.",
     submitted: "Soumis le",
     hour: "Heure",
-    reviewer: "Slug du réviseur",
+    reviewer: "Réviseur ou réviseure (nom court)",
     publish: "Publier",
     schedule: "Programmer",
     back: "Renvoyer",

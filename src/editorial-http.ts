@@ -17,16 +17,18 @@ type Lang = "fr" | "en";
 
 const STATUSES: readonly EditorialStatus[] = ["draft", "in-review", "scheduled", "published", "archived", "retracted"];
 
+const STATUS_FR: Record<EditorialStatus, string> = { draft: "Brouillon", "in-review": "En révision", scheduled: "Programmé", published: "Publié", archived: "Archivé", retracted: "Retiré" };
+
 const COPY = {
   fr: {
     articles: "Articles",
     review: "Relecture",
     title: "Titre",
-    slug: "Slug",
+    slug: "Adresse",
     status: "Statut",
     body: "Texte",
     excerpt: "Extrait",
-    author: "Autrice ou auteur (slug)",
+    author: "Signature (nom court)",
     section: "Section",
     scheduled: "Heure de publication",
     session: "Session",
@@ -87,7 +89,7 @@ function articleForm(lang: Lang, article: Partial<SocleArticle>, error = ""): st
   const status = article.status ?? "draft";
   const options = STATUSES.map((item) => {
     const selected = item === status ? " selected" : "";
-    return `<option value="${item}"${selected}>${item}</option>`;
+    return `<option value="${item}"${selected}>${lang === "fr" ? STATUS_FR[item] : item}</option>`;
   }).join("");
   const alert = error ? `<p role="alert">${escapeAttr(error)}</p>` : "";
   return `${alert}<form method="post" action="${withLang("/admin/articles", lang)}">

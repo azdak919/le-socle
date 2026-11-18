@@ -123,7 +123,7 @@ function socle_review_copy(string $lang): array {
     }
     return [
         'title' => 'Relecture', 'empty' => 'Rien en relecture.', 'submitted' => 'Soumis le', 'hour' => 'Heure',
-        'reviewer' => 'Slug du réviseur', 'publish' => 'Publier', 'schedule' => 'Programmer', 'back' => 'Renvoyer',
+        'reviewer' => 'Réviseur ou réviseure (nom court)', 'publish' => 'Publier', 'schedule' => 'Programmer', 'back' => 'Renvoyer',
         'save' => 'Enregistrer', 'due' => "Publication à l'heure", 'correction' => 'Correction', 'propose' => 'Proposer',
         'accept' => 'Accepter', 'refuse' => 'Refuser',
         'states' => ['ouverte' => 'Ouverte', 'acceptee' => 'Acceptée', 'refusee' => 'Refusée'],
