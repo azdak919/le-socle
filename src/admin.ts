@@ -115,11 +115,11 @@ const COPY = {
     articlesOnly: "articles seulement",
     restoreHint: "<h2>Restaurer une sauvegarde</h2><p class=\"aide\">Choisissez un fichier ZIP téléchargé sur cette page. Vous verrez d’abord ce qu’il contient : rien ne change avant votre confirmation. Une sauvegarde de session ne remplace que les articles de cette session. Réservé à l’administrateur.</p><form class=\"noprint\" id=\"restaurer\" data-lecture=\"Lecture du fichier…\" data-choisir=\"Choisissez d’abord un fichier.\" data-apercu=\"Contenu de cette sauvegarde\" data-fichier=\"Fichier\" data-date=\"Date de la sauvegarde\" data-inconnue=\"non indiquée (sauvegarde ancienne)\" data-journal=\"Journal\" data-session=\"Session seulement\" data-articles=\"Articles\" data-photos=\"Photos\" data-sections=\"Sections\" data-comptes=\"Comptes de l’équipe\" data-avertir=\"Restaurer remet en place les articles, les photos, les sections et les comptes de cette sauvegarde, par-dessus le contenu actuel ; les articles écrits depuis sont gardés. Juste avant, le journal garde automatiquement une copie de l’état actuel, que vous pourrez télécharger.\" data-confirmer=\"Restaurer cette sauvegarde\" data-annuler=\"Annuler\" data-fait=\"Sauvegarde restaurée. Rechargez la rédaction pour voir le contenu.\" data-auto=\"Copie de l’état d’avant la restauration :\" data-telecharger=\"la télécharger\" data-echec=\"Rien n’a changé :\"><label>Fichier de sauvegarde (ZIP) <input type=\"file\" name=\"archive\" accept=\".zip,application/zip\" required></label> <button type=\"submit\">Voir le contenu</button></form><div id=\"restaurer-etat\" role=\"status\" tabindex=\"-1\"></div>",
     updateTitle: "Mise à jour",
-    line: "Socle",
+    line: "Espace de rédaction",
     installed: "Version en place",
     offered: "Version proposée",
     none: "Aucune nouvelle version n’est préparée sur ce serveur.",
-    latest: "<h2>Installer la dernière version</h2><ol><li>Téléchargez la sauvegarde complète (page Sauvegarde).</li><li><a href=\"https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip\">Téléchargez le-socle-php.zip</a> (nouveautés sur la <a href=\"https://github.com/azdak919/le-socle/releases/latest\">page de la dernière version</a>).</li><li>Sur un hébergement PHP, envoyez le dossier socle/ par-dessus l’ancien, sans remplacer donnees/.</li></ol>",
+    latest: "<h2>Installer la dernière version à la main</h2><ol><li>Sur la page Sauvegarde, téléchargez la sauvegarde complète et gardez-la sur votre ordinateur.</li><li><a href=\"https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip\">Téléchargez le-socle-php.zip</a> (nouveautés sur la <a href=\"https://github.com/azdak919/le-socle/releases/latest\">page de la dernière version</a>).</li><li>Décompressez-le : vous obtenez un dossier « socle ». Copiez son contenu dans le dossier de l’espace de rédaction sur le serveur, en remplaçant les fichiers existants, sans toucher au dossier « donnees » (vos articles, vos photos et vos comptes).</li></ol>",
     backupWill: "Sauvegarde du programme, avant",
     notContent: "Le contenu du journal n'est pas dans cette sauvegarde.",
     major: "Cette version casse quelque chose. Je confirme.",
@@ -161,11 +161,11 @@ const COPY = {
     articlesOnly: "articles only",
     restoreHint: "<h2>Restore a backup</h2><p class=\"aide\">Choose a ZIP file downloaded from this page. You will first see what it contains: nothing changes until you confirm. A session backup only replaces that session’s articles. Administrator only.</p><form class=\"noprint\" id=\"restaurer\" data-lecture=\"Reading the file…\" data-choisir=\"Choose a file first.\" data-apercu=\"What this backup contains\" data-fichier=\"File\" data-date=\"Backup date\" data-inconnue=\"not given (older backup)\" data-journal=\"Journal\" data-session=\"One session only\" data-articles=\"Articles\" data-photos=\"Photos\" data-sections=\"Sections\" data-comptes=\"Team accounts\" data-avertir=\"Restoring puts back this backup’s articles, photos, sections and accounts over the current content; articles written since are kept. Just before, the journal automatically keeps a copy of the current state, which you can download.\" data-confirmer=\"Restore this backup\" data-annuler=\"Cancel\" data-fait=\"Backup restored. Reload the newsroom to see the content.\" data-auto=\"Copy of the state before restoring:\" data-telecharger=\"download it\" data-echec=\"Nothing changed:\"><label>Backup file (ZIP) <input type=\"file\" name=\"archive\" accept=\".zip,application/zip\" required></label> <button type=\"submit\">Show its content</button></form><div id=\"restaurer-etat\" role=\"status\" tabindex=\"-1\"></div>",
     updateTitle: "Update",
-    line: "Socle",
+    line: "Newsroom",
     installed: "Installed version",
     offered: "Offered version",
     none: "No new version is prepared on this server.",
-    latest: "<h2>Install the latest version</h2><ol><li>Download the full backup (Backup page).</li><li><a href=\"https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip\">Download le-socle-php.zip</a> (what is new is on the <a href=\"https://github.com/azdak919/le-socle/releases/latest\">latest release page</a>).</li><li>On PHP hosting, upload the socle/ folder over the old one, without replacing donnees/.</li></ol>",
+    latest: "<h2>Install the latest version</h2><ol><li>Download the full backup (Backup page).</li><li><a href=\"https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip\">Download le-socle-php.zip</a> (what is new is on the <a href=\"https://github.com/azdak919/le-socle/releases/latest\">latest release page</a>).</li><li>Unzip it: you get a folder named “socle”. Copy its content into the newsroom folder on the server, replacing the existing files, without touching the “donnees” folder (your articles, photos and accounts).</li></ol>",
     backupWill: "Program backup, before",
     notContent: "The journal content is not in this backup.",
     major: "This version breaks something. I confirm.",
@@ -237,6 +237,11 @@ export function adminDocument(lang: Lang, title: string, body: string): Result {
   button.danger:hover { background: #7f1d1d; }
   button:disabled { opacity: 0.6; cursor: default; }
   h3 { margin: 1rem 0 0.25rem; font-size: 0.95rem; }
+  .versions { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.9rem; }
+  .versions th, .versions td { text-align: left; vertical-align: top; padding: 0.5rem 0.75rem 0.5rem 0; border-bottom: 1px solid var(--border); }
+  .versions thead th { color: var(--muted); font-weight: 500; font-size: 0.8rem; }
+  .versions tbody th small { display: block; color: var(--muted); font-weight: 400; font-size: 0.8rem; }
+  .nouveautes ul { margin: 0.25rem 0 0.75rem; padding-left: 1.25rem; } .nouveautes li { margin: 0.3rem 0; }
   #restaurer label { flex-wrap: wrap; }
   form { margin: 0.75rem 0; }
   @page letter { size: letter; }

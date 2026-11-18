@@ -71,7 +71,8 @@ function socle_maj_offer(bool $fresh = false): ?array {
     $cache = socle_maj_dir() . '/derniere-version.json';
     if (!$fresh && is_file($cache) && time() - (int) filemtime($cache) < 600) {
         $saved = json_decode((string) file_get_contents($cache), true);
-        if (is_array($saved)) return $saved;
+        // Une réponse sans nouveautés (Release encore vide) est redemandée.
+        if (is_array($saved) && trim((string) ($saved['notes'] ?? '')) !== '') return $saved;
     }
     $local = socle_env('SOCLE_MAJ_SOURCE');
     $raw = $local !== null ? socle_http_get('file://' . $local, 1_000_000) : socle_http_get('https://api.github.com/repos/' . $paquet['depot'] . '/releases/latest', 1_000_000);

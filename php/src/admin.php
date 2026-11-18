@@ -90,9 +90,9 @@ function socle_admin_copy(string $lang): array {
             'restoreFailed' => 'Restore failed: make sure it is a ZIP downloaded from this page.',
             'savePrefs' => 'Save', 'downloadSite' => 'Download the full backup', 'sessionOf' => 'Session', 'articlesOnly' => 'articles only',
             'restoreHint' => '<h2>Restore a backup</h2><p class="aide">Choose a ZIP file downloaded from this page. You will first see what it contains: nothing changes until you confirm. A session backup only replaces that session’s articles. Administrator only.</p><form class="noprint" id="restaurer" data-lecture="Reading the file…" data-choisir="Choose a file first." data-apercu="What this backup contains" data-fichier="File" data-date="Backup date" data-inconnue="not given (older backup)" data-journal="Journal" data-session="One session only" data-articles="Articles" data-photos="Photos" data-sections="Sections" data-comptes="Team accounts" data-avertir="Restoring puts back this backup’s articles, photos, sections and accounts over the current content; articles written since are kept. Just before, the journal automatically keeps a copy of the current state, which you can download." data-confirmer="Restore this backup" data-annuler="Cancel" data-fait="Backup restored. Reload the newsroom to see the content." data-auto="Copy of the state before restoring:" data-telecharger="download it" data-echec="Nothing changed:"><label>Backup file (ZIP) <input type="file" name="archive" accept=".zip,application/zip" required></label> <button type="submit">Show its content</button></form><div id="restaurer-etat" role="status" tabindex="-1"></div>',
-            'updateTitle' => 'Update', 'line' => 'Socle', 'installed' => 'Installed version', 'offered' => 'Offered version',
+            'updateTitle' => 'Update', 'line' => 'Newsroom', 'installed' => 'Installed version', 'offered' => 'Offered version',
             'none' => 'No new version is prepared on this server.',
-            'latest' => '<h2>Install the latest version</h2><ol><li>Download the full backup (Backup page).</li><li><a href="https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip">Download le-socle-php.zip</a> (what is new is on the <a href="https://github.com/azdak919/le-socle/releases/latest">latest release page</a>).</li><li>Upload the socle/ folder over the old one, without replacing donnees/.</li></ol>',
+            'latest' => '<h2>Install the latest version</h2><ol><li>Download the full backup (Backup page).</li><li><a href="https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip">Download le-socle-php.zip</a> (what is new is on the <a href="https://github.com/azdak919/le-socle/releases/latest">latest release page</a>).</li><li>Unzip it: you get a folder named “socle”. Copy its content into the newsroom folder on the server, replacing the existing files, without touching the “donnees” folder (your articles, photos and accounts).</li></ol>',
             'backupWill' => 'Program backup, before', 'notContent' => 'The journal content is not in this backup.',
             'major' => 'This version breaks something. I confirm.', 'updateBtn' => 'Update', 'revert' => 'Restore the backup',
             'done' => 'The update worked.', 'reverted' => 'The previous version is back.', 'noBackup' => 'No program backup.',
@@ -113,9 +113,9 @@ function socle_admin_copy(string $lang): array {
         'restoreFailed' => 'La restauration a échoué : vérifiez que c’est bien un ZIP téléchargé sur cette page.',
         'savePrefs' => 'Garder ce choix d’années', 'downloadSite' => 'Télécharger la sauvegarde complète', 'sessionOf' => 'Session', 'articlesOnly' => 'articles seulement',
         'restoreHint' => '<h2>Restaurer une sauvegarde</h2><p class="aide">Choisissez un fichier ZIP téléchargé sur cette page. Vous verrez d’abord ce qu’il contient : rien ne change avant votre confirmation. Une sauvegarde de session ne remplace que les articles de cette session. Réservé à l’administrateur.</p><form class="noprint" id="restaurer" data-lecture="Lecture du fichier…" data-choisir="Choisissez d’abord un fichier." data-apercu="Contenu de cette sauvegarde" data-fichier="Fichier" data-date="Date de la sauvegarde" data-inconnue="non indiquée (sauvegarde ancienne)" data-journal="Journal" data-session="Session seulement" data-articles="Articles" data-photos="Photos" data-sections="Sections" data-comptes="Comptes de l’équipe" data-avertir="Restaurer remet en place les articles, les photos, les sections et les comptes de cette sauvegarde, par-dessus le contenu actuel ; les articles écrits depuis sont gardés. Juste avant, le journal garde automatiquement une copie de l’état actuel, que vous pourrez télécharger." data-confirmer="Restaurer cette sauvegarde" data-annuler="Annuler" data-fait="Sauvegarde restaurée. Rechargez la rédaction pour voir le contenu." data-auto="Copie de l’état d’avant la restauration :" data-telecharger="la télécharger" data-echec="Rien n’a changé :"><label>Fichier de sauvegarde (ZIP) <input type="file" name="archive" accept=".zip,application/zip" required></label> <button type="submit">Voir le contenu</button></form><div id="restaurer-etat" role="status" tabindex="-1"></div>',
-        'updateTitle' => 'Mise à jour', 'line' => 'Socle', 'installed' => 'Version en place', 'offered' => 'Version proposée',
+        'updateTitle' => 'Mise à jour', 'line' => 'Espace de rédaction', 'installed' => 'Version en place', 'offered' => 'Version proposée',
         'none' => 'Aucune nouvelle version n’est préparée sur ce serveur.',
-        'latest' => '<h2>Installer la dernière version</h2><ol><li>Téléchargez la sauvegarde complète (page Sauvegarde).</li><li><a href="https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip">Téléchargez le-socle-php.zip</a> (nouveautés sur la <a href="https://github.com/azdak919/le-socle/releases/latest">page de la dernière version</a>).</li><li>Envoyez le dossier socle/ par-dessus l’ancien, sans remplacer donnees/.</li></ol>',
+        'latest' => '<h2>Installer la dernière version à la main</h2><ol><li>Sur la page Sauvegarde, téléchargez la sauvegarde complète et gardez-la sur votre ordinateur.</li><li><a href="https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip">Téléchargez le-socle-php.zip</a> (nouveautés sur la <a href="https://github.com/azdak919/le-socle/releases/latest">page de la dernière version</a>).</li><li>Décompressez-le : vous obtenez un dossier « socle ». Copiez son contenu dans le dossier de l’espace de rédaction sur le serveur, en remplaçant les fichiers existants, sans toucher au dossier « donnees » (vos articles, vos photos et vos comptes).</li></ol>',
         'backupWill' => 'Sauvegarde du programme, avant', 'notContent' => "Le contenu du journal n'est pas dans cette sauvegarde.",
         'major' => 'Cette version casse quelque chose. Je confirme.', 'updateBtn' => 'Mettre à jour', 'revert' => 'Revenir à la sauvegarde',
         'done' => 'La mise à jour a réussi.', 'reverted' => "La version d'avant est revenue.", 'noBackup' => 'Aucune sauvegarde de programme.',
@@ -341,36 +341,122 @@ function socle_restore_script(): string {
     return str_replace('</', '<\\/', (string) file_get_contents(dirname(__DIR__, 2) . '/admin/assets/restauration.js'));
 }
 
-/** Page Mise à jour d'un paquet complet : vérifier, mettre à jour, revenir. */
+/**
+ * Notes d'une Release du paquet, découpées pour la page Mise à jour : versions
+ * annoncées (ligne `<!-- kiosque-paquet {...} -->`, sinon « Socle X.Y.Z » dans
+ * le texte) et nouveautés de chaque partie (titres « ## Site Web du journal »
+ * et « ## Espace de rédaction »). Ce qui ne suit aucun de ces titres va dans
+ * « general ».
+ */
+function socle_paquet_notes(string $notes): array {
+    $versions = [];
+    if (preg_match('/<!--\s*kiosque-paquet\s+(\{.*?\})\s*-->/s', $notes, $match)) {
+        $parsed = json_decode($match[1], true);
+        if (is_array($parsed)) $versions = array_filter(['kiosque' => (string) ($parsed['kiosque'] ?? ''), 'socle' => (string) ($parsed['socle'] ?? '')]);
+    }
+    if (!isset($versions['socle']) && preg_match('/\bSocle\s+(\d+\.\d+\.\d+)/i', $notes, $match)) $versions['socle'] = $match[1];
+    $parts = ['site' => [], 'redaction' => [], 'general' => []];
+    $current = 'general';
+    foreach (preg_split('/\R/', preg_replace('/<!--.*?-->/s', '', $notes) ?? '') ?: [] as $line) {
+        if (preg_match('/^#{1,3}\s+(.*)$/', $line, $heading)) {
+            $title = mb_strtolower($heading[1]);
+            if (str_contains($title, 'site web') || str_contains($title, 'site du journal') || str_contains($title, 'website')) { $current = 'site'; continue; }
+            if (str_contains($title, 'rédaction') || str_contains($title, 'redaction') || str_contains($title, 'newsroom')) { $current = 'redaction'; continue; }
+            $current = 'general';
+        }
+        $parts[$current][] = $line;
+    }
+    return ['versions' => $versions] + array_map(fn (array $lines) => trim(implode("\n", $lines)), $parts);
+}
+
+/** Petit Markdown (listes, paragraphes, gras, liens nus) en HTML échappé. */
+function socle_notes_html(string $text): string {
+    $html = '';
+    $list = false;
+    $inline = static function (string $line): string {
+        $line = socle_escape($line);
+        $line = preg_replace('/\*\*(.+?)\*\*/', '<strong>$1</strong>', $line) ?? $line;
+        $line = preg_replace('/`([^`]+)`/', '$1', $line) ?? $line;
+        return preg_replace('#(https://[^\s<)]+)#', '<a href="$1" rel="noopener">$1</a>', $line) ?? $line;
+    };
+    foreach (preg_split('/\R/', $text) ?: [] as $line) {
+        $line = rtrim($line);
+        if (preg_match('/^\s*[-*]\s+(.*)$/', $line, $item)) {
+            if (!$list) { $html .= '<ul>'; $list = true; }
+            $html .= '<li>' . $inline($item[1]) . '</li>';
+            continue;
+        }
+        if ($list) { $html .= '</ul>'; $list = false; }
+        if (trim($line) === '') continue;
+        if (preg_match('/^#{1,6}\s+(.*)$/', $line, $heading)) { $html .= '<h3>' . $inline($heading[1]) . '</h3>'; continue; }
+        $html .= '<p>' . $inline($line) . '</p>';
+    }
+    return $html . ($list ? '</ul>' : '');
+}
+
+/** Date lisible dans le fuseau du journal : « 18 novembre 2026 à 16 h 52 ». */
+function socle_date_lisible(int $time, string $lang): string {
+    $date = (new DateTimeImmutable('@' . $time))->setTimezone(new DateTimeZone(socle_env('SOCLE_FUSEAU') ?? 'America/Toronto'));
+    if ($lang === 'en') return $date->format('F j, Y \a\t g:i A');
+    $mois = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+    return $date->format('j') . ' ' . $mois[(int) $date->format('n') - 1] . ' ' . $date->format('Y') . ' à ' . $date->format('G') . ' h ' . $date->format('i');
+}
+
+/**
+ * Page Mise à jour d'un paquet complet. Le journal a deux parties, livrées
+ * ensemble dans le même paquet : le site Web public (le Kiosque) et l'espace
+ * de rédaction (l'interface d'administration, le socle). Pour chacune : la
+ * version installée, la dernière version et ses nouveautés.
+ */
 function socle_paquet_page(string $lang, bool $allowed, bool $check, ?string $message): array {
     $en = $lang === 'en';
     $t = $en
-        ? ['title' => 'Update', 'version' => 'Journal version', 'latest' => 'Latest published version', 'check' => 'Check for a new version', 'uptodate' => 'The journal is up to date.', 'cannot' => 'Could not check', 'news' => 'What is new', 'safe' => 'Before installing, the journal keeps a copy of the program and of the database in donnees/mises-a-jour/. Articles, photos and accounts are not touched.', 'go' => 'Update to', 'back' => 'Go back to version', 'admin' => 'Only the administrator can update.', 'manual' => '<h2>By hand (if the button fails)</h2><ol><li>Download the full backup (Backup page).</li><li>Download the latest package (link below).</li><li>Upload its journal/ folder over this one, without replacing donnees/.</li></ol>', 'download' => 'Download the latest package']
-        : ['title' => 'Mise à jour', 'version' => 'Version du journal', 'latest' => 'Dernière version publiée', 'check' => 'Vérifier s’il y a une nouvelle version', 'uptodate' => 'Le journal est à jour.', 'cannot' => 'Vérification impossible', 'news' => 'Nouveautés', 'safe' => 'Avant d’installer, le journal garde une copie du programme et de la base dans donnees/mises-a-jour/. Les articles, les photos et les comptes ne sont pas touchés.', 'go' => 'Mettre à jour vers la version', 'back' => 'Revenir à la version', 'admin' => 'Seul l’administrateur peut mettre à jour.', 'manual' => '<h2>À la main (si le bouton échoue)</h2><ol><li>Téléchargez la sauvegarde complète (page Sauvegarde).</li><li>Téléchargez le dernier paquet (lien ci-dessous).</li><li>Envoyez son dossier journal/ par-dessus celui-ci, sans remplacer donnees/.</li></ol>', 'download' => 'Télécharger le dernier paquet'];
+        ? ['title' => 'Update', 'intro' => 'Your journal has two parts, updated together by the same package.', 'part' => 'Part', 'installed' => 'Installed version', 'latest' => 'Latest version', 'site' => 'Public website of the journal', 'siteHelp' => 'what readers see', 'redaction' => 'Newsroom', 'redactionHelp' => 'administration interface, where the team writes', 'unknown' => 'not checked yet', 'unknownPart' => 'not stated', 'check' => 'Check for updates', 'lastCheck' => 'Last check:', 'never' => 'Last check: never.', 'uptodate' => 'The journal is up to date.', 'available' => 'A new version is available.', 'cannot' => 'Could not check', 'news' => 'What is new', 'newsSite' => 'What is new on the website', 'newsRedaction' => 'What is new in the newsroom', 'release' => 'Release page', 'safe' => 'Before installing, the journal keeps a copy of the program and of the database in its data folder. Articles, photos and accounts are not touched.', 'go' => 'Update to version', 'back' => 'Go back to version', 'admin' => 'Only the administrator can update.', 'manual' => '<h2>Updating by hand (if the button does not work)</h2><ol><li>On the <strong>Backup</strong> page, download the full backup and keep it on your computer.</li><li>Download the latest package (link below) and unzip it: you get a folder named “journal”.</li><li>With your file transfer software (FTP) or your host’s file manager, copy the content of this “journal” folder into the journal’s folder on the server, replacing the existing files.</li><li>Do not copy the package’s “donnees” folder, and do not delete the one on the server: it holds your articles, photos, accounts and settings.</li><li>Open the website and the newsroom to check that everything works.</li></ol>', 'download' => 'Download the latest package']
+        : ['title' => 'Mise à jour', 'intro' => 'Votre journal a deux parties, mises à jour ensemble par le même paquet.', 'part' => 'Partie', 'installed' => 'Version installée', 'latest' => 'Dernière version', 'site' => 'Site Web public du journal', 'siteHelp' => 'ce que voient les lecteurs', 'redaction' => 'Espace de rédaction', 'redactionHelp' => 'interface d’administration, où l’équipe écrit', 'unknown' => 'pas encore vérifiée', 'unknownPart' => 'non indiquée', 'check' => 'Rechercher des mises à jour', 'lastCheck' => 'Dernière vérification :', 'never' => 'Aucune vérification pour l’instant.', 'uptodate' => 'Le journal est à jour.', 'available' => 'Une nouvelle version est disponible.', 'cannot' => 'Vérification impossible', 'news' => 'Nouveautés', 'newsSite' => 'Nouveautés du site Web', 'newsRedaction' => 'Nouveautés de l’espace de rédaction', 'release' => 'Page de la version', 'safe' => 'Avant d’installer, le journal garde une copie du programme et de la base de données dans son dossier de données. Les articles, les photos et les comptes ne sont pas touchés.', 'go' => 'Mettre à jour vers la version', 'back' => 'Revenir à la version', 'admin' => 'Seul l’administrateur peut mettre à jour.', 'manual' => '<h2>Mettre à jour à la main (si le bouton ne fonctionne pas)</h2><ol><li>Sur la page <strong>Sauvegarde</strong>, téléchargez la sauvegarde complète et gardez-la sur votre ordinateur.</li><li>Téléchargez le dernier paquet (lien ci-dessous) et décompressez-le : vous obtenez un dossier nommé « journal ».</li><li>Avec votre logiciel de transfert de fichiers (FTP) ou le gestionnaire de fichiers de votre hébergeur, copiez le contenu de ce dossier « journal » dans le dossier du journal sur le serveur, en remplaçant les fichiers existants.</li><li>Ne copiez pas le dossier « donnees » du paquet et ne supprimez pas celui du serveur : il contient vos articles, vos photos, vos comptes et vos réglages.</li><li>Ouvrez le site Web et l’espace de rédaction pour vérifier que tout fonctionne.</li></ol>', 'download' => 'Télécharger le dernier paquet'];
     $paquet = socle_paquet() ?? [];
-    $current = socle_paquet_version();
     $offer = null;
     $error = null;
+    $checkedAt = null;
     try {
         $cache = socle_maj_dir() . '/derniere-version.json';
         if ($check || is_file($cache)) $offer = socle_maj_offer($check);
+        if (is_file($cache)) $checkedAt = (int) filemtime($cache);
     } catch (Throwable $failure) {
         $error = $failure->getMessage();
     }
-    $body = $message !== null ? '<p class="note" role="status">' . socle_escape($message) . '</p>' : '';
     $current = socle_paquet_version();
-    $body .= '<dl class="fiche"><dt>' . $t['version'] . '</dt><dd>' . socle_escape($current) . '</dd>';
-    if ($offer !== null) $body .= '<dt>' . $t['latest'] . '</dt><dd><a href="' . socle_escape($offer['page']) . '" rel="noopener">' . socle_escape($offer['version']) . '</a></dd>';
-    $body .= '</dl>';
+    $installedSite = is_string($paquet['kiosque'] ?? null) ? $paquet['kiosque'] : $current;
+    $installedRedaction = socle_package_version();
+    $notes = $offer !== null ? socle_paquet_notes((string) $offer['notes']) : ['versions' => [], 'site' => '', 'redaction' => '', 'general' => ''];
+    $latestSite = $offer !== null ? ($notes['versions']['kiosque'] ?? $offer['version']) : null;
+    $latestRedaction = $offer !== null ? ($notes['versions']['socle'] ?? null) : null;
+    $cell = static function (?string $latest, string $installed, string $unknown) use ($offer, $t): string {
+        if ($latest === null) return '<td class="muted">' . ($offer === null ? $t['unknown'] : $unknown) . '</td>';
+        $newer = socle_version_newer($latest, $installed);
+        return '<td>' . ($newer ? '<strong>' . socle_escape($latest) . '</strong>' : socle_escape($latest)) . '</td>';
+    };
+    $body = $message !== null ? '<p class="note" role="status">' . socle_escape($message) . '</p>' : '';
+    $body .= '<p>' . $t['intro'] . '</p>';
+    $body .= '<table class="versions"><thead><tr><th scope="col">' . $t['part'] . '</th><th scope="col">' . $t['installed'] . '</th><th scope="col">' . $t['latest'] . '</th></tr></thead><tbody>'
+        . '<tr><th scope="row">' . $t['site'] . '<small>' . $t['siteHelp'] . '</small></th><td>' . socle_escape($installedSite) . '</td>' . $cell($latestSite, $installedSite, $t['unknownPart']) . '</tr>'
+        . '<tr><th scope="row">' . $t['redaction'] . '<small>' . $t['redactionHelp'] . '</small></th><td>' . socle_escape($installedRedaction) . '</td>' . $cell($latestRedaction, $installedRedaction, $t['unknownPart']) . '</tr>'
+        . '</tbody></table>';
+    $body .= '<p class="aide" data-derniere-verification>' . ($checkedAt !== null ? $t['lastCheck'] . ' ' . socle_date_lisible($checkedAt, $lang) . '.' : $t['never']) . '</p>';
     if ($error !== null) $body .= '<p class="note">' . $t['cannot'] . ' : ' . socle_escape($error) . '.</p>';
+    $body .= '<form class="noprint" method="get" action="' . socle_with_lang('/admin/mise-a-jour', $lang) . '"><input type="hidden" name="verifier" value="1"><button type="submit" class="secondaire">' . $t['check'] . '</button></form>';
+    $newer = $offer !== null && socle_version_newer($offer['version'], $current);
+    if ($offer !== null) $body .= '<p class="note">' . ($newer ? $t['available'] : $t['uptodate']) . '</p>';
     if (!$allowed) {
         $body .= '<p class="aide">' . $t['admin'] . '</p>';
-    } elseif ($offer !== null && socle_version_newer($offer['version'], $current)) {
-        if (trim($offer['notes']) !== '') $body .= '<details><summary>' . $t['news'] . '</summary><pre style="white-space:pre-wrap">' . socle_escape($offer['notes']) . '</pre></details>';
+    } elseif ($newer) {
         $body .= '<p class="aide">' . $t['safe'] . '</p><form class="noprint" method="post" action="' . socle_with_lang('/admin/mise-a-jour/paquet', $lang) . '"><button type="submit">' . $t['go'] . ' ' . socle_escape($offer['version']) . '</button></form>';
-    } else {
-        if ($offer !== null) $body .= '<p class="note">' . $t['uptodate'] . '</p>';
-        $body .= '<form class="noprint" method="get" action="' . socle_with_lang('/admin/mise-a-jour', $lang) . '"><input type="hidden" name="verifier" value="1"><button type="submit" class="secondaire">' . $t['check'] . '</button></form>';
+    }
+    if ($offer !== null) {
+        $news = '';
+        if ($notes['site'] !== '') $news .= '<h3>' . $t['newsSite'] . '</h3>' . socle_notes_html($notes['site']);
+        if ($notes['redaction'] !== '') $news .= '<h3>' . $t['newsRedaction'] . '</h3>' . socle_notes_html($notes['redaction']);
+        if ($notes['general'] !== '') $news = socle_notes_html($notes['general']) . $news;
+        if ($news !== '') $body .= '<h2>' . $t['news'] . ' — ' . socle_escape($offer['version']) . '</h2><div class="nouveautes">' . $news . '</div><p><a href="' . socle_escape($offer['page']) . '" rel="noopener">' . $t['release'] . '</a></p>';
     }
     $history = [];
     try { $history = socle_maj_history(); } catch (Throwable) {}
