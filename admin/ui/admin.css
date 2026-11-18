@@ -51,15 +51,18 @@
 }
 .admin-brand { @apply hidden md:flex items-center gap-2.5 px-2 pb-4 mb-2 border-b border-border; }
 .admin-brand-mark { @apply grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground text-sm font-bold; }
+.admin-brand-logo { @apply size-8 shrink-0 rounded-md object-contain bg-background; }
 .admin-brand strong { @apply block text-sm font-semibold leading-tight; }
 .admin-brand small { @apply block text-xs text-muted-foreground; }
+.admin-brand[data-state="journal-logo"] small { @apply m-0; }
 .admin-nav { @apply flex flex-row md:flex-col gap-1 md:gap-0.5 overflow-x-auto [scrollbar-width:none]; }
 .admin-nav button, .admin-nav a {
   @apply no-underline flex shrink-0 whitespace-nowrap min-h-11 md:min-h-0 md:w-full items-center gap-2.5 rounded-md border-0 bg-transparent px-2.5 h-9 text-left text-sm font-medium text-muted-foreground cursor-pointer transition-colors hover:bg-muted hover:text-foreground;
 }
 .admin-nav button svg, .admin-nav a svg { @apply hidden md:block size-4 shrink-0; }
 .admin-nav button[aria-current="page"], .admin-nav a[aria-current="page"] { @apply bg-accent text-accent-foreground font-semibold; }
-.admin-sidebar-foot { @apply hidden md:block mt-auto rounded-lg border border-border bg-background p-3 text-xs text-muted-foreground leading-relaxed; }
+.admin-sidebar-foot { @apply hidden md:block mt-auto pt-4 px-2 pb-1 text-[0.7rem] text-muted-foreground leading-snug; }
+.admin-sidebar-foot a { @apply text-inherit underline-offset-2 hover:underline; }
 .admin-column { @apply min-w-0 flex flex-col; }
 .admin-header { @apply sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-background/85 backdrop-blur px-4 md:px-8 h-14; }
 .admin-header h1 { @apply m-0 text-sm md:text-base font-semibold truncate; }

@@ -20,6 +20,7 @@ import { mayUpdate, type AuthRuntime } from "./auth.ts";
 import type { NotifyRuntime } from "./notify.ts";
 import { enabledModules, type SocleConfig } from "./config.ts";
 import type { SocleStore } from "./store.ts";
+import { VERSION } from "./version.ts";
 
 export type ReleaseInfo = { version: string; notes: string };
 
@@ -87,7 +88,8 @@ const COPY = {
     html: "fr",
     skip: "Aller au contenu",
     back: "Tableau de bord",
-    brandSub: "Rédaction",
+    brandSub: "Espace de rédaction",
+    powered: "Propulsé par",
     other: "English",
     otherLang: "en",
     office: "Interface d’administration",
@@ -134,6 +136,7 @@ const COPY = {
     skip: "Skip to content",
     back: "Dashboard",
     brandSub: "Newsroom",
+    powered: "Powered by",
     other: "Français",
     otherLang: "fr",
     office: "Administration",
@@ -250,13 +253,15 @@ export function adminDocument(lang: Lang, title: string, body: string): Result {
   @page a4 { size: A4; }
   @page a3 { size: A3; }
   @media (max-width: 40rem) { .tabs { margin-left: 0; width: 100%; } main { margin-top: 1rem; padding: 0 0.6rem; } .panel { padding: 1rem; } }
+  .powered { margin: 1.5rem auto 2rem; padding: 0 1rem; max-width: 52rem; font-size: 0.75rem; color: var(--muted); }
+  .powered a { color: inherit; }
   @media print { nav, .noprint, .bar { display: none; } .panel { border: 0; padding: 0; } }
 </style>
 </head>
 <body>
 <a class="skip" href="#contenu">${copy.skip}</a>
 <header class="bar noprint">
-<a class="brand" href="${withLang("/admin", lang)}"><span class="logo" aria-hidden="true">K</span><span><strong>Le Kiosque</strong><small>${copy.brandSub}</small></span></a>
+<a class="brand" href="${withLang("/admin", lang)}"><span><strong>Le Socle</strong><small>${copy.brandSub}</small></span></a>
 <nav class="tabs" aria-label="${copy.office}">
 <a href="${withLang("/admin", lang)}">${copy.back}</a>
 <a href="${withLang("/admin/sauvegarde", lang)}"${title === copy.saveTitle ? ' aria-current="page"' : ""}>${copy.saveLink}</a>
@@ -270,6 +275,7 @@ export function adminDocument(lang: Lang, title: string, body: string): Result {
 ${body}
 </div>
 </main>
+<p class="powered noprint">${copy.powered} <a href="https://azdak919.github.io/le-socle/">Le Socle</a> ${VERSION}</p>
 </body>
 </html>`,
   };

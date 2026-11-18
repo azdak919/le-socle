@@ -381,8 +381,8 @@ function socle_text(int $status, string $body): array {
 
 function socle_admin_document(string $lang, string $title, string $body): array {
     $copy = $lang === 'en'
-        ? ['html' => 'en', 'skip' => 'Skip to content', 'back' => 'Dashboard', 'brandSub' => 'Newsroom', 'office' => 'Administration', 'save' => 'Backup', 'update' => 'Update', 'other' => 'Français', 'otherLang' => 'fr']
-        : ['html' => 'fr', 'skip' => 'Aller au contenu', 'back' => 'Tableau de bord', 'brandSub' => 'Rédaction', 'office' => 'Interface d’administration', 'save' => 'Sauvegarde', 'update' => 'Mise à jour', 'other' => 'English', 'otherLang' => 'en'];
+        ? ['html' => 'en', 'skip' => 'Skip to content', 'back' => 'Dashboard', 'brandSub' => 'Newsroom', 'powered' => 'Powered by', 'office' => 'Administration', 'save' => 'Backup', 'update' => 'Update', 'other' => 'Français', 'otherLang' => 'fr']
+        : ['html' => 'fr', 'skip' => 'Aller au contenu', 'back' => 'Tableau de bord', 'brandSub' => 'Espace de rédaction', 'powered' => 'Propulsé par', 'office' => 'Interface d’administration', 'save' => 'Sauvegarde', 'update' => 'Mise à jour', 'other' => 'English', 'otherLang' => 'en'];
     $other = socle_with_lang('/admin', $copy['otherLang']);
     $back = socle_with_lang('/admin', $lang);
     $saveCurrent = $title === $copy['save'] ? ' aria-current="page"' : '';
@@ -445,13 +445,15 @@ function socle_admin_document(string $lang, string $title, string $body): array 
   @page a4 { size: A4; }
   @page a3 { size: A3; }
   @media (max-width: 40rem) { .tabs { margin-left: 0; width: 100%; } main { margin-top: 1rem; padding: 0 0.6rem; } .panel { padding: 1rem; } }
+  .powered { margin: 1.5rem auto 2rem; padding: 0 1rem; max-width: 52rem; font-size: 0.75rem; color: var(--muted); }
+  .powered a { color: inherit; }
   @media print { nav, .noprint, .bar { display: none; } .panel { border: 0; padding: 0; } }
 </style>
 </head>
 <body>
 <a class="skip" href="#contenu">' . $copy['skip'] . '</a>
 <header class="bar noprint">
-<a class="brand" href="' . $back . '"><span class="logo" aria-hidden="true">K</span><span><strong>Le Kiosque</strong><small>' . $copy['brandSub'] . '</small></span></a>
+<a class="brand" href="' . $back . '"><span><strong>Le Socle</strong><small>' . $copy['brandSub'] . '</small></span></a>
 <nav class="tabs" aria-label="' . $copy['office'] . '">
 <a href="' . $back . '">' . $copy['back'] . '</a>
 <a href="' . socle_with_lang('/admin/sauvegarde', $lang) . '"' . $saveCurrent . '>' . $copy['save'] . '</a>
@@ -465,6 +467,7 @@ function socle_admin_document(string $lang, string $title, string $body): array 
 ' . $body . '
 </div>
 </main>
+<p class="powered noprint">' . $copy['powered'] . ' <a href="https://azdak919.github.io/le-socle/">Le Socle</a> ' . htmlspecialchars(socle_package_version(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</p>
 </body>
 </html>';
     return socle_result(200, $html, ['content-type' => 'text/html; charset=utf-8']);

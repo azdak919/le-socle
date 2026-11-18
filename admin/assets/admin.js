@@ -366,10 +366,34 @@ async function finishAssistant() {
   }
 }
 
+/** En-tête de la barre latérale : logo ou nom du journal, sinon Le Socle. */
+function paintBrand(state) {
+  const root = document.querySelector('.admin-brand');
+  if (!root) return;
+  const pub = bundle?.publication;
+  const name = String(pub?.name || '').trim();
+  const src = pub?.logo ? mediaSrc(pub.logo) : '';
+  const ready = state === 'journal' && name;
+  if (ready && src) {
+    const alt = esc(pub.logo.alt || name);
+    root.dataset.state = 'journal-logo';
+    root.innerHTML = `<img class="admin-brand-logo" src="${esc(src)}" alt="${alt}"><span><small>Espace de rédaction</small></span>`;
+    return;
+  }
+  if (ready) {
+    root.dataset.state = 'journal-name';
+    root.innerHTML = `<span><strong>${esc(name)}</strong><small>Espace de rédaction</small></span>`;
+    return;
+  }
+  root.dataset.state = 'socle';
+  root.innerHTML = '<span><strong>Le Socle</strong><small>Espace de rédaction</small></span>';
+}
+
 /** Écran de connexion (ou de première installation) quand le socle demande une session. */
 async function loginScreen() {
   // Avant la connexion, le menu de la rédaction ne mène nulle part : on le cache.
   document.body.classList.add('signed-out');
+  paintBrand('socle');
   let state = null;
   try { state = await authCall('GET', 'etat'); } catch { state = null; }
   const mode = state?.mode;
@@ -480,6 +504,7 @@ function localDateTime(iso) {
 async function refresh() {
   bundle = await backend.getSnapshot({ audience: 'editorial', includeDemo: true });
   document.getElementById('publication-name').textContent = bundle.publication.name;
+  paintBrand('journal');
 }
 
 const VIEWS = ['dashboard', 'articles', 'media', 'authors', 'taxonomies', 'settings', 'exports'];

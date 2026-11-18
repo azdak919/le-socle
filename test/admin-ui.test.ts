@@ -4,8 +4,9 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { ADMIN_ASSETS, adminPage, serverPage } from "../admin/page.js";
+import { ADMIN_ASSETS, adminPage, serverPage, SOCLE_VERSION } from "../admin/page.js";
 import { serveRedactionPage, SERVER_ASSETS } from "../src/redaction-page.ts";
+import { VERSION } from "../src/version.ts";
 import { createSocleServer } from "../src/server.ts";
 import { openSqliteMemory } from "../src/sqlite.ts";
 import { config, deps } from "./redaction-parcours.ts";
@@ -19,6 +20,14 @@ function imports(file: string): { fixed: string[]; lazy: string[] } {
   const lazy = [...source.matchAll(/import\('(\.\/[^']+)'\)/g)].map((m) => m[1].slice(2));
   return { fixed, lazy };
 }
+
+test("l'en-tête de la barre peint le journal ou, à défaut, Le Socle", () => {
+  const source = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  assert.match(source, /function paintBrand\(state\)/);
+  assert.match(source, /paintBrand\('socle'\)/);
+  assert.match(source, /paintBrand\('journal'\)/);
+  assert.match(source, /Espace de rédaction/);
+});
 
 test("l'admin vit dans le socle : chaque fichier importé est là, et seulement là", () => {
   const present = readdirSync(ASSETS).sort();
@@ -54,6 +63,15 @@ test("admin/serveur.html est à jour (npm run ui)", () => {
   assert.match(html, /src="\/redaction\/assets\/admin\.js"/);
   assert.match(html, /href="\/admin\/mise-a-jour"/);
   assert.doesNotMatch(html, /pglite|sql-wasm|seedUrl/);
+  assert.match(html, /data-state="socle"/);
+  assert.match(html, /<strong>Le Socle<\/strong><small>Espace de rédaction<\/small>/);
+  assert.match(html, /Propulsé par <a href="https:\/\/azdak919\.github\.io\/le-socle\/">Le Socle<\/a> 1\.\d/);
+  assert.ok(html.includes(`"version":"${SOCLE_VERSION}"`));
+  assert.doesNotMatch(html, /admin-brand[\s\S]*Le Kiosque/);
+});
+
+test("la version affichée dans la barre suit le paquet", () => {
+  assert.equal(SOCLE_VERSION, VERSION);
 });
 
 test("mode navigateur : la même page, pour la démo", () => {

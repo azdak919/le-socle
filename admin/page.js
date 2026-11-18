@@ -12,8 +12,25 @@
  * fichier placé dans node_modules, et le Kiosque importe ce fichier depuis
  * sa dépendance.
  */
+import { createRequire } from 'node:module';
+
 const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ESCAPES[character]);
+
+/** Même numéro que package.json et src/version.ts, lu ici pour la coquille HTML. */
+export const SOCLE_VERSION = createRequire(import.meta.url)('../package.json').version;
+export const SOCLE_SITE = 'https://azdak919.github.io/le-socle/';
+
+/** En-tête de la barre : Le Socle tant que le journal n’est pas configuré. */
+export function adminBrand() {
+  return `<div class="admin-brand" data-state="socle"><span><strong>Le Socle</strong><small>Espace de rédaction</small></span></div>`;
+}
+
+/** Ligne discrète en bas de la barre, avec la version et le lien vers la page du Socle. */
+export function adminSidebarFoot(version = SOCLE_VERSION) {
+  const ver = version ? ` ${esc(version)}` : '';
+  return `<p class="admin-sidebar-foot">Propulsé par <a href="${SOCLE_SITE}">Le Socle</a>${ver}</p>`;
+}
 
 /** Fichiers de l'admin, tous sous `admin/assets/`. */
 export const ADMIN_ASSETS = Object.freeze([
@@ -73,8 +90,9 @@ export function adminShell(options) {
 <a class="admin-skip" href="#admin-main">Aller au contenu</a>
 <div class="admin-app">
   <aside class="admin-sidebar">
-    <div class="admin-brand"><span class="admin-brand-mark" aria-hidden="true">K</span><span><strong>Le Kiosque</strong><small>Rédaction</small></span></div>
+    ${adminBrand()}
     ${adminNav(options.adminBasePath, options.active, options.updateHref, options.saveHref)}
+    ${adminSidebarFoot(options.version ?? SOCLE_VERSION)}
   </aside>
   <div class="admin-column">
     <header class="admin-header"><h1><span class="muted">Rédaction de</span> <span id="publication-name">${esc(options.publicationName)}</span></h1><a class="btn" data-variant="outline" data-size="sm" href="${options.publicBasePath}/">Voir le journal ↗</a></header>
@@ -104,6 +122,7 @@ export function adminPage(options) {
     assetsBase: options.assetsBase,
     apiBase: options.apiBase ?? '',
     databaseKey: options.databaseKey ?? 'socle',
+    version: options.version ?? SOCLE_VERSION,
   } : {
     mode: 'demo-local',
     publicBasePath: options.publicBasePath,
@@ -112,6 +131,7 @@ export function adminPage(options) {
     seedUrl: options.seedUrl,
     publicationSlug: options.publicationSlug,
     databaseKey: options.databaseKey,
+    version: options.version ?? SOCLE_VERSION,
   }).replace(/</g, '\\u003c');
   return adminShell({
     lang: options.lang,
