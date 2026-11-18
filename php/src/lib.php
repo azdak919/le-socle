@@ -516,6 +516,9 @@ function socle_serve_static(string $urlPath): array {
     return socle_result(200, $bytes, ['content-type' => socle_static_type($real)]);
 }
 
+/** Bandeau « journal fictif » (essai, démonstration), au-dessus du mât. */
+const SOCLE_BANDEAU_FICTIF = '<div class="demo-banner" role="note"><span class="demo-banner__lead">Journal étudiant fictif</span><span class="demo-banner__sep" aria-hidden="true"> — </span><span class="demo-banner__rest">essai : articles et personnes inventés</span></div>';
+
 /**
  * Site du journal dans le paquet complet : `site/` porte `kiosque-vivant.json`.
  * Une adresse d'article n'est pas un fichier : on sert la coquille (404.html,
@@ -527,10 +530,12 @@ function socle_serve_site(string $uri, ?SocleStore $store): array {
     $live = $root !== null && is_file($root . '/kiosque-vivant.json');
     $path = socle_request_path($uri);
     $noindex = false;
+    $fictif = false;
     if ($live && $store !== null) {
         try {
             $publication = socle_read_publication($store);
             $noindex = is_array($publication) && !empty($publication['noindex']);
+            $fictif = is_array($publication) && !empty($publication['fictif']);
         } catch (Throwable) {
         }
     }
@@ -546,7 +551,11 @@ function socle_serve_site(string $uri, ?SocleStore $store): array {
     if ($live && $result['status'] === 200 && str_starts_with((string) ($result['headers']['content-type'] ?? ''), 'text/html')) {
         $result['headers']['cache-control'] = 'no-cache';
         if ($noindex) $result['body'] = preg_replace('#</head>#i', '<meta name="robots" content="noindex, nofollow"></head>', (string) $result['body'], 1) ?? $result['body'];
+        if ($fictif) $result['body'] = preg_replace('#<body([^>]*)>#i', '<body$1>' . SOCLE_BANDEAU_FICTIF, (string) $result['body'], 1) ?? $result['body'];
     }
+    // Un journal dans un sous-dossier (/journal/) n'a pas la main sur le robots.txt
+    // du domaine : l'en-tête suit chaque réponse du site.
+    if ($live && $noindex && $result['status'] < 400) $result['headers']['x-robots-tag'] = 'noindex, nofollow';
     return $result;
 }
 

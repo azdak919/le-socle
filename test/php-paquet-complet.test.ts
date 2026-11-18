@@ -104,6 +104,13 @@ return true;
     assert.equal((await call(`${base}/v1/editorial/snapshot`)).status, 200);
     assert.match((await call(`${base}/robots.txt`)).text, /Disallow: \//);
     assert.match((await call(`${base}/`)).text, /<meta name="robots" content="noindex, nofollow"><\/head>/);
+    assert.equal((await call(`${base}/`)).headers.get("x-robots-tag"), "noindex, nofollow");
+    assert.doesNotMatch((await call(`${base}/`)).text, /demo-banner/);
+    // Journal fictif : bandeau au-dessus du mât, sur l'accueil comme sur un article.
+    const fictif = await call(`${base}/v1/redaction/publication`, { method: "POST", headers: { ...json, cookie }, body: JSON.stringify({ publication: { name: "Le Phare", slug: "le-phare", noindex: true, fictif: true } }) });
+    assert.equal(fictif.status, 200, fictif.text);
+    assert.match((await call(`${base}/`)).text, /<body[^>]*><div class="demo-banner" role="note"><span class="demo-banner__lead">Journal étudiant fictif<\/span>/);
+    assert.match((await call(`${base}/articles/un-article/`)).text, /demo-banner/);
   } finally {
     child.kill();
   }
