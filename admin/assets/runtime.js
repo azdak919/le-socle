@@ -23,7 +23,7 @@ export async function readConfiguratorBootstrap() {
 }
 
 /**
- * PGlite (≈ 5 Mo wasm + données) ne se charge que pour /admin/ ou pour un
+ * La base de la démo (sql.js, ≈ 0,7 Mo de wasm) ne se charge que pour /admin/ ou pour un
  * navigateur qui a déjà ouvert l’admin (ou le configurateur) : les lecteurs
  * reçoivent le HTML statique, identique au rendu initial.
  */
@@ -49,15 +49,15 @@ export async function getBackend() {
       const config = manifest();
       if (config.mode === 'socle') {
         // Mode serveur : l'admin écrit dans le socle par /v1/redaction/, à la
-        // même adresse que la page. PGlite n'est jamais chargé.
+        // même adresse que la page. sql.js n’est jamais chargé.
         const { SocleBackend } = await import('./socle-backend.js');
         const backend = new SocleBackend();
         await backend.init({ apiBase: config.apiBase ?? '' });
         return backend;
       }
-      // Mode navigateur (démo) : PGlite dans ce navigateur.
-      const { DemoBackendPGlite } = await import('./demo-backend.js');
-      const backend = new DemoBackendPGlite();
+      // Mode navigateur (démo) : SQLite (sql.js) dans ce navigateur, gardé dans IndexedDB.
+      const { DemoBackendNavigateur } = await import('./demo-backend.js');
+      const backend = new DemoBackendNavigateur();
       await backend.init({
         basePath: config.publicBasePath,
         publicationSlug: config.publicationSlug,

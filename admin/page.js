@@ -3,7 +3,8 @@
  *
  * Deux modes, une seule interface :
  * - `navigateur` : la démo (Le Quorum). Les données restent dans ce
- *   navigateur (PGlite). Le Kiosque construit cette page dans son site.
+ *   navigateur (SQLite par sql.js, gardé dans IndexedDB). Le Kiosque construit
+ *   cette page dans son site.
  * - `serveur` : un vrai journal. Le socle sert cette page sous `/redaction/`
  *   et l'admin écrit par `/v1/redaction/`, à la même adresse.
  *
@@ -17,7 +18,7 @@ export const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character
 /** Fichiers de l'admin, tous sous `admin/assets/`. */
 export const ADMIN_ASSETS = Object.freeze([
   'admin.js', 'admin.css', 'runtime.js', 'util.js', 'export.js', 'stock-photo-match.js',
-  'marked.esm.js', 'socle-backend.js', 'demo-backend.js', 'pglite-worker.js',
+  'marked.esm.js', 'socle-backend.js', 'demo-backend.js', 'sqljs-db.js', 'sql-wasm.js', 'sql-wasm.wasm',
 ]);
 
 const ICONS = {

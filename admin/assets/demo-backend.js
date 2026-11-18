@@ -1,3 +1,5 @@
+import { SqlJsDb } from './sqljs-db.js';
+
 const TABLES = {
   article: 'articles',
   author: 'authors',
@@ -95,25 +97,30 @@ function withBootstrap(seed, bootstrap) {
   };
 }
 
-export class DemoBackendPGlite {
-  id = 'demo-pglite';
+/**
+ * Démo en mode navigateur : SQLite (sql.js) gardé dans IndexedDB.
+ */
+export class DemoBackendNavigateur {
+  id = 'demo-navigateur';
   capabilities = CAPABILITIES;
   db = null;
   context = null;
   channel = null;
   listeners = new Set();
   seed = null;
-  worker = null;
 
   async init(context) {
     this.context = context;
     const assetsBase = String(context.assetsBase || '').replace(/\/$/, '');
-    const { PGliteWorker } = await import(`${assetsBase}/pglite/worker/index.js`);
-    this.worker = new Worker(`${assetsBase}/pglite-worker.js`, { type: 'module', name: 'kiosque-pglite' });
     const dbName = context.databaseName || `kiosque-${safeName(context.basePath)}-${safeName(context.publicationSlug)}`;
-    this.db = await PGliteWorker.create(this.worker, { dataDir: `idb://${dbName}`, id: dbName });
+    // Nouveau nom de base (« -sqlite ») : une ancienne base de la démo n'est pas relue.
+    this.db = await SqlJsDb.open({ assetsBase, name: `${dbName}-sqlite` });
     this.channel = new BroadcastChannel(`kiosque-editorial:${dbName}`);
-    this.channel.addEventListener('message', (event) => this.#emit(event.data, false));
+    this.channel.addEventListener('message', async (event) => {
+      // Un autre onglet a écrit : relire la base gardée, puis prévenir l'écran.
+      await this.db.reload();
+      this.#emit(event.data, false);
+    });
     await this.#migrate();
     const result = await this.db.query("SELECT value FROM kiosque_meta WHERE key = 'seeded'");
     if (!result.rows.length) {
@@ -133,12 +140,12 @@ export class DemoBackendPGlite {
       if (seedVersion > storedVersion) {
         await this.#refreshUnmodifiedDemo(seed);
         await this.db.query(
-          `INSERT INTO kiosque_meta(key, value) VALUES ('seeded', $1::jsonb)
+          `INSERT INTO kiosque_meta(key, value) VALUES ('seeded', $1)
            ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
           [JSON.stringify({ at: now(), version: seedVersion })],
         );
       } else {
-        const mediaCount = await this.db.query('SELECT count(*)::int AS count FROM media');
+        const mediaCount = await this.db.query('SELECT count(*) AS count FROM media');
         if (!mediaCount.rows[0]?.count) {
           for (const media of seed.media || []) await this.save('media', media);
         }
@@ -160,7 +167,7 @@ export class DemoBackendPGlite {
       if (seed.publication && typeof seed.publication === 'object') {
         const pub = { ...seed.publication, id: entityId(seed.publication) };
         await tx.query(
-          `INSERT INTO publication(id, data) VALUES ($1, $2::jsonb)
+          `INSERT INTO publication(id, data) VALUES ($1, $2)
            ON CONFLICT(id) DO UPDATE SET data = excluded.data`,
           [pub.id, JSON.stringify(pub)],
         );
@@ -168,7 +175,7 @@ export class DemoBackendPGlite {
       for (const raw of seed.media || []) {
         const entity = { ...raw, id: entityId(raw) };
         await tx.query(
-          `INSERT INTO media(id, data) VALUES ($1, $2::jsonb)
+          `INSERT INTO media(id, data) VALUES ($1, $2)
            ON CONFLICT(id) DO UPDATE SET data = excluded.data`,
           [entity.id, JSON.stringify(entity)],
         );
@@ -183,13 +190,13 @@ export class DemoBackendPGlite {
         if (row?.is_user_modified) continue;
         if (row) {
           await tx.query(
-            `UPDATE authors SET slug = $2, is_demo = true, is_user_modified = false, data = $3::jsonb
+            `UPDATE authors SET slug = $2, is_demo = true, is_user_modified = false, data = $3
              WHERE id = $1 OR slug = $2`,
             [entity.id, entity.slug, JSON.stringify(entity)],
           );
         } else {
           await tx.query(
-            'INSERT INTO authors(id, slug, is_demo, is_user_modified, data) VALUES ($1,$2,true,false,$3::jsonb)',
+            'INSERT INTO authors(id, slug, is_demo, is_user_modified, data) VALUES ($1,$2,true,false,$3)',
             [entity.id, entity.slug, JSON.stringify(entity)],
           );
         }
@@ -206,14 +213,14 @@ export class DemoBackendPGlite {
         if (row) {
           await tx.query(
             `UPDATE articles SET slug = $2, status = $3, is_demo = true, is_user_modified = false,
-               updated_at = $4, data = $5::jsonb
+               updated_at = $4, data = $5
              WHERE id = $1 OR slug = $2`,
             [entity.id, entity.slug, status, entity.updatedAt || now(), JSON.stringify(entity)],
           );
         } else {
           await tx.query(
             `INSERT INTO articles(id, slug, status, is_demo, is_user_modified, updated_at, data)
-             VALUES ($1,$2,$3,true,false,$4,$5::jsonb)`,
+             VALUES ($1,$2,$3,true,false,$4,$5)`,
             [entity.id, entity.slug, status, entity.updatedAt || now(), JSON.stringify(entity)],
           );
         }
@@ -223,7 +230,7 @@ export class DemoBackendPGlite {
         for (const raw of seed[table] || []) {
           const entity = { ...raw, id: entityId(raw) };
           await tx.query(
-            `INSERT INTO ${table}(id, slug, data) VALUES ($1, $2, $3::jsonb)
+            `INSERT INTO ${table}(id, slug, data) VALUES ($1, $2, $3)
              ON CONFLICT(id) DO UPDATE SET slug = excluded.slug, data = excluded.data`,
             [entity.id, entity.slug, JSON.stringify(entity)],
           );
@@ -235,44 +242,41 @@ export class DemoBackendPGlite {
   async #migrate() {
     await this.db.exec(`
       CREATE TABLE IF NOT EXISTS kiosque_meta (
-        key text PRIMARY KEY,
-        value jsonb NOT NULL
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS publication (
-        id text PRIMARY KEY,
-        data jsonb NOT NULL
+        id TEXT PRIMARY KEY,
+        data TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS articles (
-        id text PRIMARY KEY,
-        slug text NOT NULL UNIQUE,
-        status text NOT NULL CHECK (status IN ('draft', 'in-review', 'scheduled', 'published', 'archived')),
-        is_demo boolean NOT NULL DEFAULT false,
-        is_user_modified boolean NOT NULL DEFAULT false,
-        updated_at timestamptz NOT NULL,
-        data jsonb NOT NULL
+        id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL UNIQUE,
+        status TEXT NOT NULL CHECK (status IN ('draft', 'in-review', 'scheduled', 'published', 'archived')),
+        is_demo INTEGER NOT NULL DEFAULT 0,
+        is_user_modified INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL,
+        data TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS authors (
-        id text PRIMARY KEY, slug text NOT NULL UNIQUE,
-        is_demo boolean NOT NULL DEFAULT false,
-        is_user_modified boolean NOT NULL DEFAULT false,
-        data jsonb NOT NULL
+        id TEXT PRIMARY KEY, slug TEXT NOT NULL UNIQUE,
+        is_demo INTEGER NOT NULL DEFAULT 0,
+        is_user_modified INTEGER NOT NULL DEFAULT 0,
+        data TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS sections (
-        id text PRIMARY KEY, slug text NOT NULL UNIQUE, data jsonb NOT NULL
+        id TEXT PRIMARY KEY, slug TEXT NOT NULL UNIQUE, data TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS categories (
-        id text PRIMARY KEY, slug text NOT NULL UNIQUE, data jsonb NOT NULL
+        id TEXT PRIMARY KEY, slug TEXT NOT NULL UNIQUE, data TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS tags (
-        id text PRIMARY KEY, slug text NOT NULL UNIQUE, data jsonb NOT NULL
+        id TEXT PRIMARY KEY, slug TEXT NOT NULL UNIQUE, data TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS media (
-        id text PRIMARY KEY, data jsonb NOT NULL
+        id TEXT PRIMARY KEY, data TEXT NOT NULL
       );
-      -- Schéma 2 : programmé et archivé (une base de schéma 1 les refusait).
-      ALTER TABLE articles DROP CONSTRAINT IF EXISTS articles_status_check;
-      ALTER TABLE articles ADD CONSTRAINT articles_status_check CHECK (status IN ('draft', 'in-review', 'scheduled', 'published', 'archived'));
-      INSERT INTO kiosque_meta(key, value) VALUES ('schema-version', '2'::jsonb)
+      INSERT INTO kiosque_meta(key, value) VALUES ('schema-version', '2')
       ON CONFLICT (key) DO UPDATE SET value = excluded.value;
     `);
   }
@@ -294,7 +298,7 @@ export class DemoBackendPGlite {
         }
       }
       await tx.query(
-        `INSERT INTO publication(id, data) VALUES ($1, $2::jsonb)
+        `INSERT INTO publication(id, data) VALUES ($1, $2)
          ON CONFLICT(id) DO UPDATE SET data = excluded.data`,
         [seed.publication.id, JSON.stringify(seed.publication)],
       );
@@ -304,7 +308,7 @@ export class DemoBackendPGlite {
         if (entities.length) {
           const values = entities.map((_, index) => {
             const offset = index * 3;
-            return `($${offset + 1}, $${offset + 2}, $${offset + 3}::jsonb)`;
+            return `($${offset + 1}, $${offset + 2}, $${offset + 3})`;
           }).join(',');
           await tx.query(
             `INSERT INTO ${table}(id, slug, data) VALUES ${values}
@@ -323,7 +327,7 @@ export class DemoBackendPGlite {
       if (authors.length) {
         const values = authors.map((_, index) => {
           const offset = index * 5;
-          return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}::jsonb)`;
+          return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5})`;
         }).join(',');
         await tx.query(
           `INSERT INTO authors(id, slug, is_demo, is_user_modified, data) VALUES ${values}
@@ -340,7 +344,7 @@ export class DemoBackendPGlite {
       if (articles.length) {
         const values = articles.map((_, index) => {
           const offset = index * 7;
-          return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}::jsonb)`;
+          return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7})`;
         }).join(',');
         await tx.query(
           `INSERT INTO articles(id, slug, status, is_demo, is_user_modified, updated_at, data)
@@ -354,18 +358,18 @@ export class DemoBackendPGlite {
       for (const media of seed.media || []) {
         const entity = { ...media, id: entityId(media) };
         await tx.query(
-          `INSERT INTO media(id, data) VALUES ($1, $2::jsonb)
+          `INSERT INTO media(id, data) VALUES ($1, $2)
            ON CONFLICT(id) DO UPDATE SET data = excluded.data`,
           [entity.id, JSON.stringify(entity)],
         );
       }
       await tx.query(
-        `INSERT INTO kiosque_meta(key, value) VALUES ('demo-visible', $1::jsonb)
+        `INSERT INTO kiosque_meta(key, value) VALUES ('demo-visible', $1)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
         [JSON.stringify(seed.settings?.demoVisible !== false)],
       );
       await tx.query(
-        `INSERT INTO kiosque_meta(key, value) VALUES ('seeded', $1::jsonb)
+        `INSERT INTO kiosque_meta(key, value) VALUES ('seeded', $1)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
         [JSON.stringify({ at: now(), version: seed.version || 1 })],
       );
@@ -423,7 +427,7 @@ export class DemoBackendPGlite {
       if (entity.isDemo) entity.isUserModified = true;
       await this.db.query(
         `INSERT INTO articles(id, slug, status, is_demo, is_user_modified, updated_at, data)
-         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT(id) DO UPDATE SET slug = excluded.slug, status = excluded.status,
            is_demo = excluded.is_demo, is_user_modified = excluded.is_user_modified,
            updated_at = excluded.updated_at, data = excluded.data`,
@@ -433,20 +437,20 @@ export class DemoBackendPGlite {
       if (!entity.name?.trim() || !entity.slug?.trim()) throw new Error('Une signature requiert un nom et un identifiant URL.');
       if (entity.isDemo) entity.isUserModified = true;
       await this.db.query(
-        `INSERT INTO authors(id, slug, is_demo, is_user_modified, data) VALUES ($1, $2, $3, $4, $5::jsonb)
+        `INSERT INTO authors(id, slug, is_demo, is_user_modified, data) VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT(id) DO UPDATE SET slug = excluded.slug, is_demo = excluded.is_demo,
            is_user_modified = excluded.is_user_modified, data = excluded.data`,
         [entity.id, entity.slug, Boolean(entity.isDemo), Boolean(entity.isUserModified), JSON.stringify(entity)],
       );
     } else if (kind === 'media') {
       await this.db.query(
-        'INSERT INTO media(id, data) VALUES ($1, $2::jsonb) ON CONFLICT(id) DO UPDATE SET data = excluded.data',
+        'INSERT INTO media(id, data) VALUES ($1, $2) ON CONFLICT(id) DO UPDATE SET data = excluded.data',
         [entity.id, JSON.stringify(entity)],
       );
     } else {
       if (!entity.name?.trim() || !entity.slug?.trim()) throw new Error('Cette entrée requiert un nom et un identifiant URL.');
       await this.db.query(
-        `INSERT INTO ${table}(id, slug, data) VALUES ($1, $2, $3::jsonb)
+        `INSERT INTO ${table}(id, slug, data) VALUES ($1, $2, $3)
          ON CONFLICT(id) DO UPDATE SET slug = excluded.slug, data = excluded.data`,
         [entity.id, entity.slug, JSON.stringify(entity)],
       );
@@ -507,7 +511,7 @@ export class DemoBackendPGlite {
   async savePublication(publication) {
     const entity = clone(publication);
     await this.db.query(
-      'INSERT INTO publication(id, data) VALUES ($1, $2::jsonb) ON CONFLICT(id) DO UPDATE SET data = excluded.data',
+      'INSERT INTO publication(id, data) VALUES ($1, $2) ON CONFLICT(id) DO UPDATE SET data = excluded.data',
       [entity.id, JSON.stringify(entity)],
     );
     this.#emit({ kind: 'publication', id: entity.id });
@@ -516,7 +520,7 @@ export class DemoBackendPGlite {
 
   async setDemoVisibility(visible) {
     await this.db.query(
-      `INSERT INTO kiosque_meta(key, value) VALUES ('demo-visible', $1::jsonb)
+      `INSERT INTO kiosque_meta(key, value) VALUES ('demo-visible', $1)
        ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
       [JSON.stringify(Boolean(visible))],
     );
@@ -526,11 +530,11 @@ export class DemoBackendPGlite {
   async removeDemo() {
     await this.db.transaction(async (tx) => {
       await tx.exec('DELETE FROM articles WHERE is_demo = true AND is_user_modified = false');
-      await tx.exec(`DELETE FROM authors AS author
+      await tx.exec(`DELETE FROM authors
         WHERE is_demo = true AND is_user_modified = false
         AND NOT EXISTS (
-          SELECT 1 FROM articles AS article
-          WHERE article.data->'authors' ? (author.data->>'slug')
+          SELECT 1 FROM articles, json_each(articles.data, '$.authors') AS signature
+          WHERE signature.value = json_extract(authors.data, '$.slug')
         )`);
     });
     this.#emit({ kind: 'demo-removed' });
@@ -571,21 +575,21 @@ export class DemoBackendPGlite {
     const data = backup.bundle;
     await this.db.transaction(async (tx) => {
       for (const table of ['articles', 'authors', 'sections', 'categories', 'tags', 'media', 'publication']) await tx.exec(`DELETE FROM ${table}`);
-      await tx.query('INSERT INTO publication(id, data) VALUES ($1, $2::jsonb)', [data.publication.id, JSON.stringify(data.publication)]);
+      await tx.query('INSERT INTO publication(id, data) VALUES ($1, $2)', [data.publication.id, JSON.stringify(data.publication)]);
       for (const kind of ['section', 'category', 'tag']) {
         const table = TABLES[kind];
         for (const item of data.taxonomies?.[table] || []) {
-          await tx.query(`INSERT INTO ${table}(id, slug, data) VALUES ($1, $2, $3::jsonb)`, [item.id, item.slug, JSON.stringify(item)]);
+          await tx.query(`INSERT INTO ${table}(id, slug, data) VALUES ($1, $2, $3)`, [item.id, item.slug, JSON.stringify(item)]);
         }
       }
       for (const item of data.authors || []) {
-        await tx.query('INSERT INTO authors(id, slug, is_demo, is_user_modified, data) VALUES ($1,$2,$3,$4,$5::jsonb)', [item.id, item.slug, Boolean(item.isDemo), Boolean(item.isUserModified), JSON.stringify(item)]);
+        await tx.query('INSERT INTO authors(id, slug, is_demo, is_user_modified, data) VALUES ($1,$2,$3,$4,$5)', [item.id, item.slug, Boolean(item.isDemo), Boolean(item.isUserModified), JSON.stringify(item)]);
       }
       for (const item of data.articles || []) {
-        await tx.query('INSERT INTO articles(id,slug,status,is_demo,is_user_modified,updated_at,data) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)', [item.id, item.slug, item.status, Boolean(item.isDemo), Boolean(item.isUserModified), item.updatedAt || now(), JSON.stringify(item)]);
+        await tx.query('INSERT INTO articles(id,slug,status,is_demo,is_user_modified,updated_at,data) VALUES ($1,$2,$3,$4,$5,$6,$7)', [item.id, item.slug, item.status, Boolean(item.isDemo), Boolean(item.isUserModified), item.updatedAt || now(), JSON.stringify(item)]);
       }
       for (const item of data.media || []) {
-        await tx.query('INSERT INTO media(id,data) VALUES ($1,$2::jsonb)', [item.id, JSON.stringify(item)]);
+        await tx.query('INSERT INTO media(id,data) VALUES ($1,$2)', [item.id, JSON.stringify(item)]);
       }
     });
     this.#emit({ kind: 'backup-restored' });
@@ -604,6 +608,5 @@ export class DemoBackendPGlite {
   async close() {
     this.channel?.close();
     await this.db?.close();
-    this.worker?.terminate();
   }
 }

@@ -25,15 +25,14 @@ test("l'admin vit dans le socle : chaque fichier importé est là, et seulement 
   assert.deepEqual(present, [...ADMIN_ASSETS].sort(), "admin/assets contient exactement la liste");
   for (const file of ADMIN_ASSETS.filter((name: string) => name.endsWith(".js"))) {
     const { fixed, lazy } = imports(file);
-    // PGlite (`pglite/`) est ajouté par la construction de la démo, jamais servi par le socle.
-    for (const target of [...fixed, ...lazy].filter((name) => !name.startsWith("pglite/"))) {
+    for (const target of [...fixed, ...lazy]) {
       assert.ok(existsSync(join(ASSETS, target)), `${file} importe ${target}, absent`);
     }
     assert.doesNotMatch(readFileSync(join(ASSETS, file), "utf8"), /from '\.\.\//, `${file} ne sort pas de admin/assets`);
   }
 });
 
-test("mode serveur : jamais PGlite, seulement les fichiers servis", () => {
+test("mode serveur : jamais la base de la démo, seulement les fichiers servis", () => {
   // Graphe des imports fixes depuis admin.js, plus le client du socle.
   const seen = new Set<string>();
   const walk = (file: string) => {
@@ -44,7 +43,7 @@ test("mode serveur : jamais PGlite, seulement les fichiers servis", () => {
   walk("admin.js");
   walk("socle-backend.js");
   for (const file of seen) assert.ok(SERVER_ASSETS.has(file), `${file} doit être servi en mode serveur`);
-  assert.ok(!SERVER_ASSETS.has("demo-backend.js") && !SERVER_ASSETS.has("pglite-worker.js"));
+  for (const file of ["demo-backend.js", "sqljs-db.js", "sql-wasm.js", "sql-wasm.wasm"]) assert.ok(!SERVER_ASSETS.has(file), `${file} reste à la démo`);
   assert.doesNotMatch(readFileSync(join(ASSETS, "runtime.js"), "utf8"), /^import .*demo-backend/m, "la démo ne se charge qu'à la demande");
 });
 
@@ -54,7 +53,7 @@ test("admin/serveur.html est à jour (npm run ui)", () => {
   assert.match(html, /"mode":"socle"/);
   assert.match(html, /src="\/redaction\/assets\/admin\.js"/);
   assert.match(html, /href="\/admin\/mise-a-jour"/);
-  assert.doesNotMatch(html, /pglite|seedUrl/);
+  assert.doesNotMatch(html, /pglite|sql-wasm|seedUrl/);
 });
 
 test("mode navigateur : la même page, pour la démo", () => {
@@ -113,4 +112,32 @@ test("client du socle : un socle neuf ouvre l'admin avec une fiche de départ, r
   assert.equal(snapshot.publication.name, "Mon journal");
   assert.ok(calls.every((call) => call.method === "GET"), "aucune écriture au démarrage");
   assert.ok(calls.every((call) => call.url === "/v1/redaction/etat"));
+});
+
+test("la démo en mode navigateur tourne sur sql.js copié tel quel, sans PGlite", async () => {
+  const dist = join(ROOT, "node_modules", "sql.js", "dist");
+  if (existsSync(dist)) {
+    assert.deepEqual(readFileSync(join(ASSETS, "sql-wasm.js")), readFileSync(join(dist, "sql-wasm-browser.js")), "npm run ui");
+    assert.deepEqual(readFileSync(join(ASSETS, "sql-wasm.wasm")), readFileSync(join(dist, "sql-wasm-browser.wasm")), "npm run ui");
+  }
+  const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));
+  assert.ok(!JSON.stringify(pkg).includes("pglite"), "PGlite est retiré");
+  const demo = readFileSync(join(ASSETS, "demo-backend.js"), "utf8");
+  assert.match(demo, /from '\.\/sqljs-db\.js'/);
+  assert.doesNotMatch(demo, /pglite|::jsonb|->>/i);
+  // Le dialecte de la démo passe dans SQLite : on rejoue le schéma et les requêtes délicates.
+  const { toSqlite } = await import("../admin/assets/sqljs-db.js");
+  const initSqlJs = (await import("sql.js")).default;
+  const SQL = await initSqlJs();
+  const db = new SQL.Database();
+  const schema = /#migrate\(\) \{\s*await this\.db\.exec\(`([\s\S]*?)`\);/.exec(demo)?.[1] ?? "";
+  db.exec(toSqlite(schema));
+  db.run(toSqlite("INSERT INTO authors(id, slug, is_demo, is_user_modified, data) VALUES ($1,$2,true,false,$3::jsonb)"), ["a1", "lea", JSON.stringify({ slug: "lea" })]);
+  db.run(toSqlite("INSERT INTO authors(id, slug, is_demo, is_user_modified, data) VALUES ($1,$2,true,false,$3::jsonb)"), ["a2", "max", JSON.stringify({ slug: "max" })]);
+  db.run(toSqlite("INSERT INTO articles(id,slug,status,is_demo,is_user_modified,updated_at,data) VALUES ($1,$2,$3,$4,$5,$6,$7)"), ["r1", "un", "published", 0, 1, "2026-11-18", JSON.stringify({ authors: ["lea"] })]);
+  const removeDemo = /await tx\.exec\(`(DELETE FROM authors[\s\S]*?)`\);/.exec(demo)?.[1] ?? "";
+  db.exec(toSqlite(removeDemo));
+  assert.deepEqual(db.exec("SELECT slug FROM authors ORDER BY slug")[0].values, [["lea"]], "une signature encore utilisée reste");
+  db.run(toSqlite("INSERT INTO kiosque_meta(key, value) VALUES ('seeded', $1::jsonb) ON CONFLICT (key) DO UPDATE SET value = excluded.value"), [JSON.stringify({ version: 3 })]);
+  assert.equal(JSON.parse(String(db.exec("SELECT value FROM kiosque_meta WHERE key = 'seeded'")[0].values[0][0])).version, 3);
 });

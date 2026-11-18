@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const ADMIN_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "admin");
 
-/** Fichiers servis en mode serveur. Pas de PGlite : il ne sert qu'à la démo. */
+/** Fichiers servis en mode serveur. Pas la base de la démo (sql.js) : elle ne sert qu'au mode navigateur. */
 export const SERVER_ASSETS: ReadonlySet<string> = new Set([
   "admin.js", "admin.css", "runtime.js", "util.js", "export.js",
   "stock-photo-match.js", "marked.esm.js", "socle-backend.js",

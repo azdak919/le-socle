@@ -1,7 +1,7 @@
 // Compile la feuille de l'admin (Tailwind CSS v4 + Basecoat, MIT) et écrit
-// la page servie sous /redaction/. On ne garde de Basecoat que les
+// la page servie sous /redaction/, et copie sql.js pour la démo. On ne garde de Basecoat que les
 // composants utilisés. Usage : npm run ui
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, copyFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { serverPage } from '../admin/page.js';
@@ -26,4 +26,8 @@ await mkdir(path.join(root, 'admin/ui/vendor'), { recursive: true });
 await writeFile(path.join(root, 'admin/ui/vendor/basecoat-subset.css'), out);
 execFileSync(path.join(root, 'node_modules/.bin/tailwindcss'), ['-i', 'admin/ui/admin.css', '-o', 'admin/assets/admin.css', '--minify'], { cwd: root, stdio: 'inherit' });
 await writeFile(path.join(root, 'admin/serveur.html'), serverPage());
+// Base de la démo en mode navigateur : sql.js (MIT), copié tel quel.
+const sqljs = path.join(root, 'node_modules/sql.js/dist');
+await copyFile(path.join(sqljs, 'sql-wasm-browser.js'), path.join(root, 'admin/assets/sql-wasm.js'));
+await copyFile(path.join(sqljs, 'sql-wasm-browser.wasm'), path.join(root, 'admin/assets/sql-wasm.wasm'));
 

@@ -143,7 +143,7 @@ Crédit : une photo de bibliothèque sans crédit est refusée, comme `validateS
 
 SQLite, c'est un seul fichier de base de données posé à côté du projet. Pas un logiciel à maintenir à part. Les brouillons y vivent. Le site publié, lui, reste des pages.
 
-PGlite, c'est la même idée dans le navigateur. Le Kiosque s'en sert déjà pour la démo Le Quorum. Les tests du socle s'en servent aussi, pour ne pas inventer une deuxième démo.
+Dans le navigateur, la démo Le Quorum tourne sur le même SQLite, compilé par sql.js (MIT), gardé dans IndexedDB. (Mise à jour du 18 nov. 2026 : PGlite, sous Apache-2.0, incompatible avec GPL-2.0-only, est retiré de la démo et des tests.)
 
 Un seul cœur, en TypeScript effaçable (pas d'`enum`, pas de `namespace`, pas de propriété de paramètre), Node ≥ 22.18. Les modules appellent une interface `SocleStore`. Ils ne parlent pas SQL. Les pilotes portent le SQL.
 
@@ -154,11 +154,11 @@ Pilotes prévus :
 | `node:sqlite` | ordinateur de la rédaction, serveur de l'établissement, petit VPS | SQLite |
 | D1 | Cloudflare Workers | SQLite, sous-ensemble D1 |
 | PDO SQLite | hébergement PHP | le même SQLite |
-| PGlite 0.5.4 | démo et tests, comme le Kiosque | Postgres |
+| sql.js 1.16.0 | démo en mode navigateur (IndexedDB) | SQLite |
 
-Postgres sur la VM n'est pas un pilote de la version 1. SQLite y suffit, et ça évite une troisième grammaire plus une dépendance `pg`. Le mot « ou Postgres » du mandat est tenu par PGlite pour la démo et les tests. Un pilote Postgres serveur serait une pull request plus tard, s'il y a un besoin réel.
+Postgres sur la VM n'est pas un pilote de la version 1. SQLite y suffit, et ça évite une troisième grammaire plus une dépendance `pg`. Postgres reste possible : un pilote serveur qui implémente `SocleStore` avec un client libre compatible GPL-2.0-only (par exemple `pg`, MIT) serait une pull request plus tard, s'il y a un besoin réel, avec la même suite de tests.
 
-Le SQL commun à D1, à `node:sqlite` et à PHP tient dans un sous-ensemble : pas de `ATTACH`, paramètres liés sous la limite D1 (100), requêtes qui passent aussi le plafond de 50 requêtes par invocation sur le forfait gratuit. PGlite a son propre fichier SQL. Les tests ne lisent pas le SQL. Ils observent le même comportement sur chaque pilote.
+Le SQL commun à D1, à `node:sqlite` et à PHP tient dans un sous-ensemble : pas de `ATTACH`, paramètres liés sous la limite D1 (100), requêtes qui passent aussi le plafond de 50 requêtes par invocation sur le forfait gratuit. Les tests ne lisent pas le SQL. Ils observent le même comportement sur chaque pilote.
 
 La cible PHP ne partage pas le code TypeScript. Elle réalise la même interface HTTP, une fois le contrat figé. Avant ça, l'hébergement mutualisé et la clé USB sont le site statique, déjà produit par le Kiosque (`.htaccess`, copie de `dist/`). Le module 7 rend ce dossier depuis le socle aussi.
 
@@ -349,9 +349,9 @@ Le crédit d'essai de 300 $ n'est pas le plan. Si le compte est encore dans l'es
 
 Pas de chiffre universel : le délai par requête, la présence de SQLite et le cron dépendent de l'hébergeur. Le socle dynamique, le jour où il existe en PHP, est un contrôleur sans démon, base SQLite hors de la racine web. Un hébergeur sans SQLite sert quand même le site statique. La clé USB, c'est `dist/` ou le dossier d'export, lisible sans Node et sans PHP.
 
-### PGlite
+### Base de la démo (sql.js)
 
-Même version que le Kiosque (0.5.4), en dépendance de développement, pour la démo et les tests. Pas dans le build Git d'un journal. Pas chargé depuis un CDN.
+sql.js 1.16.0 (MIT), en dépendance de développement ; `npm run ui` en recopie `sql-wasm.js` et `sql-wasm.wasm` tels quels dans `admin/assets/`. Seulement pour la démo en mode navigateur. Pas dans le build Git d'un journal. Pas chargé depuis un CDN. PGlite (Apache-2.0) est retiré le 18 nov. 2026 : sa licence n'est pas compatible avec GPL-2.0-only.
 
 ### Ce qu'il faut surveiller une fois que ça tourne
 

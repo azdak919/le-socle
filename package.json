@@ -15,10 +15,10 @@
     "ui": "node tools/build-ui.mjs"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.4",
     "@tailwindcss/cli": "4.3.5",
     "basecoat-css": "1.1.0",
     "miniflare": "4.20260730.0",
+    "sql.js": "1.16.0",
     "tailwindcss": "4.3.5"
   },
   "allowScripts": {
