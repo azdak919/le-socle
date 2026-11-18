@@ -84,7 +84,7 @@ function socle_admin_copy(string $lang): array {
             'saveTitle' => 'Backup', 'off' => 'Backup is off.', 'activate' => 'Turn on',
             'yearsHelp' => 'The current year and the previous one start checked. Older years stay unchecked: an earlier archive is assumed to hold them. This program cannot check that.',
             'savePrefs' => 'Save', 'downloadSite' => 'Download the site', 'sessionOf' => 'Session', 'articlesOnly' => 'articles only',
-            'restoreHint' => 'Restore by sending the archive to this address.',
+            'restoreHint' => '<h2>Restore an archive</h2><p>Choose a ZIP downloaded here (site or session). A session archive only replaces its articles.</p><form class="noprint" id="restaurer"><input type="file" name="archive" accept=".zip,application/zip" required> <button type="submit">Restore</button></form><p id="restaurer-etat" role="status"></p>',
             'updateTitle' => 'Update', 'line' => 'Socle', 'installed' => 'Installed version', 'offered' => 'Offered version',
             'none' => 'No offered version. Offline, only the installed version is shown.',
             'backupWill' => 'Program backup, before', 'notContent' => 'The journal content is not in this backup.',
@@ -101,7 +101,7 @@ function socle_admin_copy(string $lang): array {
         'saveTitle' => 'Sauvegarde', 'off' => 'La sauvegarde est éteinte.', 'activate' => 'Activer',
         'yearsHelp' => "L'année en cours et la précédente sont cochées au départ. Les années plus anciennes restent décochées : une archive antérieure est supposée les contenir. Ce programme ne peut pas le vérifier.",
         'savePrefs' => 'Enregistrer', 'downloadSite' => 'Télécharger le site', 'sessionOf' => 'Session', 'articlesOnly' => 'articles seulement',
-        'restoreHint' => "La restauration se fait en envoyant l'archive à cette adresse.",
+        'restoreHint' => '<h2>Restaurer une archive</h2><p>Choisissez un ZIP téléchargé ici (site ou session). Une archive de session ne remplace que ses articles.</p><form class="noprint" id="restaurer"><input type="file" name="archive" accept=".zip,application/zip" required> <button type="submit">Restaurer</button></form><p id="restaurer-etat" role="status"></p>',
         'updateTitle' => 'Mise à jour', 'line' => 'Socle', 'installed' => 'Version en place', 'offered' => 'Version proposée',
         'none' => 'Aucune version proposée. Sans réseau, seule la version en place est affichée.',
         'backupWill' => 'Sauvegarde du programme, avant', 'notContent' => "Le contenu du journal n'est pas dans cette sauvegarde.",
@@ -119,6 +119,9 @@ function socle_handle_admin(string $method, string $url, array &$config, SocleSt
     $upload = socle_upload_dir();
 
     if ($path === '/admin' && $method === 'GET') {
+        // Une seule admin : avec le module éditorial, c'est la rédaction.
+        parse_str((string) (parse_url($url, PHP_URL_QUERY) ?? ''), $query);
+        if ($config['modules']['editorial'] && !array_key_exists('outils', $query)) return socle_result(303, '', ['location' => '/redaction/']);
         $downloaded = $exportOn ? socle_was_downloaded($store) : false;
         $notice = !$exportOn || !$downloaded ? '<p><strong>' . $copy['notice'] . '</strong></p>' : '';
         $articlesLink = $config['modules']['editorial']
@@ -174,13 +177,13 @@ function socle_handle_admin(string $method, string $url, array &$config, SocleSt
         $links = '';
         foreach (array_merge(SOCLE_SEASONS, $named) as $session) {
             $href = socle_with_lang('/admin/sauvegarde/session.zip?session=' . rawurlencode($session), $lang);
-            $links .= '<li><a href="' . $href . '">' . $copy['sessionOf'] . ' ' . $session . ', ' . $copy['articlesOnly'] . '</a></li>';
+            $links .= '<li><a href="' . $href . '">' . $copy['sessionOf'] . ' ' . ($session === 'ete' ? 'été' : $session) . ', ' . $copy['articlesOnly'] . '</a></li>';
         }
         $body = '<p>' . $copy['yearsHelp'] . '</p>
 <form class="noprint" method="post" action="' . socle_with_lang('/admin/sauvegarde/prefs', $lang) . '">' . implode('<br>', $boxes) . '<p><button type="submit">' . $copy['savePrefs'] . '</button></p></form>
 <p class="noprint"><a href="' . socle_with_lang('/admin/sauvegarde/site.zip', $lang) . '">' . $copy['downloadSite'] . '</a></p>
 <ul class="noprint">' . $links . '</ul>
-<p>' . $copy['restoreHint'] . '</p>';
+' . $copy['restoreHint'] . '<script>document.getElementById(\'restaurer\').onsubmit=async function(e){e.preventDefault();var f=this.archive.files[0];if(!f)return;var s=document.getElementById(\'restaurer-etat\');s.textContent=\'…\';var r=await fetch(location.pathname+\'/restaurer\'+location.search,{method:\'POST\',headers:{\'content-type\':\'application/zip\'},body:f});var t=await r.text();s.textContent=r.ok?\'OK : \'+t:\'Erreur \'+r.status;};</script>';
         return socle_admin_document($lang, $copy['saveTitle'], $body);
     }
 
@@ -278,7 +281,7 @@ function socle_update_page(string $lang, array $copy, SocleStore $store, ?string
     $revert = $allowed && $saved !== null
         ? '<form class="noprint" method="post" action="' . socle_with_lang('/admin/mise-a-jour/revenir', $lang) . '"><button type="submit">' . $copy['revert'] . '</button></form>'
         : '';
-    $form = $allowed
+    $form = $allowed && $offered !== null
         ? '<form class="noprint" method="post" action="' . socle_with_lang('/admin/mise-a-jour', $lang) . '">
 ' . $extra . '
 <p><button type="submit" name="confirm" value="1">' . $copy['updateBtn'] . '</button></p>

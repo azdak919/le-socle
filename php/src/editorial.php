@@ -142,7 +142,8 @@ function socle_article_form(string $lang, array $article, string $error = ''): s
     $options = '';
     foreach (SOCLE_STATUSES as $item) {
         $selected = $item === $status ? ' selected' : '';
-        $options .= '<option value="' . $item . '"' . $selected . '>' . $item . '</option>';
+        $label = $lang === 'fr' ? (['draft' => 'Brouillon', 'in-review' => 'En révision', 'scheduled' => 'Programmé', 'published' => 'Publié', 'archived' => 'Archivé', 'retracted' => 'Retiré'][$item] ?? $item) : $item;
+        $options .= '<option value="' . $item . '"' . $selected . '>' . $label . '</option>';
     }
     $alert = $error !== '' ? '<p role="alert">' . socle_escape($error) . '</p>' : '';
     $author = $article['authors'][0] ?? '';
@@ -176,8 +177,8 @@ function socle_editorial_copy(string $lang): array {
         ];
     }
     return [
-        'articles' => 'Articles', 'review' => 'Relecture', 'title' => 'Titre', 'slug' => 'Slug', 'status' => 'Statut',
-        'body' => 'Texte', 'excerpt' => 'Extrait', 'author' => 'Autrice ou auteur (slug)', 'section' => 'Section',
+        'articles' => 'Articles', 'review' => 'Relecture', 'title' => 'Titre', 'slug' => 'Adresse', 'status' => 'Statut',
+        'body' => 'Texte', 'excerpt' => 'Extrait', 'author' => 'Signature (nom court)', 'section' => 'Section',
         'scheduled' => 'Heure de publication', 'session' => 'Session', 'submitted' => 'Soumis le',
         'reviewedAt' => 'Révisé le', 'reviewedBy' => 'Révisé par', 'save' => 'Enregistrer',
         'empty' => 'Aucun article.', 'queueEmpty' => 'Rien en relecture.',

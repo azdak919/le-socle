@@ -51,8 +51,9 @@ function icon(name) {
  * Chaque entrée est un vrai lien : sans JavaScript ou depuis une autre page,
  * il mène au bon écran ; dans l'admin, admin.js l'intercepte.
  */
-export function adminNav(adminBasePath, active, updateHref = `${adminBasePath}/mise-a-jour/`) {
+export function adminNav(adminBasePath, active, updateHref = `${adminBasePath}/mise-a-jour/`, saveHref = '') {
   const items = VIEWS.map(([view, label]) => `<a href="${adminBasePath}/#${view}" data-view="${view}"${view === active ? ' aria-current="page"' : ''}>${icon(view)}${esc(label)}</a>`);
+  if (saveHref) items.push(`<a href="${esc(saveHref)}" data-nav="save"${active === 'save' ? ' aria-current="page"' : ''}>${icon('exports')}Sauvegarde</a>`);
   items.push(`<a href="${esc(updateHref)}" data-nav="update"${active === 'update' ? ' aria-current="page"' : ''}>${icon('update')}Mise à jour</a>`);
   return `<nav class="admin-nav" aria-label="Administration">${items.join('')}</nav>`;
 }
@@ -71,7 +72,7 @@ export function adminShell(options) {
 <div class="admin-app">
   <aside class="admin-sidebar">
     <div class="admin-brand"><span class="admin-brand-mark" aria-hidden="true">K</span><span><strong>Le Kiosque</strong><small>Rédaction</small></span></div>
-    ${adminNav(options.adminBasePath, options.active, options.updateHref)}
+    ${adminNav(options.adminBasePath, options.active, options.updateHref, options.saveHref)}
   </aside>
   <div class="admin-column">
     <header class="admin-header"><h1><span class="muted">Rédaction de</span> <span id="publication-name">${esc(options.publicationName)}</span></h1><a class="btn" data-variant="outline" data-size="sm" href="${options.publicBasePath}/">Voir le journal ↗</a></header>
@@ -119,6 +120,7 @@ export function adminPage(options) {
     cssHref: `${options.assetsBase}/admin.css`,
     active: 'dashboard',
     updateHref: options.updateHref,
+    saveHref: options.saveHref,
     note: serveur
       ? 'Rédaction du journal — chaque enregistrement est écrit sur le serveur du journal.'
       : 'Mode démonstration local — données conservées dans ce navigateur.',
@@ -138,5 +140,6 @@ export function serverPage() {
     assetsBase: '/redaction/assets',
     apiBase: '',
     updateHref: '/admin/mise-a-jour',
+    saveHref: '/admin/sauvegarde',
   });
 }
