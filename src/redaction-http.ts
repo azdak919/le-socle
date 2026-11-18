@@ -145,6 +145,7 @@ function articleFrom(input: Record<string, unknown>, existing: SocleArticle | un
     updatedAt: now,
     canonicalUrl: text(input.canonicalUrl, 500) || existing?.canonicalUrl || "",
     source: { backend: "socle", backendId: id, fetchedAt: now },
+    featured: Boolean(input.featured) || undefined,
   };
 }
 

@@ -50,6 +50,8 @@ export type SocleArticle = {
   lang: string;
   status: EditorialStatus;
   isDemo?: boolean;
+  /** Mis en avant : seul cet article porte « À la une » sur le site. */
+  featured?: boolean;
   publishedAt?: string;
   updatedAt: string;
   submittedAt?: string;
@@ -212,7 +214,16 @@ export async function saveArticle(store: SocleStore, article: SocleArticle, now:
   };
   if (next.status === "in-review" && !next.submittedAt) next.submittedAt = now;
   checkArticle(next);
+  if (!next.featured) delete next.featured;
   await store.put("editorial", `article:${next.id}`, JSON.stringify(next));
+  if (next.featured) {
+    for (const other of await readArticles(store)) {
+      if (other.id === next.id || !other.featured) continue;
+      delete other.featured;
+      other.updatedAt = now;
+      await store.put("editorial", `article:${other.id}`, JSON.stringify(other));
+    }
+  }
   return next;
 }
 
