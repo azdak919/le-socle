@@ -516,6 +516,40 @@ function socle_serve_static(string $urlPath): array {
     return socle_result(200, $bytes, ['content-type' => socle_static_type($real)]);
 }
 
+/**
+ * Site du journal dans le paquet complet : `site/` porte `kiosque-vivant.json`.
+ * Une adresse d'article n'est pas un fichier : on sert la coquille (404.html,
+ * statut 200) et le navigateur dessine la page à partir du socle. `noindex`
+ * de la publication ajoute la balise robots et ferme robots.txt.
+ */
+function socle_serve_site(string $uri, ?SocleStore $store): array {
+    $root = socle_static_root();
+    $live = $root !== null && is_file($root . '/kiosque-vivant.json');
+    $path = socle_request_path($uri);
+    $noindex = false;
+    if ($live && $store !== null) {
+        try {
+            $publication = socle_read_publication($store);
+            $noindex = is_array($publication) && !empty($publication['noindex']);
+        } catch (Throwable) {
+        }
+    }
+    if ($live && $path === '/robots.txt') {
+        $body = $noindex ? "User-agent: *\nDisallow: /\n" : "User-agent: *\nAllow: /\nDisallow: /redaction/\nDisallow: /admin\n";
+        return socle_result(200, $body, ['content-type' => 'text/plain; charset=utf-8']);
+    }
+    $result = socle_serve_static($uri);
+    if ($result['status'] === 404 && $live && !preg_match('#\.[A-Za-z0-9]{1,5}$#', $path)) {
+        $shell = @file_get_contents($root . '/404.html');
+        if (is_string($shell)) $result = socle_result(200, $shell, ['content-type' => 'text/html; charset=utf-8']);
+    }
+    if ($live && $result['status'] === 200 && str_starts_with((string) ($result['headers']['content-type'] ?? ''), 'text/html')) {
+        $result['headers']['cache-control'] = 'no-cache';
+        if ($noindex) $result['body'] = preg_replace('#</head>#i', '<meta name="robots" content="noindex, nofollow"></head>', (string) $result['body'], 1) ?? $result['body'];
+    }
+    return $result;
+}
+
 /** Dossier du front (`/journal/socle`), vide à la racine du domaine. */
 function socle_base_path(string $scriptName): string {
     $dir = str_replace('\\', '/', dirname($scriptName));
@@ -536,8 +570,8 @@ function socle_with_base(array $result, string $base): array {
     if (str_starts_with($type, 'text/html')) {
         $body = preg_replace('#\b(href|action|src)="/(?!/)#', '$1="' . $base . '/', $result['body']) ?? $result['body'];
         $body = str_replace(
-            ['"adminBasePath":"/redaction"', '"assetsBase":"/redaction/assets"', '"apiBase":""'],
-            ['"adminBasePath":"' . $base . '/redaction"', '"assetsBase":"' . $base . '/redaction/assets"', '"apiBase":"' . $base . '"'],
+            ['"adminBasePath":"/redaction"', '"assetsBase":"/redaction/assets"', '"apiBase":""', '"publicBasePath":""', '"assetsBase":"/assets/editorial"'],
+            ['"adminBasePath":"' . $base . '/redaction"', '"assetsBase":"' . $base . '/redaction/assets"', '"apiBase":"' . $base . '"', '"publicBasePath":"' . $base . '"', '"assetsBase":"' . $base . '/assets/editorial"'],
             $body,
         );
         $result['body'] = $body;

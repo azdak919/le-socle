@@ -36,6 +36,9 @@ export function markEditorialActive() {
 }
 
 export async function editorialNeeded() {
+  // Paquet complet : le site du journal se dessine dans le navigateur à partir
+  // du socle de la même installation (articles publiés seulement).
+  if (manifest().mode === 'socle-vivant') return true;
   if (manifest().mode === 'socle') return false;
   if (/\/admin(\/|$)/.test(location.pathname)) return true;
   try { if (localStorage.getItem(editorialFlagKey())) return true; } catch (_) { return true; }
@@ -47,6 +50,12 @@ export async function getBackend() {
   if (!backendPromise) {
     backendPromise = (async () => {
       const config = manifest();
+      if (config.mode === 'socle-vivant') {
+        const { PublicSocleBackend } = await import('./public-backend.js');
+        const backend = new PublicSocleBackend();
+        await backend.init({ apiBase: config.apiBase ?? '' });
+        return backend;
+      }
       if (config.mode === 'socle') {
         // Mode serveur : l'admin écrit dans le socle par /v1/redaction/, à la
         // même adresse que la page. sql.js n’est jamais chargé.

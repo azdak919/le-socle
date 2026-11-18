@@ -61,7 +61,7 @@ function socle_dispatch(string $method, string $uri, string $path, string $raw):
     if ($notifyPath) return socle_handle_notify($method, $uri, $config, $store, $raw, $actor, $smtp);
     if (str_starts_with($path, '/admin')) return socle_handle_admin($method, $uri, $config, $store, $raw, $actor, $actorDefined);
     if (str_starts_with($path, '/v1')) return socle_handle_health($method, $path, $config);
-    return socle_serve_static($uri);
+    return socle_serve_site($uri, $store);
 }
 
 function socle_front(): void {

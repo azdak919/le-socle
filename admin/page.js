@@ -18,7 +18,7 @@ export const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character
 /** Fichiers de l'admin, tous sous `admin/assets/`. */
 export const ADMIN_ASSETS = Object.freeze([
   'admin.js', 'admin.css', 'runtime.js', 'util.js', 'export.js', 'stock-photo-match.js',
-  'marked.esm.js', 'socle-backend.js', 'demo-backend.js', 'sqljs-db.js', 'sql-wasm.js', 'sql-wasm.wasm',
+  'marked.esm.js', 'socle-backend.js', 'public-backend.js', 'demo-backend.js', 'sqljs-db.js', 'sql-wasm.js', 'sql-wasm.wasm',
 ]);
 
 const ICONS = {
