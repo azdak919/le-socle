@@ -28,7 +28,7 @@ ${article.body?.raw || ''}
 `;
 }
 
-export async function markdownFiles(backup, publicBasePath = '') {
+export async function markdownFiles(backup, publicBasePath = '', options = {}) {
   const bundle = structuredClone(backup.bundle);
   const publication = bundle.publication;
   const files = [];
@@ -103,13 +103,18 @@ governance:
     files.push({ path: `content/articles/${year}/${month}/${article.slug}.md`, content: articleMarkdown(article) });
   }
   const known = new Set(files.map((file) => file.path));
-  const remoteMedia = [publication.logo, ...(publication.masthead?.backgrounds?.images || []), ...bundle.articles.flatMap((article) => [article.lead, ...(article.media || [])])]
+  // Toutes les photos : celles des articles, du mât, des signatures, et la
+  // banque entière (une photo pas encore utilisée fait partie de l'archive).
+  const remoteMedia = [publication.logo, ...(publication.masthead?.backgrounds?.images || []), ...bundle.articles.flatMap((article) => [article.lead, ...(article.media || [])]), ...bundle.authors.map((author) => author.avatar), ...(bundle.media || [])]
     .filter((asset) => asset?.src?.startsWith('/media/'));
   for (const asset of remoteMedia) {
     const target = asset.src.replace(/^\//, '');
     if (known.has(target)) continue;
-    const response = await fetch(`${publicBasePath}${asset.src}`);
-    if (!response.ok) continue;
+    // Le site public d'abord ; sinon (brouillon, photo pas encore publiée) le
+    // fichier privé du socle.
+    let response = await fetch(`${publicBasePath}${asset.src}`).catch(() => null);
+    if (!response?.ok && options.privateFile) response = await fetch(options.privateFile(asset.src)).catch(() => null);
+    if (!response?.ok) continue;
     files.push({ path: target, content: new Uint8Array(await response.arrayBuffer()) });
     known.add(target);
   }
