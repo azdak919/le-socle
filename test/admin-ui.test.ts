@@ -69,7 +69,9 @@ test("mode navigateur : la même page, pour la démo", () => {
 
 test("/redaction/ : page, fichiers, refus", () => {
   assert.equal(serveRedactionPage("/ailleurs", "GET"), null);
+  assert.equal(serveRedactionPage("/admin/sauvegarde", "GET"), null);
   assert.equal(serveRedactionPage("/redaction", "GET")?.status, 301);
+  assert.equal(serveRedactionPage("/redaction/", "GET")?.headers?.location, undefined);
   assert.equal(serveRedactionPage("/redaction/", "POST")?.status, 405);
   assert.equal(serveRedactionPage("/redaction/assets/demo-backend.js", "GET")?.status, 404);
   assert.equal(serveRedactionPage("/redaction/assets/../page.js", "GET")?.status, 404);

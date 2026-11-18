@@ -530,10 +530,158 @@ function socle_serve_static(string $urlPath): array {
 const SOCLE_BANDEAU_FICTIF = '<div class="demo-banner" role="note"><span class="demo-banner__lead">Journal étudiant fictif</span><span class="demo-banner__sep" aria-hidden="true"> — </span><span class="demo-banner__rest">essai : articles et personnes inventés</span></div>';
 
 /**
+ * Adresse publique du journal : schéma + hôte de la requête, plus le
+ * sous-dossier détecté (vide à la racine du domaine). On ne reprend pas le
+ * chemin éventuellement périmé de siteUrl, pour que les liens restent justes
+ * après un déplacement (par exemple de /journal/ vers la racine).
+ */
+function socle_public_base_url(): string {
+    $forwarded = strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''));
+    $https = $forwarded === 'https'
+        || (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (string) ($_SERVER['SERVER_PORT'] ?? '') === '443';
+    $host = (string) ($_SERVER['HTTP_HOST'] ?? 'localhost');
+    $base = socle_base_path((string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+    return rtrim(($https ? 'https' : 'http') . '://' . $host . $base, '/');
+}
+
+function socle_xml(string $value): string {
+    return htmlspecialchars($value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+}
+
+function socle_live_teams(?array $publication): array {
+    $sports = is_array($publication) && is_array($publication['masthead']['sports'] ?? null) ? $publication['masthead']['sports'] : [];
+    if (($sports['enabled'] ?? true) === false) return [];
+    if (!empty($sports['teams']) && is_array($sports['teams'])) return array_values(array_filter($sports['teams'], 'is_array'));
+    if (!empty($sports['team']) && is_array($sports['team'])) return [$sports['team']];
+    return [];
+}
+
+function socle_live_slug_in(array $items, string $slug): bool {
+    foreach ($items as $item) {
+        if (is_array($item) && (string) ($item['slug'] ?? '') === $slug) return true;
+    }
+    return false;
+}
+
+/** Pages HTML connues du mode vivant : on sert la coquille en 200 ; le reste en 404. */
+function socle_live_known(string $path, ?SocleStore $store): bool {
+    if (in_array($path, ['/', '/archives/', '/recherche/', '/revue/', '/plan-du-site/'], true)) return true;
+    if (preg_match('#^/archives/[0-9]{4}/$#', $path) === 1) return true;
+    if ($store === null) return false;
+    try {
+        $publication = socle_read_publication($store);
+        $articles = socle_read_articles($store);
+        $authors = socle_read_kind($store, 'author:');
+        $sections = socle_read_kind($store, 'section:');
+        $categories = socle_read_kind($store, 'category:');
+    } catch (Throwable) {
+        return false;
+    }
+    if (preg_match('#^/articles/([^/]+)/$#', $path, $match) === 1) {
+        $slug = rawurldecode($match[1]);
+        foreach ($articles as $article) {
+            $status = (string) ($article['status'] ?? '');
+            if ((string) ($article['slug'] ?? '') === $slug && ($status === 'published' || $status === 'archived')) return true;
+        }
+        return false;
+    }
+    if (preg_match('#^/sections/([^/]+)/$#', $path, $match) === 1) {
+        return socle_live_slug_in($sections, rawurldecode($match[1]));
+    }
+    if (preg_match('#^/categories/([^/]+)/$#', $path, $match) === 1) {
+        return socle_live_slug_in($categories, rawurldecode($match[1]));
+    }
+    if ($path === '/auteurs/') return true;
+    if (preg_match('#^/auteurs/([^/]+)/$#', $path, $match) === 1) {
+        return socle_live_slug_in($authors, rawurldecode($match[1]));
+    }
+    if ($path === '/sports/') return socle_live_teams(is_array($publication) ? $publication : null) !== [];
+    return false;
+}
+
+function socle_live_listed(array $articles): array {
+    $listed = array_values(array_filter($articles, static fn (array $article): bool => ($article['status'] ?? '') === 'published'));
+    usort($listed, static function (array $a, array $b): int {
+        return strcmp((string) ($b['publishedAt'] ?? $b['updatedAt'] ?? ''), (string) ($a['publishedAt'] ?? $a['updatedAt'] ?? ''));
+    });
+    return $listed;
+}
+
+function socle_live_feed(?SocleStore $store): string {
+    $base = socle_public_base_url();
+    $publication = ['name' => 'Le journal', 'tagline' => '', 'institution' => '', 'lang' => 'fr-CA'];
+    $articles = [];
+    $authors = [];
+    if ($store !== null) {
+        try {
+            $publication = socle_read_publication($store) ?? $publication;
+            $articles = socle_live_listed(socle_read_articles($store));
+            $authors = socle_read_kind($store, 'author:');
+        } catch (Throwable) {
+        }
+    }
+    $name = (string) ($publication['name'] ?? 'Le journal');
+    $lang = (string) ($publication['lang'] ?? 'fr-CA');
+    $subtitle = (string) ($publication['tagline'] ?? '') !== '' ? (string) $publication['tagline'] : (string) ($publication['institution'] ?? '');
+    $updated = $articles[0]['updatedAt'] ?? $articles[0]['publishedAt'] ?? gmdate('Y-m-d\TH:i:s\Z');
+    foreach ($articles as $article) {
+        $stamp = (string) ($article['updatedAt'] ?? '');
+        if ($stamp > $updated) $updated = $stamp;
+    }
+    $entries = '';
+    foreach (array_slice($articles, 0, 30) as $article) {
+        $slug = (string) ($article['slug'] ?? '');
+        $url = (string) ($article['canonicalUrl'] ?? '') !== '' ? (string) $article['canonicalUrl'] : $base . '/articles/' . rawurlencode($slug) . '/';
+        $names = [];
+        foreach ((array) ($article['authors'] ?? []) as $slugAuthor) {
+            $found = $slugAuthor;
+            foreach ($authors as $author) {
+                if (is_array($author) && (string) ($author['slug'] ?? '') === (string) $slugAuthor) {
+                    $found = (string) ($author['name'] ?? $slugAuthor);
+                    break;
+                }
+            }
+            $names[] = (string) $found;
+        }
+        if ($names === []) $names[] = $name;
+        $authorXml = '';
+        foreach ($names as $person) $authorXml .= "    <author><name>" . socle_xml((string) $person) . "</name></author>\n";
+        $id = (string) ($article['id'] ?? $slug);
+        $entries .= "  <entry>\n    <title>" . socle_xml((string) ($article['title'] ?? '')) . "</title>\n    <link href=\"" . socle_xml($url) . "\" rel=\"alternate\" type=\"text/html\"/>\n    <id>urn:uuid:" . socle_xml($id) . "</id>\n    <updated>" . socle_xml((string) ($article['updatedAt'] ?? $article['publishedAt'] ?? $updated)) . "</updated>\n    <published>" . socle_xml((string) ($article['publishedAt'] ?? $article['updatedAt'] ?? $updated)) . "</published>\n" . $authorXml . "    <summary type=\"text\">" . socle_xml((string) ($article['excerpt'] ?? '')) . "</summary>\n  </entry>\n";
+    }
+    return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<feed xmlns=\"http://www.w3.org/2005/Atom\" xml:lang=\"" . socle_xml($lang) . "\">\n  <title>" . socle_xml($name) . "</title>\n  <subtitle>" . socle_xml($subtitle) . "</subtitle>\n  <link href=\"" . socle_xml($base) . "/feed.xml\" rel=\"self\"/>\n  <link href=\"" . socle_xml($base) . "/\"/>\n  <id>" . socle_xml($base) . "/</id>\n  <updated>" . socle_xml((string) $updated) . "</updated>\n  <generator uri=\"https://github.com/azdak919/le-kiosque\">Le Kiosque</generator>\n" . $entries . "</feed>\n";
+}
+
+function socle_live_sitemap(?SocleStore $store): string {
+    $base = socle_public_base_url();
+    $urls = [$base . '/', $base . '/archives/', $base . '/plan-du-site/', $base . '/recherche/'];
+    if ($store !== null) {
+        try {
+            $publication = socle_read_publication($store);
+            if (socle_live_teams(is_array($publication) ? $publication : null) !== []) $urls[] = $base . '/sports/';
+            foreach (socle_live_listed(socle_read_articles($store)) as $article) {
+                $slug = (string) ($article['slug'] ?? '');
+                if ($slug !== '') $urls[] = $base . '/articles/' . rawurlencode($slug) . '/';
+            }
+            foreach (socle_read_kind($store, 'section:') as $section) {
+                $slug = (string) ($section['slug'] ?? '');
+                if ($slug !== '') $urls[] = $base . '/sections/' . rawurlencode($slug) . '/';
+            }
+        } catch (Throwable) {
+        }
+    }
+    $body = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n";
+    foreach ($urls as $loc) $body .= "  <url><loc>" . socle_xml($loc) . "</loc></url>\n";
+    return $body . "</urlset>\n";
+}
+
+/**
  * Site du journal dans le paquet complet : `site/` porte `kiosque-vivant.json`.
- * Une adresse d'article n'est pas un fichier : on sert la coquille (404.html,
- * statut 200) et le navigateur dessine la page à partir du socle. `noindex`
- * de la publication ajoute la balise robots et ferme robots.txt.
+ * Une adresse connue reçoit la coquille (statut 200) ; une adresse inconnue
+ * reçoit la même coquille en vrai HTTP 404. Le navigateur dessine la page à
+ * partir du Socle. `noindex` de la publication ajoute la balise robots, ferme
+ * robots.txt, et n'annonce pas le plan du site ; le flux RSS reste servi.
  */
 function socle_serve_site(string $uri, ?SocleStore $store): array {
     $root = socle_static_root();
@@ -550,21 +698,35 @@ function socle_serve_site(string $uri, ?SocleStore $store): array {
         }
     }
     if ($live && $path === '/robots.txt') {
-        $body = $noindex ? "User-agent: *\nDisallow: /\n" : "User-agent: *\nAllow: /\nDisallow: /redaction/\nDisallow: /admin\n";
+        if ($noindex) {
+            $body = "User-agent: *\nDisallow: /\n";
+        } else {
+            $body = "User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /redaction\nSitemap: " . socle_public_base_url() . "/sitemap.xml\n";
+        }
         return socle_result(200, $body, ['content-type' => 'text/plain; charset=utf-8']);
+    }
+    if ($live && $path === '/feed.xml') {
+        return socle_result(200, socle_live_feed($store), ['content-type' => 'application/atom+xml; charset=utf-8', 'cache-control' => 'no-cache']);
+    }
+    if ($live && $path === '/sitemap.xml') {
+        return socle_result(200, socle_live_sitemap($store), ['content-type' => 'application/xml; charset=utf-8', 'cache-control' => 'no-cache']);
     }
     $result = socle_serve_static($uri);
     if ($result['status'] === 404 && $live && !preg_match('#\.[A-Za-z0-9]{1,5}$#', $path)) {
-        $shell = @file_get_contents($root . '/404.html');
-        if (is_string($shell)) $result = socle_result(200, $shell, ['content-type' => 'text/html; charset=utf-8']);
+        $known = socle_live_known($path, $store);
+        $file = $known && is_file($root . '/index.html') ? $root . '/index.html' : $root . '/404.html';
+        $shell = @file_get_contents($file);
+        if (!is_string($shell) && $file !== $root . '/404.html') $shell = @file_get_contents($root . '/404.html');
+        if (is_string($shell)) $result = socle_result($known ? 200 : 404, $shell, ['content-type' => 'text/html; charset=utf-8']);
     }
-    if ($live && $result['status'] === 200 && str_starts_with((string) ($result['headers']['content-type'] ?? ''), 'text/html')) {
+    $html = $live && str_starts_with((string) ($result['headers']['content-type'] ?? ''), 'text/html');
+    if ($html && ($result['status'] === 200 || $result['status'] === 404)) {
         $result['headers']['cache-control'] = 'no-cache';
         if ($noindex) $result['body'] = preg_replace('#</head>#i', '<meta name="robots" content="noindex, nofollow"></head>', (string) $result['body'], 1) ?? $result['body'];
         if ($fictif) $result['body'] = preg_replace('#<body([^>]*)>#i', '<body$1>' . SOCLE_BANDEAU_FICTIF, (string) $result['body'], 1) ?? $result['body'];
     }
-    // Un journal dans un sous-dossier (/journal/) n'a pas la main sur le robots.txt
-    // du domaine : l'en-tête suit chaque réponse du site.
+    // Un journal dans un sous-dossier n'a pas la main sur le robots.txt du
+    // domaine : l'en-tête suit chaque réponse du site.
     if ($live && $noindex && $result['status'] < 400) $result['headers']['x-robots-tag'] = 'noindex, nofollow';
     return $result;
 }
