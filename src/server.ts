@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { handleAdmin, type AdminDeps } from "./admin.ts";
 import { handleAudience } from "./audience-http.ts";
 import { accessVerifier } from "./access.ts";
+import { adminGate } from "./admin-gate.ts";
 import { emailFromCookie, ensureAdministrateur } from "./auth.ts";
 import { handleAuth } from "./auth-http.ts";
 import { defaultConfig, loadConfigFile, stringifyConfig, type SocleConfig } from "./config.ts";
@@ -45,6 +46,12 @@ export function createSocleServer(config: SocleConfig, admin?: AdminDeps) {
       // un en-tête de transfert suffit pour ne plus se croire « local ».
       const forwarded = Boolean(headers["x-forwarded-for"] || headers.forwarded || headers["x-real-ip"] || headers["cf-connecting-ip"]);
       const local = isLoopback(request.socket.remoteAddress) && !forwarded;
+      const gate = admin ? await adminGate(method, path, config, admin.store, actor, local) : null;
+      if (gate) {
+        response.writeHead(gate.status, gate.headers);
+        response.end(gate.body);
+        return;
+      }
       const page = admin && config.modules.editorial ? serveRedactionPage(path, method) : null;
       const photo = !page && admin ? await handlePublicMedia(method, path, config, admin.store) : null;
       const result = page

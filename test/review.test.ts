@@ -229,7 +229,7 @@ test("la décision, la correction et le rôle restent dans la rédaction", async
         method: "POST",
         body: "id=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa&decision=publier&reviewer=ada",
       });
-      assert.equal(anon.status, 403);
+      assert.equal(anon.status, 401, "sans session : connexion requise");
       await handleAuth("POST", "/v1/auth/lien", config, admin, Buffer.from(JSON.stringify({ email: "ada@journal.test" })));
       const token = new URL(sent.at(-1) ?? "").searchParams.get("token") ?? "";
       const login = await fetch(`${base}/v1/auth/lien?token=${encodeURIComponent(token)}`, { redirect: "manual" });
