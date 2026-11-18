@@ -1,6 +1,7 @@
 # Journal
 
 ## Non publié
+- Version 1.3.1.
 - Le ZIP du paquet complet, à l’adresse fixe, contient de nouveau un seul dossier (`kiosque-journal/`), avec le fichier `INSTALLER-A-LA-RACINE.txt` : son contenu s’installe là où le site est déjà. L’installateur accepte aussi un ZIP plat (fichiers à la racine) et l’ancien dossier `journal/` des sauvegardes. Un journal en 0.2.x peut ainsi se mettre à jour en un clic. Un test rejoue l’installateur réel de la 0.2.1 (Socle 1.2.2).
 - Page Mise à jour : les nouveautés de la Release sont lues en entier (elles étaient coupées à 2 000 caractères, au milieu d’un mot, et la partie « Espace de rédaction » disparaissait).
 - Réseaux sociaux du journal : une section « Réseaux sociaux » dans Configuration et une étape facultative dans l’assistant (Facebook, Instagram, X, Bluesky, Mastodon, TikTok, YouTube, LinkedIn, Threads, courriel). Chaque champ montre un exemple pâle et vérifie l’adresse (une adresse Facebook dans le champ X est refusée, « instagram.com/… » reçoit son « https:// ») ; les adresses vont dans `publication.social` et dans `kiosque-config.json` (`journal.reseaux`). Le site Web (le Kiosque) les affiche en icônes.
