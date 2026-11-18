@@ -1,6 +1,10 @@
 # Journal
 
 ## Non publié
+- Version 1.2.2 (essai réel chez un hébergeur gratuit, alwaysdata).
+- **Sauvegarde complète réparée.** Le ZIP fabriqué en PHP était refusé par unzip, Windows et macOS (en-tête central sans le champ méthode). Il ne contenait que le texte des articles, et « Restaurer » annonçait un succès sans ramener un article supprimé. Le ZIP porte maintenant `redaction/donnees.json` (fiche du journal, articles avec photos, signatures et rubriques, sections, banque de photos), et la restauration remet tout en place, Node et PHP ; ce qui a été écrit depuis reste.
+- Journal fictif : case « Afficher le bandeau « Journal étudiant fictif » » dans l'assistant et Configuration ; le bandeau paraît au-dessus du mât sur toutes les pages publiques. Avec « Cacher des moteurs de recherche », l'en-tête `X-Robots-Tag: noindex, nofollow` suit les pages du site (un journal en sous-dossier ne commande pas le robots.txt du domaine).
+- Paquet complet : LISEZMOI propre au dossier `journal/`. Banque de photos : alias « CC0 », et un lien de licence collé à la suite du lien rempli tout seul n'est plus doublé.
 - Assistant d’installation et Configuration : chaque champ à écrire montre un exemple en gris pâle (« La Vigie », « Cégep de Sainte-Foy », « redaction@exemple.ca »…) qui disparaît quand on écrit et n’est jamais enregistré ; les sections ne sont plus préremplies. Les champs obligatoires portent la mention « obligatoire » ; vides, ils sont encadrés en rouge avec « Ce champ est obligatoire. » juste à côté, et rien n’est envoyé. Aperçu immédiat du logo choisi, avant d’enregistrer, tel qu’il paraîtra dans le mât : ordinateur et mobile, thème clair et sombre, avec le nom, la couleur et les sections tapés. La banque de photos et les images du mât montrent aussi la photo choisie (cadrages ordinateur, tablette, mobile) avant l’envoi.
 - Version 1.2.1.
 - Assistant d’installation : courriel de la rédaction demandé à part ; le courriel du compte administrateur n’est plus affiché dans le pied de page du site.
