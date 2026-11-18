@@ -19,6 +19,8 @@ export type ArchivePrefs = {
 };
 
 const FILE_NAMES = ["kiosque.config.ts", "theme/tokens.css", "OWNERS.md"] as const;
+/** Modules recopiés tels quels dans la sauvegarde complète (`redaction/donnees.json`). */
+const BACKUP_MODULES = ["editorial", "media"] as const;
 const SECRET_LINE = /(token|password|secret|api[_-]?key|authorization)\s*[:=]/i;
 
 export function civilYear(date: Date): number {
@@ -55,7 +57,7 @@ function stripSecrets(text: string): string {
   return text.split("\n").filter((line) => !SECRET_LINE.test(line)).join("\n");
 }
 
-async function rowsOf(store: SocleStore, module: "export" | "editorial"): Promise<Array<{ key: string; value: string }>> {
+async function rowsOf(store: SocleStore, module: "export" | "editorial" | "media"): Promise<Array<{ key: string; value: string }>> {
   try {
     return await store.list(module);
   } catch (error) {
@@ -175,6 +177,9 @@ export async function buildSiteZip(store: SocleStore, now: Date): Promise<Uint8A
     if (!used) continue;
     files.push({ name: path, data: Buffer.from(row.value, "base64") });
   }
+  // La rédaction entière (fiche du journal, articles avec photos et signatures,
+  // sections, banque de photos) : c'est elle qu'une restauration remet en place.
+  files.push(textFile("redaction/donnees.json", JSON.stringify(await backupRows(store))));
   const members = await membersForArchive(store);
   if (members.length > 0) files.push(textFile("auth/members.json", JSON.stringify(members, null, 2)));
   const corrections = await readCorrections(store);
@@ -182,6 +187,38 @@ export async function buildSiteZip(store: SocleStore, now: Date): Promise<Uint8A
   const subscriptions = await subscriptionsForArchive(store);
   if (subscriptions.length > 0) files.push(textFile("notify/subscriptions.json", JSON.stringify(subscriptions, null, 2)));
   return zipStore(files);
+}
+
+type BackupRows = { format: "socle-sauvegarde"; version: 1; modules: Record<string, Array<{ key: string; value: string }>> };
+
+/** Lignes des modules de la rédaction, pour `redaction/donnees.json`. */
+export async function backupRows(store: SocleStore): Promise<BackupRows> {
+  const modules: BackupRows["modules"] = {};
+  for (const module of BACKUP_MODULES) modules[module] = (await rowsOf(store, module)).map((row) => ({ key: row.key, value: row.value }));
+  return { format: "socle-sauvegarde", version: 1, modules };
+}
+
+/** Remet les lignes de `redaction/donnees.json` ; ce qui a été écrit depuis reste. */
+export async function restoreRows(store: SocleStore, value: unknown): Promise<number> {
+  const data = value as Partial<BackupRows> | null;
+  if (!data || data.format !== "socle-sauvegarde" || typeof data.modules !== "object" || data.modules === null) {
+    throw new Error("redaction/donnees.json illisible");
+  }
+  let count = 0;
+  for (const module of BACKUP_MODULES) {
+    const rows = data.modules[module];
+    if (!Array.isArray(rows)) continue;
+    try {
+      for (const row of rows) {
+        if (!row || typeof row.key !== "string" || typeof row.value !== "string" || row.key === "") continue;
+        await store.put(module, row.key, row.value);
+        count += 1;
+      }
+    } catch (error) {
+      if (!(error instanceof ModuleOffError)) throw error;
+    }
+  }
+  return count;
 }
 
 export function emptySiteZip(): Uint8Array {
@@ -252,6 +289,8 @@ export async function restoreZip(store: SocleStore, bytes: Uint8Array): Promise<
     if (!name.startsWith("media/")) continue;
     await store.put("export", `media:${name}`, Buffer.from(data).toString("base64"));
   }
+  const rowsFile = files.get("redaction/donnees.json");
+  if (rowsFile) await restoreRows(store, JSON.parse(new TextDecoder().decode(rowsFile)) as unknown);
   const membersFile = files.get("auth/members.json");
   if (membersFile) {
     await restoreMembers(store, JSON.parse(new TextDecoder().decode(membersFile)) as unknown);

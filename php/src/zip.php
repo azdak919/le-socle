@@ -23,7 +23,10 @@ function socle_zip_store(array $files, ?DateTimeImmutable $date = null): string 
         $nameLen = strlen($name);
         $size = strlen($data);
         $local = pack('VvvvvvVVVvv', 0x04034b50, 20, 0, 0, $time, $day, $crc, $size, $size, $nameLen, 0) . $name . $data;
-        $central = pack('VvvvvvVVVvvvvvVV', 0x02014b50, 20, 20, 0, $time, $day, $crc, $size, $size, $nameLen, 0, 0, 0, 0, 0, $offset) . $name;
+        // En-tête central : 17 champs (signature, versions, drapeaux, méthode, heure, date,
+        // CRC, tailles, longueurs, disque, attributs, position). Sans la méthode, Windows,
+        // macOS et unzip refusent l'archive.
+        $central = pack('VvvvvvvVVVvvvvvVV', 0x02014b50, 20, 20, 0, 0, $time, $day, $crc, $size, $size, $nameLen, 0, 0, 0, 0, 0, $offset) . $name;
         $locals .= $local;
         $centrals .= $central;
         $offset += strlen($local);
