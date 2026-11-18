@@ -14,6 +14,7 @@ import { MODULES } from "../src/modules.ts";
 import { createSocleServer } from "../src/server.ts";
 import { openSqliteFile } from "../src/sqlite.ts";
 import { unzip } from "../src/zip.ts";
+import { NOW as REDACTION_NOW, scenario, type Call } from "./redaction-parcours.ts";
 
 const REPO = join(import.meta.dirname, "..");
 const IMAGE = "docker.io/library/php:8.4-cli";
@@ -640,6 +641,56 @@ test("le push PHP se déchiffre, et le dossier mutualisé est nommé", async () 
     assert.equal(existsSync(join(folder, "sauvegardes/socle-1.0.0-vers-1.0.1/public/index.php")), true);
     assert.equal(existsSync(join(folder, "sauvegardes/socle-1.0.0-vers-1.0.1/src/bootstrap.php")), true);
   } finally {
+    await php.stop();
+  }
+});
+
+function httpCall(base: string, extra: Record<string, string> = {}): Call {
+  return async (method, path, body, type) => {
+    const response = await fetch(base + path, {
+      method,
+      headers: { ...extra, ...(body === undefined ? {} : { "content-type": type ?? "application/json" }) },
+      body: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body),
+    });
+    const bytes = Buffer.from(await response.arrayBuffer());
+    const ctype = response.headers.get("content-type") ?? "";
+    return { status: response.status, bytes, type: ctype, json: ctype.startsWith("application/json") ? JSON.parse(bytes.toString("utf8") || "null") : null };
+  };
+}
+
+test("l'API de rédaction PHP suit le même parcours que Node", async () => {
+  const work = mkdtempSync(join(tmpdir(), "socle-php-redaction-"));
+  const db = join(work, "socle.sqlite");
+  writeConfig(join(work, "socle.config.json"), { editorial: true, media: true });
+  const store = openSqliteFile(db);
+  await store.migrate(["editorial", "media"]);
+  await store.close();
+  const php = await startPhp(work, {
+    SOCLE_DB: db,
+    SOCLE_CONFIG: join(work, "socle.config.json"),
+    SOCLE_NOW: REDACTION_NOW,
+    SOCLE_BACKUP_DIR: join(work, "sauvegardes"),
+  });
+  const nodeStore = openSqliteFile(join(work, "node.sqlite"));
+  await nodeStore.migrate(["editorial", "media"]);
+  const node = createSocleServer(config({ editorial: true, media: true }), {
+    store: nodeStore,
+    now: () => new Date(REDACTION_NOW),
+    release: () => null,
+    version: () => "1.0.0",
+    setVersion: async () => {},
+    backupDir: join(work, "node-backups"),
+  });
+  const nodePort = await listen(node);
+  try {
+    const fromPhp = await scenario(httpCall(php.url));
+    const fromNode = await scenario(httpCall(`http://127.0.0.1:${nodePort}`));
+    assert.deepEqual(fromPhp, fromNode);
+    const proxied = await fetch(php.url + "/v1/redaction/etat", { headers: { "x-forwarded-for": "203.0.113.9" } });
+    assert.equal(proxied.status, 403);
+  } finally {
+    await closeServer(node);
+    await nodeStore.close();
     await php.stop();
   }
 });

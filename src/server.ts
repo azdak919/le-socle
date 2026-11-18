@@ -11,7 +11,9 @@ import { handleEditorial } from "./editorial-http.ts";
 import { handleRequest } from "./health.ts";
 import { handleMedia } from "./media-http.ts";
 import { handleNotify } from "./notify-http.ts";
+import { handleRedaction } from "./redaction-http.ts";
 import { handleReview } from "./review-http.ts";
+import { serveStatic } from "./static.ts";
 import { sendSmtp, smtpFromEnv } from "./smtp.ts";
 import { openSqliteFile } from "./sqlite.ts";
 import { ModuleOffError } from "./store.ts";
@@ -36,7 +38,13 @@ export function createSocleServer(config: SocleConfig, admin?: AdminDeps) {
       const editorialPath = path.startsWith("/admin/articles")
         || path.startsWith("/admin/relecture")
         || path.startsWith("/v1/editorial");
-      const result = admin && path.startsWith("/v1/auth")
+      // Derrière un mandataire (nginx, Cloudflare), tout arrive de 127.0.0.1 :
+      // un en-tête de transfert suffit pour ne plus se croire « local ».
+      const forwarded = Boolean(headers["x-forwarded-for"] || headers.forwarded || headers["x-real-ip"] || headers["cf-connecting-ip"]);
+      const local = isLoopback(request.socket.remoteAddress) && !forwarded;
+      const result = admin && path.startsWith("/v1/redaction/")
+        ? await handleRedaction(method, url, config, admin, rawBody, headers, actor, local)
+        : admin && path.startsWith("/v1/auth")
         ? await handleAuth(method, url, config, admin, rawBody, headers)
         : admin && path === "/admin/medias"
         ? await handleMedia(method, url, config, admin)
@@ -50,7 +58,9 @@ export function createSocleServer(config: SocleConfig, admin?: AdminDeps) {
               ? await handleNotify(method, url, config, admin, rawBody, actor)
               : admin && path.startsWith("/admin")
               ? await handleAdmin(method, url, config, admin, rawBody, actor)
-              : handleRequest(method, url, config);
+              : path.startsWith("/v1") || path.startsWith("/admin")
+                ? handleRequest(method, url, config)
+                : serveStatic(process.env.SOCLE_STATIC, path, method);
       response.writeHead(result.status, result.headers);
       response.end(result.body);
     } catch {
@@ -59,6 +69,10 @@ export function createSocleServer(config: SocleConfig, admin?: AdminDeps) {
       response.end("erreur");
     }
   });
+}
+
+function isLoopback(address: string | undefined): boolean {
+  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 }
 
 function flatHeaders(headers: IncomingHttpHeaders): Record<string, string | undefined> {
