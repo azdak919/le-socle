@@ -1,0 +1,56 @@
+# Release du paquet PHP (hébergement mutualisé : serveur du cégep, hébergeur PHP).
+#
+# Une étiquette vX.Y.Z poussée sur main construit dist/le-socle-php.zip et le
+# joint à une Release GitHub. Adresse fixe, sans compte GitHub :
+#   https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip
+# Relancer à la main (Run workflow) refait la Release d'une étiquette existante.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Étiquette à (re)publier, par exemple v1.1.0"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  paquet:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Version et étiquette concordent
+        run: |
+          version=$(node -p "require('./package.json').version")
+          [ "v$version" = "$TAG" ] || { echo "::error::package.json dit $version, l'étiquette dit $TAG"; exit 1; }
+      - name: Construire le paquet PHP
+        run: node tools/paquet-php.mjs
+      - name: Publier la Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          printf '%s\n' \
+            "Paquet pour hébergement PHP (serveur du cégep, hébergeur mutualisé) : **le-socle-php.zip**." \
+            "" \
+            "Première installation : décompressez, envoyez le dossier \`socle/\` dans votre espace web (par exemple \`public_html/journal/socle/\`), puis ouvrez \`…/socle/redaction/\`." \
+            "" \
+            "Mise à jour : faites une sauvegarde, puis envoyez le nouveau dossier \`socle/\` par-dessus l'ancien **sans remplacer \`donnees/\`**." \
+            "" \
+            "Adresse fixe de la dernière version : https://github.com/${{ github.repository }}/releases/latest/download/le-socle-php.zip" > notes.md
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/le-socle-php.zip --clobber
+            gh release edit "$TAG" --notes-file notes.md --latest
+          else
+            gh release create "$TAG" dist/le-socle-php.zip --title "Le Socle $TAG" --notes-file notes.md --latest
+          fi

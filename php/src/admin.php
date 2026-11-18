@@ -86,7 +86,8 @@ function socle_admin_copy(string $lang): array {
             'savePrefs' => 'Save', 'downloadSite' => 'Download the site', 'sessionOf' => 'Session', 'articlesOnly' => 'articles only',
             'restoreHint' => '<h2>Restore an archive</h2><p>Choose a ZIP downloaded here (site or session). A session archive only replaces its articles.</p><form class="noprint" id="restaurer"><input type="file" name="archive" accept=".zip,application/zip" required> <button type="submit">Restore</button></form><p id="restaurer-etat" role="status"></p>',
             'updateTitle' => 'Update', 'line' => 'Socle', 'installed' => 'Installed version', 'offered' => 'Offered version',
-            'none' => 'No offered version. Offline, only the installed version is shown.',
+            'none' => 'No new version is prepared on this server.',
+            'latest' => '<h2>Install the latest version</h2><p>What is new is on the <a href="https://github.com/azdak919/le-socle/releases/latest">latest release page</a>. On PHP hosting: make a backup, <a href="https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip">download le-socle-php.zip</a>, then upload the socle/ folder over the old one, without replacing donnees/.</p>',
             'backupWill' => 'Program backup, before', 'notContent' => 'The journal content is not in this backup.',
             'major' => 'This version breaks something. I confirm.', 'updateBtn' => 'Update', 'revert' => 'Restore the backup',
             'done' => 'The update worked.', 'reverted' => 'The previous version is back.', 'noBackup' => 'No program backup.',
@@ -103,7 +104,8 @@ function socle_admin_copy(string $lang): array {
         'savePrefs' => 'Enregistrer', 'downloadSite' => 'Télécharger le site', 'sessionOf' => 'Session', 'articlesOnly' => 'articles seulement',
         'restoreHint' => '<h2>Restaurer une archive</h2><p>Choisissez un ZIP téléchargé ici (site ou session). Une archive de session ne remplace que ses articles.</p><form class="noprint" id="restaurer"><input type="file" name="archive" accept=".zip,application/zip" required> <button type="submit">Restaurer</button></form><p id="restaurer-etat" role="status"></p>',
         'updateTitle' => 'Mise à jour', 'line' => 'Socle', 'installed' => 'Version en place', 'offered' => 'Version proposée',
-        'none' => 'Aucune version proposée. Sans réseau, seule la version en place est affichée.',
+        'none' => 'Aucune nouvelle version n’est préparée sur ce serveur.',
+        'latest' => '<h2>Installer la dernière version</h2><p>Les nouveautés sont sur la <a href="https://github.com/azdak919/le-socle/releases/latest">page de la dernière version</a>. Sur un hébergement PHP : faites une sauvegarde, <a href="https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip">téléchargez le-socle-php.zip</a>, puis envoyez le dossier socle/ par-dessus l’ancien, sans remplacer donnees/.</p>',
         'backupWill' => 'Sauvegarde du programme, avant', 'notContent' => "Le contenu du journal n'est pas dans cette sauvegarde.",
         'major' => 'Cette version casse quelque chose. Je confirme.', 'updateBtn' => 'Mettre à jour', 'revert' => 'Revenir à la sauvegarde',
         'done' => 'La mise à jour a réussi.', 'reverted' => "La version d'avant est revenue.", 'noBackup' => 'Aucune sauvegarde de programme.',
@@ -292,6 +294,6 @@ function socle_update_page(string $lang, array $copy, SocleStore $store, ?string
     if ($prepared !== null) $place .= '<p>' . $copy['prepared'] . ' : ' . socle_escape($prepared) . '.</p>';
     $body = '<h2>' . $copy['line'] . '</h2><p>' . $copy['installed'] . ' : ' . $current . '.</p>' . $offer . $backup . '
 ' . $form . '
-' . $revert . $place;
+' . $revert . $place . "\n" . $copy['latest'];
     return socle_admin_document($lang, $copy['updateTitle'], $body);
 }
