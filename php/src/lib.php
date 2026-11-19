@@ -417,7 +417,7 @@ function socle_admin_document(string $lang, string $title, string $body): array 
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>' . $title . '</title>
+<title>' . $title . (socle_admin_journal_name() !== '' ? ' — ' . htmlspecialchars(socle_admin_journal_name(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') : '') . '</title>
 ' . socle_favicons() . '
 <style>
   :root { --primary: #6d2350; --fg: #1f1a1d; --muted: #6b6468; --border: #e9e3e6; --bg: #fdfcfd; --card: #fff; --accent: #f8eff4; --radius: 0.625rem; color-scheme: light; }
