@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingHttpHeaders } from "node:http";
 import { pathToFileURL } from "node:url";
 
-import { handleAdmin, type AdminDeps } from "./admin.ts";
+import { handleAdmin, setAdminJournalName, type AdminDeps } from "./admin.ts";
 import { handleAudience } from "./audience-http.ts";
 import { accessVerifier } from "./access.ts";
 import { adminGate } from "./admin-gate.ts";
@@ -10,6 +10,7 @@ import { emailFromCookie, ensureAdministrateur } from "./auth.ts";
 import { handleAuth } from "./auth-http.ts";
 import { defaultConfig, loadConfigFile, stringifyConfig, type SocleConfig } from "./config.ts";
 import { handleEditorial } from "./editorial-http.ts";
+import { readPublication } from "./editorial.ts";
 import { handleRequest } from "./health.ts";
 import { handleMedia } from "./media-http.ts";
 import { handleNotify } from "./notify-http.ts";
@@ -51,6 +52,10 @@ export function createSocleServer(config: SocleConfig, admin?: AdminDeps) {
         response.writeHead(gate.status, gate.headers);
         response.end(gate.body);
         return;
+      }
+      if (admin && path.startsWith("/admin")) {
+        // En-tête des pages d’administration : le journal, s’il est configuré.
+        try { setAdminJournalName((await readPublication(admin.store))?.name); } catch { setAdminJournalName(""); }
       }
       const page = admin && config.modules.editorial ? serveRedactionPage(path, method) : null;
       const photo = !page && admin ? await handlePublicMedia(method, path, config, admin.store) : null;

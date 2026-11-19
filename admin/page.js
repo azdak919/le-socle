@@ -14,6 +14,8 @@
  */
 import { createRequire } from 'node:module';
 
+import { SOCLE_ICON_URI, socleFavicons } from './marque.js';
+
 const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ESCAPES[character]);
 
@@ -21,10 +23,13 @@ export const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character
 export const SOCLE_VERSION = createRequire(import.meta.url)('../package.json').version;
 export const SOCLE_SITE = 'https://azdak919.github.io/le-socle/';
 
-/** En-tête de la barre : Le Socle tant que le journal n’est pas configuré. */
-export function adminBrand() {
-  return `<div class="admin-brand" data-state="socle"><span><strong>Le Socle</strong><small>Espace de rédaction</small></span></div>`;
+/** En-tête de la barre : le logo et le nom du Socle tant que le journal n’est pas configuré. */
+export function adminBrand(className = 'admin-brand') {
+  const hidden = className === 'admin-brand' ? '' : ' aria-hidden="true"';
+  return `<div class="${className}" data-state="socle"${hidden}><img class="admin-brand-logo" src="${SOCLE_ICON_URI}" alt="" width="32" height="32"><span><strong>Le Socle</strong><small>Espace de rédaction</small></span></div>`;
 }
+
+export { socleFavicons };
 
 /** Ligne discrète en bas de la barre, avec la version et le lien vers la page du Socle. */
 export function adminSidebarFoot(version = SOCLE_VERSION) {
@@ -85,7 +90,7 @@ export function adminNav(adminBasePath, active, updateHref = `${adminBasePath}/m
 export function adminShell(options) {
   return `<!doctype html>
 <html lang="${esc(options.lang)}">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${esc(options.title)} — ${esc(options.publicationName)}</title><link rel="stylesheet" href="${options.cssHref}"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${esc(options.title)} — ${esc(options.publicationName)}</title>${socleFavicons()}<link rel="stylesheet" href="${options.cssHref}"></head>
 <body>
 <a class="admin-skip" href="#admin-main">Aller au contenu</a>
 <div class="admin-app">
@@ -95,7 +100,7 @@ export function adminShell(options) {
     ${adminSidebarFoot(options.version ?? SOCLE_VERSION)}
   </aside>
   <div class="admin-column">
-    <header class="admin-header"><h1><span class="muted">Rédaction de</span> <span id="publication-name">${esc(options.publicationName)}</span></h1><a class="btn" data-variant="outline" data-size="sm" href="${options.publicBasePath}/">Voir le journal ↗</a></header>
+    <header class="admin-header">${adminBrand('admin-header-brand')}<h1 id="admin-page-title">${esc(options.heading ?? options.title)}</h1><a class="btn" data-variant="outline" data-size="sm" href="${options.publicBasePath}/">Voir le journal ↗</a></header>
     <div class="local-warning" role="note">${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>'}<span>${options.note}</span></div>
     <main id="admin-main" tabindex="-1">${options.main}</main>
   </div>
@@ -135,7 +140,9 @@ export function adminPage(options) {
   }).replace(/</g, '\\u003c');
   return adminShell({
     lang: options.lang,
-    title: 'Rédaction',
+    title: 'Espace de rédaction',
+    // Le titre de l’écran s’inscrit dès que les données sont là (admin.js).
+    heading: '',
     publicationName: options.publicationName,
     publicBasePath: options.publicBasePath,
     adminBasePath: options.adminBasePath,

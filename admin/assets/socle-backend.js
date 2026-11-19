@@ -136,6 +136,8 @@ export class SocleBackend {
       role: state.role,
       scope: state.scope || [],
       modules: state.modules,
+      // Socle neuf : la fiche est provisoire tant que la configuration n’est pas enregistrée.
+      firstRun: Boolean(state.firstRun),
     });
   }
 

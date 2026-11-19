@@ -50,7 +50,7 @@ function workerModules(): { type: "ESModule"; path: string; contents: string }[]
     if (seen.has(file)) return;
     const code = stripTypeScriptTypes(readFileSync(file, "utf8"));
     seen.set(file, code);
-    for (const match of code.matchAll(/from "(\.\/[^"]+)"/g)) visit(join(dirname(file), match[1]!));
+    for (const match of code.matchAll(/from "(\.\.?\/[^"]+)"/g)) visit(join(dirname(file), match[1]!));
   };
   visit(join(ROOT, "src", "worker.ts"));
   return [...seen].map(([file, contents]) => ({ type: "ESModule", path: join(ROOT, relative(ROOT, file)), contents }));

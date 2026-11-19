@@ -21,6 +21,7 @@ import type { NotifyRuntime } from "./notify.ts";
 import { enabledModules, type SocleConfig } from "./config.ts";
 import type { SocleStore } from "./store.ts";
 import { VERSION } from "./version.ts";
+import { SOCLE_ICON_URI, socleFavicons } from "../admin/marque.js";
 
 export type ReleaseInfo = { version: string; notes: string };
 
@@ -189,6 +190,23 @@ function withLang(path: string, lang: Lang): string {
   return path.includes("?") ? `${path}&lang=en` : `${path}?lang=en`;
 }
 
+// Nom du journal servi par ce socle (un socle = un journal), pour l’en-tête
+// des pages Sauvegarde, Mise à jour et suivantes. Vide : journal pas encore
+// configuré, l’en-tête montre alors le logo et le nom du Socle.
+let journalName = "";
+export function setAdminJournalName(name: unknown): void {
+  journalName = typeof name === "string" ? name.trim() : "";
+}
+
+function adminBrandHtml(sub: string): string {
+  if (journalName) return `<span><strong>${escapeHtml(journalName)}</strong><small>${sub}</small></span>`;
+  return `<img class="logo" src="${SOCLE_ICON_URI}" alt="" width="32" height="32"><span><strong>Le Socle</strong><small>${sub}</small></span>`;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
+}
+
 export function adminDocument(lang: Lang, title: string, body: string): Result {
   const copy = COPY[lang];
   const other = withLang("/admin", copy.otherLang === "en" ? "en" : "fr");
@@ -201,6 +219,7 @@ export function adminDocument(lang: Lang, title: string, body: string): Result {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title}</title>
+${socleFavicons()}
 <style>
   :root { --primary: #6d2350; --fg: #1f1a1d; --muted: #6b6468; --border: #e9e3e6; --bg: #fdfcfd; --card: #fff; --accent: #f8eff4; --radius: 0.625rem; color-scheme: light; }
   * { box-sizing: border-box; }
@@ -211,7 +230,7 @@ export function adminDocument(lang: Lang, title: string, body: string): Result {
   .skip:focus { left: 0.5rem; top: 0.5rem; background: #fff; padding: 0.5rem; z-index: 2; }
   .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; padding: 0.75rem 1.25rem; background: #fff; border-bottom: 1px solid var(--border); }
   .brand { display: flex; align-items: center; gap: 0.6rem; color: var(--fg); text-decoration: none; }
-  .brand .logo { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 0.5rem; background: var(--primary); color: #fff; font-weight: 700; }
+  .brand .logo { display: block; width: 2rem; height: 2rem; flex: none; }
   .brand strong { display: block; font-size: 0.9rem; line-height: 1.2; }
   .brand small { display: block; color: var(--muted); font-size: 0.75rem; }
   .tabs { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-left: auto; }
@@ -261,7 +280,7 @@ export function adminDocument(lang: Lang, title: string, body: string): Result {
 <body>
 <a class="skip" href="#contenu">${copy.skip}</a>
 <header class="bar noprint">
-<a class="brand" href="${withLang("/admin", lang)}"><span><strong>Le Socle</strong><small>${copy.brandSub}</small></span></a>
+<a class="brand" href="${withLang("/admin", lang)}">${adminBrandHtml(copy.brandSub)}</a>
 <nav class="tabs" aria-label="${copy.office}">
 <a href="${withLang("/admin", lang)}">${copy.back}</a>
 <a href="${withLang("/admin/sauvegarde", lang)}"${title === copy.saveTitle ? ' aria-current="page"' : ""}>${copy.saveLink}</a>

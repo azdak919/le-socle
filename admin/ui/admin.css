@@ -55,6 +55,8 @@
 .admin-brand strong { @apply block text-sm font-semibold leading-tight; }
 .admin-brand small { @apply block text-xs text-muted-foreground; }
 .admin-brand[data-state="journal-logo"] small { @apply m-0; }
+/* Un logo de journal est souvent large : il garde ses proportions. */
+.admin-brand[data-state="journal-logo"] .admin-brand-logo { @apply h-8 w-auto max-w-40 rounded-none bg-transparent; }
 .admin-nav { @apply flex flex-row md:flex-col gap-1 md:gap-0.5 overflow-x-auto [scrollbar-width:none]; }
 .admin-nav button, .admin-nav a {
   @apply no-underline flex shrink-0 whitespace-nowrap min-h-11 md:min-h-0 md:w-full items-center gap-2.5 rounded-md border-0 bg-transparent px-2.5 h-9 text-left text-sm font-medium text-muted-foreground cursor-pointer transition-colors hover:bg-muted hover:text-foreground;
@@ -65,7 +67,14 @@
 .admin-sidebar-foot a { @apply text-inherit underline-offset-2 hover:underline; }
 .admin-column { @apply min-w-0 flex flex-col; }
 .admin-header { @apply sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-background/85 backdrop-blur px-4 md:px-8 h-14; }
-.admin-header h1 { @apply m-0 text-sm md:text-base font-semibold truncate; }
+.admin-header h1 { @apply m-0 text-sm md:text-base font-semibold truncate max-md:sr-only; }
+/* Mobile : le menu horizontal montre déjà l’écran ; la barre du haut montre le journal. */
+.admin-header-brand { @apply flex md:hidden min-w-0 items-center gap-2; }
+.admin-header-brand .admin-brand-logo { @apply size-7; }
+.admin-header-brand > span { @apply min-w-0; }
+.admin-header-brand strong { @apply block truncate text-sm font-semibold leading-tight; }
+.admin-header-brand small { @apply block text-xs text-muted-foreground leading-tight; }
+.admin-header-brand[data-state="journal-logo"] .admin-brand-logo { @apply h-7 w-auto max-w-32 rounded-none bg-transparent; }
 .admin-header h1 .muted { @apply text-muted-foreground font-normal; }
 .admin-header a.btn { @apply shrink-0; }
 .local-warning { @apply mx-4 md:mx-8 mt-3 flex items-center gap-2 text-xs text-muted-foreground; }

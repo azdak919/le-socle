@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { ADMIN_ASSETS, adminPage, serverPage, SOCLE_VERSION } from "../admin/page.js";
 import { serveRedactionPage, SERVER_ASSETS } from "../src/redaction-page.ts";
 import { VERSION } from "../src/version.ts";
+import { adminDocument, setAdminJournalName } from "../src/admin.ts";
 import { createSocleServer } from "../src/server.ts";
 import { openSqliteMemory } from "../src/sqlite.ts";
 import { config, deps } from "./redaction-parcours.ts";
@@ -25,8 +26,55 @@ test("l'en-tête de la barre peint le journal ou, à défaut, Le Socle", () => {
   const source = readFileSync(join(ASSETS, "admin.js"), "utf8");
   assert.match(source, /function paintBrand\(state\)/);
   assert.match(source, /paintBrand\('socle'\)/);
-  assert.match(source, /paintBrand\('journal'\)/);
+  // Socle neuf : la fiche de départ n'est pas un journal, l'en-tête reste au Socle.
+  assert.match(source, /paintBrand\(bundle\.firstRun \? 'socle' : 'journal'\)/);
   assert.match(source, /Espace de rédaction/);
+  const page = readFileSync(join(ROOT, "admin", "serveur.html"), "utf8");
+  // Logo du Socle (Twemoji, CC BY 4.0) dans la barre latérale et, sur mobile, dans la barre du haut.
+  assert.equal(page.match(/<img class="admin-brand-logo" src="data:image\/svg\+xml;base64,/g)?.length, 2);
+  assert.match(page, /<div class="admin-header-brand" data-state="socle" aria-hidden="true">/);
+  // Icônes d'onglet : 16 et 32 px, puis le SVG clair ou sombre.
+  assert.match(page, /<link rel="icon" type="image\/png" sizes="16x16"/);
+  assert.match(page, /<link rel="icon" type="image\/png" sizes="32x32"/);
+  assert.match(page, /<link rel="icon" type="image\/svg\+xml" sizes="any"/);
+});
+
+test("barre du haut : le titre de l'écran, jamais « Rédaction de … » répété", () => {
+  const page = readFileSync(join(ROOT, "admin", "serveur.html"), "utf8");
+  assert.doesNotMatch(page, /Rédaction de/);
+  assert.match(page, /<h1 id="admin-page-title"><\/h1>/);
+  const source = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  assert.match(source, /function paintTitle\(\)/);
+  assert.match(source, /main\.innerHTML = \(\{ dashboard,[^\n]+\n  paintTitle\(\);/);
+  // Le titre vient du menu : un seul libellé par écran, et pas de h2 qui le répète.
+  for (const repeated of ["<h2>Tableau de bord</h2>", "<h2>Articles</h2>", "<h2>Photos</h2>", "<h2>Sections et catégories</h2>", "<h2>Configuration du journal</h2>", "<h2>Exporter mon journal</h2>", "Équipe : comptes et rôles"]) {
+    assert.ok(!source.includes(repeated), `${repeated} répète le titre de la barre`);
+  }
+});
+
+test("pages Sauvegarde et Mise à jour : le journal s'il est configuré, sinon le logo du Socle", () => {
+  setAdminJournalName("");
+  const neuf = String(adminDocument("fr", "Sauvegarde", "<p>x</p>").body);
+  assert.match(neuf, /<a class="brand" href="\/admin"><img class="logo" src="data:image\/svg\+xml;base64,[^"]+" alt="" width="32" height="32"><span><strong>Le Socle<\/strong><small>Espace de rédaction<\/small>/);
+  assert.match(neuf, /<link rel="icon" type="image\/svg\+xml" sizes="any"/);
+  setAdminJournalName("La <Vigie>");
+  const vigie = String(adminDocument("fr", "Sauvegarde", "<p>x</p>").body);
+  assert.match(vigie, /<a class="brand" href="\/admin"><span><strong>La &lt;Vigie&gt;<\/strong><small>Espace de rédaction<\/small>/);
+  assert.match(vigie, /Propulsé par <a href="https:\/\/azdak919\.github\.io\/le-socle\/">Le Socle<\/a>/);
+  setAdminJournalName("");
+});
+
+test("le logo du Socle est le même en Node et en PHP", () => {
+  const js = readFileSync(join(ROOT, "admin", "marque.js"), "utf8");
+  const php = readFileSync(join(ROOT, "php", "src", "lib.php"), "utf8");
+  for (const name of ["SOCLE_ICON_SVG_B64", "SOCLE_FAVICON_16_B64", "SOCLE_FAVICON_32_B64"]) {
+    const value = js.match(new RegExp(`${name} = '([^']+)'`))?.[1];
+    assert.ok(value && value.length > 500, name);
+    assert.ok(php.includes(`const ${name} = '${value}';`), `${name} identique dans lib.php`);
+  }
+  const svg = Buffer.from(js.match(/SOCLE_ICON_SVG_B64 = '([^']+)'/)![1]!, "base64").toString("utf8");
+  assert.match(svg, /prefers-color-scheme:dark/);
+  assert.equal(svg, readFileSync(join(ROOT, "site", "assets", "logo", "icone.svg"), "utf8"));
 });
 
 test("l'admin vit dans le socle : chaque fichier importé est là, et seulement là", () => {
