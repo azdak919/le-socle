@@ -13,7 +13,7 @@ Le Socle n’est pas un service central. Chaque journal installe sa propre copie
 
 [![Tableau de bord de l’espace de rédaction](site/assets/captures/tableau-de-bord.jpg)](https://azdak919.github.io/le-socle/)
 
-<p align="center"><em>Le tableau de bord, sur un journal d’essai (La Vigie, journal fictif).</em></p>
+<p align="center"><em>Le tableau de bord, sur Le Quorum, journal de démonstration.</em></p>
 
 - **Page de présentation :** <https://azdak919.github.io/le-socle/>
 - **La plateforme dont il fait partie :** <https://azdak919.github.io/le-kiosque/>
