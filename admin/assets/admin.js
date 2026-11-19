@@ -1035,6 +1035,7 @@ function articleEditor(article) {
     media: () => bundle.media || [],
     labelIdle: 'Faites glisser la photo principale ou <span class="filepond--label-action">parcourir</span>',
   });
+  main.querySelector('[data-action="choose-lead-media"]').onclick = () => chooseSharedMedia(applyLeadMedia);
   let editorMode = current.body?.format === 'html' ? 'visual' : 'source';
   visual.innerHTML = current.body?.format === 'html' ? sanitizePreview(current.body.raw || '') : sanitizePreview(marked.parse(current.body?.raw || '', { async: false }));
   // Ce qu'on tape en mode Visuel est du texte mis en forme : il devient le

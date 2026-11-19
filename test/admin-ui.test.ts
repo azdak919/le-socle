@@ -350,6 +350,7 @@ test("la banque téléverse avec FilePond, réduit la photo et en ôte l'orienta
   assert.match(adapter, /1,2 Mo|formatFileSizeFr/);
   assert.match(adapter, /imagePreviewHeight: 120/);
   assert.match(admin, /button.disabled = !pond.hasFiles/);
+  assert.match(admin, /choose-lead-media.*onclick/s);
   assert.match(admin, /length \? `\$\{mediaFilters\(\)\}/);
 });
 
