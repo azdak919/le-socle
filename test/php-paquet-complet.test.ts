@@ -38,10 +38,10 @@ async function call(url: string, init: RequestInit = {}) {
 test("paquet complet : le site du journal servi par le socle PHP", { skip: !hasPhp && !process.env.CI ? "php absent" : false }, async () => {
   const work = mkdtempSync(join(tmpdir(), "socle-complet-"));
   const site = join(work, "site");
-  const shell = (title: string) => `<!doctype html><html><head><title>${title}</title><link rel="stylesheet" href="/assets/theme.css"></head><body><a href="/sports/">Sports</a>`
+  const shell = (title: string) => `<!doctype html><html><head><title>${title}</title><meta property="og:site_name" content="${title}"><link rel="stylesheet" href="/assets/theme.css"><link rel="alternate" type="application/atom+xml" title="${title}" href="/feed.xml"></head><body><p class="wordmark"><a href="/"><span class="wordmark-name">${title}</span></a></p><a href="/sports/">Sports</a><p class="site-foot__wordmark">${title}</p><p class="site-foot__legal">© 2026 ${title}. Tous droits réservés.</p>`
     + `<script>window.KIOSQUE_EDITORIAL={"mode":"socle-vivant","apiBase":"","publicBasePath":"","adminBasePath":"/redaction","assetsBase":"/assets/editorial"};</script></body></html>`;
   mkdirSync(join(site, "assets", "editorial"), { recursive: true });
-  writeFileSync(join(site, "index.html"), shell("Accueil"));
+  writeFileSync(join(site, "index.html"), shell("Le journal"));
   writeFileSync(join(site, "404.html"), shell("Coquille"));
   writeFileSync(join(site, "kiosque-vivant.json"), "{}\n");
   writeFileSync(join(site, "assets", "theme.css"), "body{}");
@@ -83,7 +83,7 @@ return true;
     }
     const home = await call(`${base}/`);
     assert.equal(home.status, 200, logs);
-    assert.match(home.text, /<title>Accueil<\/title>/);
+    assert.match(home.text, /<title>Le journal<\/title>/);
     assert.match(home.text, /href="\/assets\/theme\.css"/);
     assert.match(home.text, /"publicBasePath":""/);
     assert.match(home.text, /"assetsBase":"\/assets\/editorial"/);
@@ -113,8 +113,14 @@ return true;
     const install = await call(`${base}/v1/auth/installation`, { method: "POST", headers: json, body: JSON.stringify({ email: "admin@journal.example", password: "un long secret" }) });
     assert.equal(install.status, 204, install.text);
     const cookie = String(install.headers.get("set-cookie")).split(";")[0];
-    const pub = await call(`${base}/v1/redaction/publication`, { method: "POST", headers: { ...json, cookie }, body: JSON.stringify({ publication: { name: "Le Phare", slug: "le-phare", noindex: true } }) });
+    const pub = await call(`${base}/v1/redaction/publication`, { method: "POST", headers: { ...json, cookie }, body: JSON.stringify({ publication: { name: "Le Phare", slug: "le-phare", noindex: true, siteUrl: "https://phare.example/journal/" } }) });
     assert.equal(pub.status, 200, `${pub.status} ${pub.text}`);
+    const named = await call(`${base}/`);
+    assert.match(named.text, /<title>Le Phare<\/title>/);
+    assert.match(named.text, /<span class="wordmark-name">Le Phare<\/span>/);
+    assert.match(named.text, /<p class="site-foot__wordmark">Le Phare<\/p>/);
+    assert.match(named.text, /© 2026 Le Phare\./);
+    assert.doesNotMatch(named.text, /<title>Le journal<\/title>/);
     assert.equal((await call(`${base}/v1/editorial/snapshot`)).status, 200);
     const robotsHidden = await call(`${base}/robots.txt`);
     assert.match(robotsHidden.text, /Disallow: \//);
@@ -127,6 +133,26 @@ return true;
     const fictif = await call(`${base}/v1/redaction/publication`, { method: "POST", headers: { ...json, cookie }, body: JSON.stringify({ publication: { name: "Le Phare", slug: "le-phare", noindex: true, fictif: true } }) });
     assert.equal(fictif.status, 200, fictif.text);
     assert.match((await call(`${base}/`)).text, /<body[^>]*><div class="demo-banner" role="note"><span class="demo-banner__lead">Journal étudiant fictif<\/span>/);
+    assert.equal((await call(`${base}/v1/redaction/entite`, { method: "POST", headers: { ...json, cookie }, body: JSON.stringify({ kind: "author", entity: { id: "a1", name: "Léa Roy", slug: "lea-roy" } }) })).status, 200);
+    assert.equal((await call(`${base}/v1/redaction/entite`, { method: "POST", headers: { ...json, cookie }, body: JSON.stringify({ kind: "section", entity: { id: "s1", name: "Campus", slug: "campus" } }) })).status, 200);
+    const stale = `${"https://phare.example"}/journal/articles/premier-article/`;
+    const article = {
+      id: "art-1", slug: "premier-article", title: "Premier article", excerpt: "Résumé.",
+      body: { format: "markdown", raw: "Bonjour." }, authors: ["lea-roy"], status: "published",
+      section: "campus", publishedAt: "2026-11-18T16:00:00.000Z", canonicalUrl: stale,
+    };
+    const saved = await call(`${base}/v1/redaction/article`, { method: "POST", headers: { ...json, cookie }, body: JSON.stringify({ article }) });
+    assert.equal(saved.status, 200, saved.text);
+    const feedBefore = await call(`${base}/feed.xml`);
+    assert.equal(feedBefore.status, 200);
+    assert.match(feedBefore.text, new RegExp(`<link href="${base}/articles/premier-article/" rel="alternate"`));
+    assert.doesNotMatch(feedBefore.text, /\/journal\/articles\//);
+    const moved = await call(`${base}/v1/redaction/publication`, { method: "POST", headers: { ...json, cookie }, body: JSON.stringify({ publication: { name: "Le Phare", slug: "le-phare", noindex: true, fictif: true, siteUrl: "https://phare.example/" } }) });
+    assert.equal(moved.status, 200, moved.text);
+    const snap = JSON.parse((await call(`${base}/v1/editorial/snapshot`)).text) as { articles: Array<{ slug: string; canonicalUrl?: string }> };
+    assert.equal(snap.articles.find((item) => item.slug === "premier-article")?.canonicalUrl, "https://phare.example/articles/premier-article/");
+    const feedAfter = await call(`${base}/feed.xml`);
+    assert.match(feedAfter.text, new RegExp(`<link href="${base}/articles/premier-article/" rel="alternate"`));
     const missing = await call(`${base}/articles/un-article/`);
     assert.equal(missing.status, 404);
     assert.match(missing.text, /demo-banner/);

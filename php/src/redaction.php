@@ -190,6 +190,8 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
                 'canonicalUrl' => socle_redaction_text($input['canonicalUrl'] ?? null, 500) ?: ($existing['canonicalUrl'] ?? ''),
                 'source' => ['backend' => 'socle', 'backendId' => $id, 'fetchedAt' => $now],
             ]);
+            if (!empty($input['featured'])) $article['featured'] = true;
+            else unset($article['featured']);
             $section = socle_redaction_text($input['section'] ?? null, 96);
             if ($section === '') unset($article['section']); else $article['section'] = $section;
             $published = socle_redaction_text($input['publishedAt'] ?? null, 40);
@@ -243,7 +245,11 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
             if ($publication === null || socle_redaction_text($publication['name'] ?? null) === '' || preg_match(SOCLE_SLUG, socle_redaction_text($publication['slug'] ?? null, 96)) !== 1) {
                 return socle_redaction_fail(400, "La publication a besoin d'un nom et d'un identifiant.");
             }
+            $previous = socle_read_publication($store);
             $store->put('editorial', 'publication', socle_json($publication));
+            $nextUrl = rtrim(socle_redaction_text($publication['siteUrl'] ?? null, 500), '/');
+            $prevUrl = rtrim((string) (($previous['siteUrl'] ?? '')), '/');
+            if ($nextUrl !== '' && $nextUrl !== $prevUrl) socle_refresh_canonical_urls($store, $nextUrl);
             return socle_redaction_json(200, ['publication' => $publication]);
         }
         if ($path === '/v1/redaction/exemples') {
@@ -363,9 +369,10 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
 /**
  * L'espace de rédaction sous `/redaction/` : la page `admin/serveur.html` et
  * ses fichiers `admin/assets/`, à la racine du dépôt. Même règle que Node
- * (`src/redaction-page.ts`). `/admin` (sans sous-page) redirige vers
- * `/redaction/` quand le module éditorial est allumé. Les pages Sauvegarde
- * et Mise à jour restent à `/admin/sauvegarde` et `/admin/mise-a-jour`.
+ * (`src/redaction-page.ts`). `/admin` et `/admin/` (sans sous-page) redirigent
+ * vers `/redaction/` quand le module éditorial est allumé. Les pages Sauvegarde
+ * et Mise à jour restent à `/admin/sauvegarde` et `/admin/mise-a-jour`,
+ * avec ou sans barre finale.
  * `null` : ce chemin n'est pas l'espace de rédaction.
  */
 const SOCLE_REDACTION_ASSETS = [

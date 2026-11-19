@@ -20,6 +20,30 @@ function socle_read_publication(SocleStore $store): ?array {
     return is_array($parsed) ? $parsed : null;
 }
 
+/** Adresse publique d’un article, d’après l’adresse courante du journal (pas un chemin périmé). */
+function socle_article_public_url(string $siteUrl, string $slug): string {
+    return rtrim($siteUrl, '/') . '/articles/' . rawurlencode($slug) . '/';
+}
+
+/** Quand siteUrl change, les canonicalUrl stockées suivent, pour le flux et les liens. */
+function socle_refresh_canonical_urls(SocleStore $store, string $siteUrl): int {
+    $base = rtrim($siteUrl, '/');
+    if ($base === '') return 0;
+    $count = 0;
+    foreach (socle_read_articles($store) as $article) {
+        $slug = (string) ($article['slug'] ?? '');
+        $id = (string) ($article['id'] ?? '');
+        if ($slug === '' || $id === '') continue;
+        $next = socle_article_public_url($base, $slug);
+        if ((string) ($article['canonicalUrl'] ?? '') === $next) continue;
+        $article['canonicalUrl'] = $next;
+        $store->put('editorial', 'article:' . $id, socle_json($article));
+        $count++;
+    }
+    return $count;
+}
+
+
 function socle_read_articles(SocleStore $store): array {
     $articles = [];
     foreach (socle_rows($store, 'editorial') as $row) {
@@ -74,7 +98,17 @@ function socle_save_article(SocleStore $store, array $article, string $now): arr
     $article['source'] = $source;
     if (($article['status'] ?? '') === 'in-review' && empty($article['submittedAt'])) $article['submittedAt'] = $now;
     socle_check_article($article);
+    if (empty($article['featured'])) unset($article['featured']);
+    else $article['featured'] = true;
     $store->put('editorial', 'article:' . $article['id'], socle_json($article));
+    if (!empty($article['featured'])) {
+        foreach (socle_read_articles($store) as $other) {
+            if (($other['id'] ?? '') === ($article['id'] ?? '') || empty($other['featured'])) continue;
+            unset($other['featured']);
+            $other['updatedAt'] = $now;
+            $store->put('editorial', 'article:' . $other['id'], socle_json($other));
+        }
+    }
     return $article;
 }
 

@@ -50,6 +50,8 @@ export type SocleArticle = {
   lang: string;
   status: EditorialStatus;
   isDemo?: boolean;
+  /** Mis en avant : seul cet article porte « À la une » sur le site. */
+  featured?: boolean;
   publishedAt?: string;
   updatedAt: string;
   submittedAt?: string;
@@ -116,6 +118,27 @@ async function rows(store: SocleStore): Promise<Array<{ key: string; value: stri
 
 export async function readPublication(store: SocleStore): Promise<SoclePublication | null> {
   return parse<SoclePublication>(await store.get("editorial", "publication"));
+}
+
+/** Adresse publique d’un article, d’après l’adresse courante du journal (pas un chemin périmé). */
+export function articlePublicUrl(siteUrl: string, slug: string): string {
+  return `${siteUrl.replace(/\/$/, "")}/articles/${encodeURIComponent(slug)}/`;
+}
+
+/** Quand siteUrl change, les canonicalUrl stockées suivent, pour le flux et les liens. */
+export async function refreshCanonicalUrls(store: SocleStore, siteUrl: string): Promise<number> {
+  const base = siteUrl.replace(/\/$/, "");
+  if (!base) return 0;
+  let count = 0;
+  for (const article of await readArticles(store)) {
+    const slug = String(article.slug ?? "");
+    if (!slug || !article.id) continue;
+    const next = articlePublicUrl(base, slug);
+    if (article.canonicalUrl === next) continue;
+    await store.put("editorial", `article:${article.id}`, JSON.stringify({ ...article, canonicalUrl: next }));
+    count += 1;
+  }
+  return count;
 }
 
 export async function readArticles(store: SocleStore): Promise<SocleArticle[]> {
@@ -191,7 +214,16 @@ export async function saveArticle(store: SocleStore, article: SocleArticle, now:
   };
   if (next.status === "in-review" && !next.submittedAt) next.submittedAt = now;
   checkArticle(next);
+  if (!next.featured) delete next.featured;
   await store.put("editorial", `article:${next.id}`, JSON.stringify(next));
+  if (next.featured) {
+    for (const other of await readArticles(store)) {
+      if (other.id === next.id || !other.featured) continue;
+      delete other.featured;
+      other.updatedAt = now;
+      await store.put("editorial", `article:${other.id}`, JSON.stringify(other));
+    }
+  }
   return next;
 }
 

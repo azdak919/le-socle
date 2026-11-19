@@ -166,6 +166,17 @@ function socle_build_site_zip(SocleStore $store, DateTimeImmutable $now): string
         if (!$used) continue;
         $files[] = ['name' => $path, 'data' => base64_decode($row['value'], true) ?: ''];
     }
+    $already = [];
+    foreach ($files as $file) $already[$file['name']] = true;
+    foreach (['media', 'editorial'] as $module) {
+        foreach (socle_rows($store, $module) as $row) {
+            if (!str_starts_with($row['key'], 'bytes:')) continue;
+            $path = ltrim(substr($row['key'], strlen('bytes:')), '/');
+            if ($path === '' || str_contains($path, '..') || isset($already[$path])) continue;
+            $files[] = ['name' => $path, 'data' => base64_decode($row['value'], true) ?: ''];
+            $already[$path] = true;
+        }
+    }
     // La rédaction entière (fiche du journal, articles avec photos et signatures,
     // sections, banque de photos) : c'est elle qu'une restauration remet en place.
     $files[] = socle_text_file('redaction/donnees.json', socle_json(socle_backup_rows($store)));
