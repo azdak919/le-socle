@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="site/assets/logo/icone-sombre.svg">
+  <img src="site/assets/logo/icone-clair.svg" alt="Logo du Socle" width="72" height="72">
+</picture>
+
 # Le Socle
 
 *Système Ouvert de Collaboration en Ligne pour l’Édition.*
@@ -61,4 +66,4 @@ Les modules (rédaction, photos, identité, relecture, audience, abonnements) s�
 
 ## Licence et crédits
 
-Le logiciel est sous [GPL version 2 seulement](LICENSE). Les articles, les photos et les noms du journal appartiennent à l’équipe qui les publie. Les composants tiers sont listés dans [`THIRD_PARTY.md`](THIRD_PARTY.md).
+Le logiciel est sous [GPL version 2 seulement](LICENSE). Les articles, les photos et les noms du journal appartiennent à l’équipe qui les publie. Les composants tiers sont listés dans [`THIRD_PARTY.md`](THIRD_PARTY.md). Le logo reprend l’emoji « brique » de [Twemoji](https://github.com/jdecked/twemoji) (© Twitter, Inc. et autres contributeurs), sous licence [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.fr).
