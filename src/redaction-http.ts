@@ -20,7 +20,7 @@
  *   l'admin est servie par le socle lui-même).
  */
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import type { AdminDeps } from "./admin.ts";
 import { roleOf, scopeOf, type OrgRole } from "./auth.ts";
@@ -33,7 +33,7 @@ import {
   saveArticle,
   type SocleArticle,
 } from "./editorial.ts";
-import { MediaError, readBytes, saveArticleImage, saveLibrary, type LibraryAsset } from "./media.ts";
+import { MediaError, deleteMediaFiles, findDuplicate, readBytes, saveArticleImage, saveLibrary, type LibraryAsset } from "./media.ts";
 import { inScope, isEditor, managesBank, publishesIn, writesArticles, type Scope } from "./roles.ts";
 import { ModuleOffError } from "./store.ts";
 
@@ -44,6 +44,20 @@ const KINDS = ["author", "section", "category", "tag"] as const;
 const PUBLIC_STATUSES = ["published", "scheduled", "archived", "retracted"];
 const MAX_BYTES = 8 * 1024 * 1024;
 const IMAGE_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+
+
+function checksumOf(bytes: Uint8Array): string {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+function usedInMasthead(publication: { masthead?: { backgrounds?: { images?: Array<{ src?: string }> } } } | null | undefined, src: string): boolean {
+  return (publication?.masthead?.backgrounds?.images ?? []).some((image) => image?.src === src);
+}
+
+function duplicatePayload(dup: LibraryAsset | null): Record<string, unknown> {
+  return dup ? { duplicate: { id: dup.id, alt: dup.alt, warning: "Cette photo est déjà dans la banque." } } : {};
+}
+
 
 function json(status: number, value: unknown): Result {
   return { status, body: JSON.stringify(value), headers: { "content-type": JSON_TYPE, "cache-control": "no-store" } };
@@ -284,9 +298,10 @@ export async function handleRedaction(
       const focal = (input.focalPoint ?? {}) as { x?: unknown; y?: unknown };
       const clamp = (value: unknown) => Math.min(100, Math.max(0, Number.isFinite(Number(value)) ? Number(value) : 50));
       if (body.bank === false) {
-        const image = { id, kind: "image" as const, src, alt: text(input.alt, 500), credit: text(input.credit, 200) || undefined, license: text(input.license, 100) || undefined, licenseUrl: text(input.licenseUrl, 500) || undefined, source: { backend: "socle", backendId: id, fetchedAt: now } };
+        const checksum = checksumOf(bytes);
+        const image = { id, kind: "image" as const, src, alt: text(input.alt, 500), credit: text(input.credit, 200) || undefined, caption: text(input.caption, 500) || undefined, license: text(input.license, 100) || undefined, licenseUrl: text(input.licenseUrl, 500) || undefined, checksum, variants: [] as Array<{ src: string; width: number; height: number }>, source: { backend: "socle", backendId: id, fetchedAt: now } };
         await saveArticleImage(deps.store, image, bytes);
-        return json(200, { asset: image });
+        return json(200, { asset: image, ...duplicatePayload(await findDuplicate(deps.store, checksum, id)) });
       }
       const asset: LibraryAsset = {
         id,
@@ -306,10 +321,13 @@ export async function handleRedaction(
         campus: text(input.campus, 200),
         keywords: list(input.keywords).slice(0, 30),
         usages: list(input.usages).slice(0, 10),
+        caption: text(input.caption, 500),
+        checksum: checksumOf(bytes),
+        variants: [],
         source: { backend: "socle", backendId: id, fetchedAt: now },
       };
       await saveLibrary(deps.store, asset, bytes);
-      return json(200, { asset });
+      return json(200, { asset, ...duplicatePayload(await findDuplicate(deps.store, asset.checksum ?? "", id)) });
     }
     if (path === "/v1/redaction/photo/fiche") {
       if (!config.modules.media) return fail(404, "Le module media est éteint.");
@@ -327,6 +345,7 @@ export async function handleRedaction(
         ...current,
         alt: text(input.alt, 500) || current.alt,
         credit,
+        caption: text(input.caption, 500),
         creditUrl: text(input.creditUrl, 500),
         license: text(input.license, 100) || current.license,
         licenseUrl: text(input.licenseUrl, 500),
@@ -347,8 +366,10 @@ export async function handleRedaction(
       // Une photo encore utilisée reste : la retirer casserait l'article.
       const users = (await readArticles(deps.store)).filter((article) => article.lead?.src === asset.src || article.media.some((item) => item.src === asset.src));
       if (users.length) return fail(409, `Cette photo illustre encore ${users.length} article(s) : ${users.map((item) => item.title).join(", ")}.`);
+      const publication = await readPublication(deps.store);
+      if (usedInMasthead(publication, asset.src)) return fail(409, "Cette photo est encore dans le mât illustré.");
       await deps.store.delete("media", `library:${id}`);
-      await deps.store.delete("media", `bytes:${asset.src.replace(/^\/+/, "")}`);
+      await deleteMediaFiles(deps.store, asset);
       return json(200, { ok: true });
     }
   } catch (error) {

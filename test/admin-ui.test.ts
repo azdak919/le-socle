@@ -244,8 +244,9 @@ test("aperçu du mât avant d'enregistrer : ordinateur et mobile, clair et sombr
   // Assistant, réglages et banque de photos montrent l'image choisie avant tout envoi.
   assert.match(admin, /<div data-mast-preview/);
   assert.match(admin, /bindMastPreview\(document\.getElementById\('logo-preview'\)/);
-  assert.match(admin, /id="photo-file-preview"/);
-  assert.match(admin, /URL\.createObjectURL\(chosen\)/);
+  assert.match(admin, /mountPhotoPond\(/);
+  assert.match(admin, /id="photo-pond"/);
+  assert.match(admin, /URL\.createObjectURL\(item\.file\)/);
   assert.match(css, /\.mast-preview/);
   assert.match(css, /\.field-error/);
 });
@@ -313,11 +314,21 @@ test("liste des articles au téléphone : les boutons passent sous le titre", ()
 
 test("mât illustré : crédit demandé à l'envoi, cadrage appliqué au fichier, aperçu aux proportions du site", () => {
   const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
-  assert.match(admin, /name="backgroundCredit"/);
-  assert.match(admin, /Indiquez le crédit de la photo du mât\./);
-  assert.match(admin, /index === 0 && previewFromFile \? \{ x: Number\(data\.get\('mastheadFocalX'\)\)/);
+  assert.match(admin, /mountPhotoPond\(document\.getElementById\('background-files'\)/);
+  assert.match(admin, /Chaque image du mât a besoin d’une description accessible et d’un crédit/);
+  assert.match(admin, /index === 0 \? \{ x: Number\(data\.get\('mastheadFocalX'\)\)/);
   assert.match(admin, /form\.elements\.backgroundsEnabled\.checked = true;/);
   const css = readFileSync(join(ROOT, "admin", "ui", "admin.css"), "utf8");
   assert.match(css, /\[data-crop-prefix="masthead"\] \.crop-desktop img \{ aspect-ratio: 27 \/ 4; \}/);
   assert.match(css, /\[data-crop-prefix="masthead"\] \.crop-mobile img \{ aspect-ratio: 3 \/ 2; \}/);
+});
+
+test("la banque téléverse avec FilePond, réduit la photo et en ôte l'orientation EXIF", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  const adapter = readFileSync(join(ASSETS, "filepond-banque.js"), "utf8");
+  assert.match(admin, /La banque est vide/);
+  assert.doesNotMatch(admin, /autoStockPhoto|stock-photo-match|Suggérer une photo/);
+  assert.match(adapter, /createImageBitmap\(file, \{ imageOrientation: 'from-image' \}\)/);
+  assert.match(adapter, /LONG_SIDE = 2400/);
+  assert.match(adapter, /Cette photo est déjà dans la banque/);
 });

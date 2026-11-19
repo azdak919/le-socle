@@ -6,6 +6,9 @@
 @source "../assets/admin.js";
 @import "./vendor/basecoat-subset.css";
 @import "./theme.css";
+@import "../assets/filepond.min.css";
+@import "../assets/filepond-plugin-image-preview.min.css";
+
 
 @layer components {
   /* Contrôles générés par admin.js : on reprend exactement les recettes Basecoat
@@ -242,3 +245,51 @@ body.signed-out .admin-nav { display: none; }
 .assistant-social > summary, .assistant-social > p { @apply sm:col-span-2; }
 .assistant-social > summary { @apply cursor-pointer text-sm font-medium; }
 .assistant-social > p { @apply m-0; }
+
+/* FilePond (MIT) : téléversement par glisser-déposer, adapté au thème de la rédaction. */
+
+.filepond--root {
+  margin-block: 0;
+  font-family: inherit;
+}
+.filepond--panel-root {
+  background-color: var(--color-muted, color-mix(in oklab, var(--background) 90%, var(--foreground) 10%));
+  border: 1px dashed var(--border, #bbb);
+}
+.filepond--drop-label,
+.filepond--label-action,
+.filepond--file-info,
+.filepond--file-status,
+.filepond--file-info-main,
+.filepond--file-info-sub {
+  color: inherit;
+  font-size: 0.875rem;
+}
+.pond-fields {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0 0.25rem 0.5rem;
+}
+.pond-fields label {
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+.pond-fields input {
+  height: 2rem;
+  width: 100%;
+  border-radius: 0.375rem;
+  border: 1px solid var(--border, #ccc);
+  background: var(--background, #fff);
+  color: inherit;
+  padding: 0 0.5rem;
+  font-size: 0.8rem;
+}
+.pond-duplicate {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--destructive, #9b1c1c);
+}

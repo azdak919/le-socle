@@ -76,8 +76,6 @@ radio:
   station: ${yaml(publication.radio?.station || '')}
   theme: ${yaml(publication.radio?.theme || 'auto')}
   position: ${yaml(publication.radio?.position || 'top')}
-media:
-  autoStockPhoto: ${Boolean(publication.media?.autoStockPhoto)}
 founded: ${yaml(publication.founded || '')}
 license: ${yaml(publication.license || 'CC-BY-SA-4.0')}
 governance:

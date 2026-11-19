@@ -2,7 +2,7 @@ import { marked } from './marked.esm.js';
 import { markdownFiles, zipStore } from './export.js';
 import { download, getBackend, slugify } from './runtime.js';
 import { esc } from './util.js';
-import { rankLocalMedia } from './stock-photo-match.js';
+import { mountPhotoPond } from './filepond-banque.js';
 
 const config = window.KIOSQUE_EDITORIAL;
 const main = document.getElementById('admin-main');
@@ -723,6 +723,13 @@ function mediaSrc(media) {
   return src.startsWith('/') ? `${config.publicBasePath}${src}` : src;
 }
 
+/** Vignette de grille : la plus petite miniature, sinon la photo elle-même. */
+function mediaThumb(media) {
+  const variants = (media?.variants || []).filter((item) => item?.src && item.width);
+  const thumb = variants.slice().sort((a, b) => a.width - b.width)[0];
+  return mediaSrc(thumb ? { src: thumb.src } : media);
+}
+
 /** Une photo ajoutée par la rédaction (et non une photo libre du Quorum). */
 function ownPhoto(media) {
   return media?.bank === 'redaction' || media?.source?.backend === 'socle';
@@ -744,7 +751,7 @@ function cropFrames(media, prefix) {
 
 function mediaCards(selectable = false) {
   return (bundle.media || []).map((media) => `<article class="media-card" data-media-card data-search="${esc([media.institution, media.campus, media.alt, media.credit, ...(media.keywords || [])].join(' ').toLowerCase())}" data-usages="${esc((media.usages || []).join(' '))}">
-    <img src="${esc(mediaSrc(media))}" alt="${esc(media.alt)}" loading="lazy" style="object-position:${media.focalPoint?.x ?? 50}% ${media.focalPoint?.y ?? 50}%">
+    <img src="${esc(mediaThumb(media))}" alt="${esc(media.alt)}" loading="lazy" style="object-position:${media.focalPoint?.x ?? 50}% ${media.focalPoint?.y ?? 50}%">
     <div class="media-card-body">${ownPhoto(media) ? '<p class="status-pill status-in-review">Banque de la rédaction</p>' : ''}<h3>${esc(media.institution || media.alt)}</h3><p>${esc(media.campus || media.caption || '')}</p><p class="media-tags">${(media.usages || []).map((usage) => esc(MEDIA_USAGE_LABELS[usage] || usage)).join(' · ')}</p>
     <p>${media.creditUrl ? `<a href="${esc(media.creditUrl)}" target="_blank" rel="noopener">Photo : ${esc(media.credit)}</a>` : `Photo : ${esc(media.credit || 'crédit à compléter')}`}${media.license ? ` · ${media.licenseUrl ? `<a href="${esc(media.licenseUrl)}" target="_blank" rel="noopener">${esc(media.license)}</a>` : esc(media.license)}` : ''}</p>
     ${selectable ? `<button type="button" class="primary" data-select-media="${esc(media.id)}">Choisir cette photo</button>`
@@ -773,6 +780,7 @@ function bindMediaFilters(host) {
 function photoFields(media = {}) {
   return `<div class="field"><label>Description accessible <small>(obligatoire)</small><input name="alt" required value="${esc(media.alt || '')}" placeholder="Ce que montre la photo"></label></div>
     <div class="field"><label>Crédit <small>(obligatoire)</small><input name="credit" required value="${esc(media.credit || '')}" placeholder="Prénom Nom ou agence"></label></div>
+    <div class="field"><label>Légende<input name="caption" value="${esc(media.caption || '')}" placeholder="Texte affiché sous la photo"></label></div>
     <div class="field"><label>Licence<input name="license" list="license-list" value="${esc(media.license || '')}" placeholder="CC BY-SA 4.0, Tous droits réservés…"></label>${licenseList()}</div>
     <div class="field"><label>Lien de la licence<input name="licenseUrl" type="url" value="${esc(media.licenseUrl || '')}" placeholder="Se remplit pour une licence Creative Commons"></label></div>
     <div class="field"><label>Lien du crédit<input name="creditUrl" type="url" value="${esc(media.creditUrl || '')}" placeholder="https://"></label></div>
@@ -785,6 +793,7 @@ function photoDetails(form) {
   return {
     alt: String(data.get('alt') || '').trim(),
     credit: String(data.get('credit') || '').trim(),
+    caption: String(data.get('caption') || '').trim(),
     license: String(data.get('license') || '').trim(),
     licenseUrl: cleanLicenseUrl(data.get('licenseUrl')),
     creditUrl: String(data.get('creditUrl') || '').trim(),
@@ -795,24 +804,29 @@ function photoDetails(form) {
 
 function mediaLibrary() {
   const own = (bundle.media || []).filter(ownPhoto).length;
-  return `<section class="panel"><div class="toolbar"><div><p>La banque du journal : vos photos, réutilisables dans tous les articles et le mât, avec leur crédit. ${onSocle() ? 'Elles sont gardées sur le serveur du journal.' : 'En démonstration, elles restent dans ce navigateur. Les photos libres du Quorum montrent de vrais campus, pas l’établissement fictif du journal.'}</p></div></div>
-    <details class="photo-add" ${own ? '' : 'open'}><summary>Ajouter une photo à la banque</summary><form id="photo-form" class="grid"><div class="field full"><label>Photo JPEG, PNG ou WebP, 8 Mo au plus<input name="file" type="file" accept="image/jpeg,image/png,image/webp" required></label><div id="photo-file-preview"></div></div>${photoFields()}<div class="actions full"><button class="primary" type="submit">Ajouter à la banque</button></div></form><p class="media-quality">Sans crédit, une photo ne va pas dans la banque. Vérifiez que vous avez le droit de la publier.</p></details>
+  return `<section class="panel"><div class="toolbar"><div><p>La banque du journal : vos photos, réutilisables dans tous les articles et le mât, avec leur crédit. ${onSocle() ? 'Elles sont gardées sur le serveur du journal.' : 'En démonstration, elles restent dans ce navigateur. Les photos d’exemple du Quorum montrent de vrais campus, pas l’établissement fictif du journal.'}</p></div></div>
+    <details class="photo-add" ${own ? '' : 'open'}><summary>Ajouter des photos à la banque</summary><form id="photo-form" class="grid"><div class="field full"><label for="photo-pond">Photos JPEG, PNG ou WebP, 8 Mo au plus, une ou plusieurs</label><input id="photo-pond" name="file" type="file" accept="image/jpeg,image/png,image/webp" multiple></div><div class="actions full"><button class="primary" type="submit">Ajouter à la banque</button></div></form><p class="media-quality">Chaque photo a besoin d’une description accessible et d’un crédit. Les photos trop grandes sont réduites dans le navigateur (2 400 px au plus pour le long côté), et les métadonnées de l’appareil, y compris la position, sont retirées. Vérifiez que vous avez le droit de les publier.</p></details>
     ${mediaFilters()}<div class="media-grid">${mediaCards()}</div>${(bundle.media || []).length ? '' : '<p class="empty-state">La banque est vide. Ajoutez une première photo avec le formulaire ci-dessus : elle servira ensuite dans les articles et le mât.</p>'}</section>`;
 }
 
 function photoEditor(media) {
   const dialog = document.createElement('dialog');
   dialog.className = 'media-picker';
-  dialog.innerHTML = `<div class="toolbar"><h2>Fiche de la photo</h2><button type="button" data-close-media aria-label="Fermer">×</button></div><form class="grid" method="dialog"><img class="full" src="${esc(mediaSrc(media))}" alt="" style="max-height:220px;object-fit:contain">${photoFields(media)}<div class="actions full"><button class="primary" type="submit">Enregistrer la fiche</button></div></form>`;
+  dialog.innerHTML = `<div class="toolbar"><h2>Fiche de la photo</h2><button type="button" data-close-media aria-label="Fermer">×</button></div><form class="grid" method="dialog"><img class="full" src="${esc(mediaSrc(media))}" alt="" style="max-height:220px;object-fit:contain">${photoFields(media)}<label>Cadrage horizontal<input name="focalX" type="range" min="0" max="100" value="${media.focalPoint?.x ?? 50}"></label><label>Cadrage vertical<input name="focalY" type="range" min="0" max="100" value="${media.focalPoint?.y ?? 50}"></label><div id="fiche-crop-preview" class="full">${cropFrames(media, 'fiche')}</div><div class="actions full"><button class="primary" type="submit">Enregistrer la fiche</button></div></form>`;
   document.body.append(dialog);
   dialog.querySelector('[data-close-media]').onclick = () => dialog.close();
   dialog.addEventListener('close', () => dialog.remove());
-  dialog.querySelector('form').onsubmit = async (event) => {
+  const form = dialog.querySelector('form');
+  const refreshFicheCrop = () => form.querySelector('.crop-previews')?.style.setProperty('--crop-position', `${form.elements.focalX.value}% ${form.elements.focalY.value}%`);
+  form.elements.focalX.addEventListener('input', refreshFicheCrop);
+  form.elements.focalY.addEventListener('input', refreshFicheCrop);
+  form.onsubmit = async (event) => {
     event.preventDefault();
     const details = photoDetails(event.currentTarget);
     if (!details.credit || !details.alt) { notify('La description et le crédit sont obligatoires.'); return; }
+    const focalPoint = { x: Number(form.elements.focalX.value), y: Number(form.elements.focalY.value) };
     try {
-      await backend.save('media', { ...media, ...details });
+      await backend.save('media', { ...media, ...details, focalPoint });
       dialog.close();
       await refresh();
       render();
@@ -831,31 +845,46 @@ async function imageSize(file) {
 
 function bindMediaLibrary() {
   const form = document.getElementById('photo-form');
-  let previewUrl = '';
-  form.elements.file.addEventListener('change', async () => {
-    const chosen = form.elements.file.files[0];
-    const box = document.getElementById('photo-file-preview');
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    previewUrl = '';
-    if (!chosen) { box.innerHTML = ''; return; }
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(chosen.type)) { box.innerHTML = '<p class="notice" role="alert">Format non pris en charge : choisissez un JPEG, PNG ou WebP.</p>'; return; }
-    previewUrl = URL.createObjectURL(chosen);
-    const size = await imageSize(chosen).catch(() => ({}));
-    box.innerHTML = `<p class="media-quality">Aperçu avant l’ajout${size.width ? ` : ${size.width} × ${size.height} px` : ''}, ${Math.ceil(chosen.size / 1000)} ko${chosen.size > 8_000_000 ? ' — trop lourd, 8 Mo au plus' : ''}.</p>${cropFrames({ src: previewUrl }, 'photo')}`;
+  const pond = mountPhotoPond(document.getElementById('photo-pond'), {
+    multiple: true,
+    requireCredit: true,
+    media: () => bundle.media || [],
   });
   form.onsubmit = async (event) => {
     event.preventDefault();
-    const file = form.elements.file.files[0];
-    const details = photoDetails(form);
-    if (!file) { notify('Choisissez une photo.'); return; }
-    if (!details.alt || !details.credit) { notify('La description et le crédit sont obligatoires.'); return; }
     const button = form.querySelector('button[type="submit"]');
     button.disabled = true;
     try {
-      await backend.uploadPhoto({ asset: { id: crypto.randomUUID(), ...details, ...await imageSize(file), focalPoint: { x: 50, y: 50 } }, file, bank: true });
+      const photos = await pond.collectPhotos();
+      if (!photos.length) { notify('Choisissez au moins une photo.'); button.disabled = false; return; }
+      let added = 0;
+      const warnings = [];
+      for (const photo of photos) {
+        const saved = await backend.uploadPhoto({
+          asset: {
+            id: crypto.randomUUID(),
+            alt: photo.alt,
+            credit: photo.credit,
+            caption: photo.caption,
+            keywords: [],
+            usages: ['article'],
+            width: photo.width,
+            height: photo.height,
+            focalPoint: { x: 50, y: 50 },
+            checksum: photo.checksum,
+          },
+          file: photo.file,
+          bank: true,
+        });
+        added += 1;
+        if (saved?.duplicate || photo.duplicate) {
+          warnings.push(saved?.duplicate?.warning || 'Cette photo est déjà dans la banque.');
+        }
+      }
+      pond.clearPhotos();
       await refresh();
       render();
-      notify('Photo ajoutée à la banque.');
+      notify(warnings.length ? `${added} photo(s) ajoutée(s). ${warnings[0]}` : (added > 1 ? `${added} photos ajoutées à la banque.` : 'Photo ajoutée à la banque.'));
     } catch (error) { notify(error.message, 5000); button.disabled = false; }
   };
   main.querySelectorAll('[data-edit-photo]').forEach((button) => button.onclick = () => photoEditor(bundle.media.find((item) => item.id === button.dataset.editPhoto)));
@@ -865,16 +894,10 @@ function bindMediaLibrary() {
   });
 }
 
-function chooseSharedMedia(onSelect, usage = '', suggestContext = null) {
+function chooseSharedMedia(onSelect, usage = '') {
   const dialog = document.createElement('dialog');
   dialog.className = 'media-picker';
-  const suggestBar = suggestContext
-    ? `<div class="media-suggest" data-media-suggest>
-        <button type="button" class="primary" data-suggest-media>Suggérer selon le texte de l’article</button>
-        <p class="media-suggest-status" data-suggest-status hidden></p>
-      </div>`
-    : '';
-  dialog.innerHTML = `<div class="toolbar"><h2>Choisir une photo</h2><button type="button" data-close-media aria-label="Fermer">×</button></div><p>Cliquez sur une photo pour l’utiliser. Son crédit et sa licence la suivent.</p>${suggestBar}${mediaFilters()}<div class="media-grid">${mediaCards(true)}</div>`;
+  dialog.innerHTML = `<div class="toolbar"><h2>Choisir une photo</h2><button type="button" data-close-media aria-label="Fermer">×</button></div><p>Cliquez sur une photo pour l’utiliser. Son crédit et sa licence la suivent.</p>${mediaFilters()}<div class="media-grid">${mediaCards(true)}</div>`;
   document.body.appendChild(dialog);
   if (usage) dialog.querySelector('[data-media-usage]').value = usage;
   bindMediaFilters(dialog);
@@ -910,37 +933,6 @@ function chooseSharedMedia(onSelect, usage = '', suggestContext = null) {
     });
   };
   paintCards();
-  const suggestBtn = dialog.querySelector('[data-suggest-media]');
-  if (suggestBtn && suggestContext) {
-    suggestBtn.onclick = () => {
-      const ranked = rankLocalMedia(suggestContext(), bundle.media || [], { usage: usage || 'article', minScore: 40, limit: 8 });
-      const status = dialog.querySelector('[data-suggest-status]');
-      if (!ranked.length) {
-        status.hidden = false;
-        status.textContent = 'Aucune photo de la banque ne colle assez au contenu. Élargissez le titre ou parcourez la liste.';
-        return;
-      }
-      status.hidden = false;
-      status.textContent = `${ranked.length} suggestion${ranked.length > 1 ? 's' : ''} (meilleure : score ${Math.round(ranked[0].score)}). Cliquez pour choisir.`;
-      // Badge score sur les cartes suggérées
-      for (const hit of ranked) {
-        const btn = dialog.querySelector(`[data-select-media="${hit.id}"]`);
-        const card = btn?.closest('[data-media-card]');
-        if (!card) continue;
-        let badge = card.querySelector('[data-score-badge]');
-        if (!badge) {
-          badge = document.createElement('p');
-          badge.dataset.scoreBadge = '1';
-          badge.className = 'media-tags';
-          card.querySelector('.media-card-body')?.prepend(badge);
-        }
-        badge.textContent = `Correspondance ${Math.round(hit.score)}`;
-      }
-      paintCards(ranked.map((r) => r.id));
-      dialog.querySelector('[data-media-search]').value = '';
-      dialog.querySelector('[data-media-usage]').value = usage || '';
-    };
-  }
   dialog.addEventListener('close', () => dialog.remove());
   dialog.showModal();
 }
@@ -1003,9 +995,9 @@ function articleEditor(article) {
     <fieldset class="field"><legend>Signatures</legend>${bundle.authors.length ? '' : '<p class="media-quality">Aucune signature : créez-en dans « Équipe ».</p>'}${bundle.authors.map((author) => `<label><input type="checkbox" name="authors" value="${esc(author.slug)}" ${current.authors.includes(author.slug) ? 'checked' : ''}> ${esc(author.name)}</label>`).join('')}</fieldset>
     <fieldset class="field"><legend>Catégories</legend>${bundle.taxonomies.categories.length ? '' : '<p class="media-quality">Aucune catégorie (facultatif, voir « Sections et catégories »).</p>'}${bundle.taxonomies.categories.map((item) => `<label><input type="checkbox" name="categories" value="${esc(item.slug)}" ${current.categories.includes(item.slug) ? 'checked' : ''}> ${esc(item.name)}</label>`).join('')}</fieldset>
     <fieldset class="field full"><legend>Mots-clés</legend>${bundle.taxonomies.tags.length ? '' : '<p class="media-quality">Aucun mot-clé (facultatif, voir « Sections et catégories »).</p>'}${bundle.taxonomies.tags.map((item) => `<label><input type="checkbox" name="tags" value="${esc(item.slug)}" ${current.tags.includes(item.slug) ? 'checked' : ''}> ${esc(item.name)}</label>`).join('')}</fieldset>
-    <fieldset class="field full media-editor"><legend>Photo principale</legend><label>Photo JPEG, PNG ou WebP<input id="article-lead-file" type="file" accept="image/jpeg,image/png,image/webp"></label><label><input type="checkbox" name="leadToBank"> Ajouter aussi cette photo à la banque (crédit obligatoire)</label><button type="button" data-action="choose-lead-media">Choisir une photo</button><button type="button" data-action="suggest-lead-media">Suggérer une photo de la banque</button><label>Description accessible (obligatoire avec une photo)<input name="leadAlt" placeholder="Ce que montre la photo" value="${esc(current.lead?.alt || '')}"></label><label>Crédit (obligatoire pour l’ajouter à la banque)<input name="leadCredit" placeholder="Prénom Nom ou agence" value="${esc(current.lead?.credit || '')}"></label><label>Légende<input name="leadCaption" value="${esc(current.lead?.caption || '')}"></label><label>Licence<input name="leadLicense" list="license-list" value="${esc(current.lead?.license || '')}"></label>${licenseList()}<label>Cadrage horizontal<input name="leadFocalX" type="range" min="0" max="100" value="${current.lead?.focalPoint?.x ?? 50}"></label><label>Cadrage vertical<input name="leadFocalY" type="range" min="0" max="100" value="${current.lead?.focalPoint?.y ?? 50}"></label><div id="article-lead-preview" class="full">${cropFrames(current.lead, 'article')}</div>${current.lead ? `<p class="media-quality">Photo actuelle : ${current.lead.width || '?'} × ${current.lead.height || '?'} px${current.lead.width && (current.lead.width < 720 || current.lead.height < 405) ? ' — résolution faible pour la vedette' : ''}.</p>` : ''}</fieldset>
+    <fieldset class="field full media-editor"><legend>Photo principale</legend><div class="field full"><label for="article-lead-file">Photo JPEG, PNG ou WebP</label><input id="article-lead-file" type="file" accept="image/jpeg,image/png,image/webp"></div><label><input type="checkbox" name="leadToBank"> Ajouter aussi cette photo à la banque (crédit obligatoire)</label><button type="button" data-action="choose-lead-media">Choisir une photo de la banque</button><label>Description accessible (obligatoire avec une photo)<input name="leadAlt" placeholder="Ce que montre la photo" value="${esc(current.lead?.alt || '')}"></label><label>Crédit (obligatoire pour l’ajouter à la banque)<input name="leadCredit" placeholder="Prénom Nom ou agence" value="${esc(current.lead?.credit || '')}"></label><label>Légende<input name="leadCaption" value="${esc(current.lead?.caption || '')}"></label><label>Licence<input name="leadLicense" list="license-list" value="${esc(current.lead?.license || '')}"></label>${licenseList()}<label>Cadrage horizontal<input name="leadFocalX" type="range" min="0" max="100" value="${current.lead?.focalPoint?.x ?? 50}"></label><label>Cadrage vertical<input name="leadFocalY" type="range" min="0" max="100" value="${current.lead?.focalPoint?.y ?? 50}"></label><div id="article-lead-preview" class="full">${cropFrames(current.lead, 'article')}</div>${current.lead ? `<p class="media-quality">Photo actuelle : ${current.lead.width || '?'} × ${current.lead.height || '?'} px${current.lead.width && (current.lead.width < 720 || current.lead.height < 405) ? ' — résolution faible pour la vedette' : ''}.</p>` : ''}</fieldset>
     <div class="field full"><label for="article-format">Format du texte</label><select id="article-format" name="bodyFormat"><option value="markdown" ${current.body?.format !== 'html' ? 'selected' : ''}>Texte simple (Markdown)</option><option value="html" ${current.body?.format === 'html' ? 'selected' : ''}>Texte mis en forme</option></select></div>
-    <div class="field full editor-shell"><div class="editor-toolbar"><button type="button" data-editor-mode="visual">Visuel</button><button type="button" data-editor-mode="source">Source</button><span data-html-tools><button type="button" data-command="bold"><strong>G</strong></button><button type="button" data-command="italic"><em>I</em></button><button type="button" data-command="formatBlock" data-value="h2">Titre</button><button type="button" data-command="createLink">Lien</button></span><label class="button">Téléverser une photo<input id="article-inline-file" type="file" accept="image/jpeg,image/png,image/webp" hidden></label><button type="button" data-action="inline-bank">Photo de la banque</button></div><p class="media-quality" data-visual-note hidden>En mode Visuel, le texte est enregistré mis en forme.</p><label for="article-body" class="sr-only">Texte de l’article</label><textarea class="body" id="article-body" name="body">${esc(current.body?.raw || '')}</textarea><div id="article-visual" class="visual-editor" contenteditable="true"></div><p class="media-quality">${onSocle() ? 'Les photos téléversées sont gardées sur le serveur du journal.' : 'Les photos téléversées restent dans ce navigateur et seront incluses dans les exports.'} Recommandation : 720 × 405 px pour une vedette.</p></div>
+    <div class="field full editor-shell"><div class="editor-toolbar"><button type="button" data-editor-mode="visual">Visuel</button><button type="button" data-editor-mode="source">Source</button><span data-html-tools><button type="button" data-command="bold"><strong>G</strong></button><button type="button" data-command="italic"><em>I</em></button><button type="button" data-command="formatBlock" data-value="h2">Titre</button><button type="button" data-command="createLink">Lien</button></span><button type="button" data-action="inline-upload">Téléverser une photo</button><button type="button" data-action="inline-bank">Photo de la banque</button></div><p class="media-quality" data-visual-note hidden>En mode Visuel, le texte est enregistré mis en forme.</p><label for="article-body" class="sr-only">Texte de l’article</label><textarea class="body" id="article-body" name="body">${esc(current.body?.raw || '')}</textarea><div id="article-visual" class="visual-editor" contenteditable="true"></div><p class="media-quality">${onSocle() ? 'Les photos téléversées sont gardées sur le serveur du journal.' : 'Les photos téléversées restent dans ce navigateur et seront incluses dans les exports.'} Recommandation : 720 × 405 px pour une vedette.</p></div>
     <div class="actions full"><button class="primary" type="submit">Enregistrer</button><button type="button" data-action="preview">Prévisualiser sans publier</button></div></form><div id="article-preview"></div></section>`;
   const title = document.getElementById('article-title');
   const slug = document.getElementById('article-slug');
@@ -1031,24 +1023,13 @@ function articleEditor(article) {
     document.getElementById('article-lead-preview').innerHTML = cropFrames(media, 'article');
     notify(msg);
   };
-  const suggestContext = () => {
-    const bodyEl = document.getElementById('article-body');
-    return {
-      title: articleForm.elements.title?.value || '',
-      excerpt: articleForm.elements.excerpt?.value || '',
-      body: bodyEl?.value || '',
-    };
-  };
-  main.querySelector('[data-action="choose-lead-media"]').onclick = () => chooseSharedMedia(applyLeadMedia, 'article', suggestContext);
-  main.querySelector('[data-action="suggest-lead-media"]').onclick = () => {
-    const ranked = rankLocalMedia(suggestContext(), bundle.media || [], { usage: 'article', minScore: 40, limit: 1 });
-    if (!ranked.length) {
-      chooseSharedMedia(applyLeadMedia, 'article', suggestContext);
-      notify('Aucune suggestion nette — parcourez la banque ou affinez le titre.');
-      return;
-    }
-    applyLeadMedia(structuredClone(ranked[0]), `Suggestion appliquée (score ${Math.round(ranked[0].score)}).`);
-  };
+  const leadPond = mountPhotoPond(document.getElementById('article-lead-file'), {
+    multiple: false,
+    requireCredit: false,
+    defaults: { alt: current.lead?.alt, credit: current.lead?.credit, caption: current.lead?.caption },
+    media: () => bundle.media || [],
+    labelIdle: 'Faites glisser la photo principale ou <span class="filepond--label-action">parcourir</span>',
+  });
   let editorMode = current.body?.format === 'html' ? 'visual' : 'source';
   visual.innerHTML = current.body?.format === 'html' ? sanitizePreview(current.body.raw || '') : sanitizePreview(marked.parse(current.body?.raw || '', { async: false }));
   // Ce qu'on tape en mode Visuel est du texte mis en forme : il devient le
@@ -1141,28 +1122,44 @@ function articleEditor(article) {
     }
     if (value !== null) document.execCommand(button.dataset.command, false, value);
   });
-  document.getElementById('article-inline-file').onchange = async (event) => {
-    const file = event.target.files[0];
-    event.target.value = '';
-    if (!file) return;
-    const answer = await askForm({ title: 'Photo dans le texte', submitLabel: 'Ajouter', fields: [{ name: 'alt', label: 'Ce que montre la photo', required: true }, { name: 'credit', label: 'Crédit photo (qui l’a prise)', required: true }, { name: 'license', label: 'Licence, facultative', placeholder: 'CC BY-SA 4.0, Tous droits réservés…' }] });
-    if (!answer?.alt || !answer?.credit) { notify('La description et le crédit sont obligatoires.'); return; }
-    try {
-      const details = { alt: answer.alt, credit: answer.credit, license: answer.license || '', licenseUrl: LICENSES[answer.license] || '' };
-      const media = onSocle()
-        ? await backend.uploadPhoto({ asset: { id: crypto.randomUUID(), ...details, ...await imageSize(file) }, file, bank: false })
-        : await readArticleImage(file, details);
-      current.media.push({ ...media, license: details.license || media.license });
-      insertInlinePhoto({ ...media, license: details.license || media.license });
-      notify(media.width < 640 || media.height < 360 ? 'Photo ajoutée — résolution faible.' : 'Photo ajoutée.');
-    } catch (error) { notify(error.message); }
+  main.querySelector('[data-action="inline-upload"]').onclick = () => {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'media-picker';
+    dialog.innerHTML = `<form class="grid"><h2>Photo dans le texte</h2><div class="field full"><label for="inline-pond">Photo JPEG, PNG ou WebP</label><input id="inline-pond" type="file" accept="image/jpeg,image/png,image/webp"></div><div class="actions full"><button class="primary" type="submit">Ajouter</button><button type="button" data-cancel>Annuler</button></div></form>`;
+    document.body.append(dialog);
+    const pond = mountPhotoPond(dialog.querySelector('#inline-pond'), {
+      multiple: false,
+      requireCredit: true,
+      media: () => bundle.media || [],
+      labelIdle: 'Faites glisser une photo ou <span class="filepond--label-action">parcourir</span>',
+    });
+    dialog.querySelector('[data-cancel]').onclick = () => dialog.close();
+    dialog.addEventListener('close', () => dialog.remove());
+    dialog.querySelector('form').onsubmit = async (event) => {
+      event.preventDefault();
+      try {
+        const photos = await pond.collectPhotos();
+        if (!photos.length) { notify('Choisissez une photo.'); return; }
+        const photo = photos[0];
+        const details = { alt: photo.alt, credit: photo.credit, caption: photo.caption, license: '', licenseUrl: '' };
+        const media = onSocle()
+          ? await backend.uploadPhoto({ asset: { id: crypto.randomUUID(), ...details, width: photo.width, height: photo.height, checksum: photo.checksum }, file: photo.file, bank: false })
+          : { ...await readArticleImage(photo.file, details), width: photo.width, height: photo.height, checksum: photo.checksum };
+        current.media.push({ ...media, license: details.license || media.license });
+        insertInlinePhoto({ ...media, license: details.license || media.license, caption: photo.caption });
+        dialog.close();
+        notify((media.width || photo.width) < 640 || (media.height || photo.height) < 360 ? 'Photo ajoutée — résolution faible.' : 'Photo ajoutée.');
+      } catch (error) { notify(error.message); }
+    };
+    dialog.showModal();
   };
+
   main.querySelector('[data-action="inline-bank"]').onclick = () => chooseSharedMedia((media) => {
     if (!current.media.some((item) => item.src === media.src)) current.media.push(structuredClone(media));
     // Après la fermeture de la fenêtre de choix : le curseur revient au texte.
     setTimeout(() => insertInlinePhoto(media), 50);
     notify('Photo de la banque insérée.');
-  }, '', suggestContext);
+  }, '');
   bindRequiredFlags(document.getElementById('article-form'));
   document.getElementById('article-form').addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -1170,54 +1167,31 @@ function articleEditor(article) {
     if (editorMode === 'visual') keepVisual();
     const form = new FormData(event.currentTarget);
     let lead = current.lead;
-    const leadFile = document.getElementById('article-lead-file').files[0];
-    let autoStockNote = '';
-    if (leadFile) {
-      const details = { alt: form.get('leadAlt').trim(), credit: form.get('leadCredit').trim(), caption: form.get('leadCaption').trim(), license: form.get('leadLicense').trim() };
-      const focalPoint = { x: Number(form.get('leadFocalX')), y: Number(form.get('leadFocalY')) };
-      const toBank = form.get('leadToBank') === 'on';
-      if (toBank && !details.credit) { notify('Pour ajouter la photo à la banque, indiquez son crédit (ou décochez la case).', 5000); return; }
-      if (!details.alt) { notify('Décrivez ce que montre la photo principale.'); return; }
+    const focalPoint = { x: Number(form.get('leadFocalX')), y: Number(form.get('leadFocalY')) };
+    if (leadPond.hasFiles()) {
       try {
+        const photos = await leadPond.collectPhotos();
+        const photo = photos[0];
+        const details = {
+          alt: photo.alt || form.get('leadAlt').trim(),
+          credit: photo.credit || form.get('leadCredit').trim(),
+          caption: photo.caption || form.get('leadCaption').trim(),
+          license: form.get('leadLicense').trim(),
+        };
+        const toBank = form.get('leadToBank') === 'on';
+        if (toBank && !details.credit) { notify('Pour ajouter la photo à la banque, indiquez son crédit (ou décochez la case).', 5000); return; }
+        if (!details.alt) { notify('Décrivez ce que montre la photo principale.'); return; }
         if (toBank || onSocle()) {
-          const saved = await backend.uploadPhoto({ asset: { id: crypto.randomUUID(), ...details, licenseUrl: LICENSES[details.license] || '', ...await imageSize(leadFile), usages: ['article'], focalPoint }, file: leadFile, bank: toBank });
+          const saved = await backend.uploadPhoto({ asset: { id: crypto.randomUUID(), ...details, licenseUrl: LICENSES[details.license] || '', width: photo.width, height: photo.height, usages: ['article'], focalPoint, checksum: photo.checksum }, file: photo.file, bank: toBank });
           lead = { ...saved, license: details.license || saved.license || '', licenseUrl: LICENSES[details.license] || saved.licenseUrl || '', caption: details.caption, focalPoint };
         } else {
-          lead = { ...await readArticleImage(leadFile, details), focalPoint };
+          lead = { ...await readArticleImage(photo.file, details), width: photo.width, height: photo.height, checksum: photo.checksum, focalPoint };
         }
+        if (lead?.duplicate || photo.duplicate) notify('Cette photo est déjà dans la banque. Elle a tout de même été enregistrée.');
       } catch (error) { notify(error.message, 5000); return; }
     }
-    else if (lead) lead = { ...lead, alt: form.get('leadAlt').trim(), credit: form.get('leadCredit').trim(), caption: form.get('leadCaption').trim(), license: form.get('leadLicense').trim(), licenseUrl: LICENSES[form.get('leadLicense').trim()] || (form.get('leadLicense').trim() === lead.license ? lead.licenseUrl : '') || '', focalPoint: { x: Number(form.get('leadFocalX')), y: Number(form.get('leadFocalY')) } };
-    // Option journal : algo stock si aucune photo principale (ne remplace jamais une photo fournie).
-    if (!lead?.src && bundle.publication?.media?.autoStockPhoto) {
-      const ranked = rankLocalMedia(
-        {
-          title: form.get('title').trim(),
-          excerpt: form.get('excerpt').trim(),
-          body: body.value,
-        },
-        (bundle.media || []).filter((m) => (m.usages || []).includes('article') || (m.src || '').includes('/articles/')),
-        { usage: 'article', minScore: 50, limit: 1 },
-      );
-      if (ranked[0]) {
-        const pick = structuredClone(ranked[0]);
-        delete pick.score;
-        lead = {
-          ...pick,
-          alt: form.get('leadAlt').trim() || pick.alt || '',
-          credit: form.get('leadCredit').trim() || pick.credit || '',
-          caption: form.get('leadCaption').trim() || pick.caption || '',
-          license: form.get('leadLicense').trim() || pick.license || '',
-          focalPoint: pick.focalPoint || { x: 50, y: 48 },
-        };
-        autoStockNote = ` Photo libre proposée (score ${Math.round(ranked[0].score)}).`;
-        articleForm.elements.leadAlt.value = lead.alt;
-        articleForm.elements.leadCredit.value = lead.credit || '';
-        articleForm.elements.leadCaption.value = lead.caption || '';
-        articleForm.elements.leadLicense.value = lead.license || '';
-        document.getElementById('article-lead-preview').innerHTML = cropFrames(lead, 'article');
-      }
-    }
+    else if (lead) lead = { ...lead, alt: form.get('leadAlt').trim(), credit: form.get('leadCredit').trim(), caption: form.get('leadCaption').trim(), license: form.get('leadLicense').trim(), licenseUrl: LICENSES[form.get('leadLicense').trim()] || (form.get('leadLicense').trim() === lead.license ? lead.licenseUrl : '') || '', focalPoint };
+
     if (form.get('status') === 'published' && lead && !lead.alt.trim()) { notify('La description de la photo principale est obligatoire.'); return; }
     let scheduledAt = current.status === 'scheduled' ? current.scheduledAt : undefined;
     if (form.get('status') === 'scheduled') {
@@ -1232,7 +1206,7 @@ function articleEditor(article) {
       ...current, id: form.get('id'), title: form.get('title').trim(), slug: slugify(form.get('slug')), excerpt: form.get('excerpt').trim(), section: form.get('section'), status: form.get('status'), authors: form.getAll('authors'), categories: form.getAll('categories'), tags: form.getAll('tags'), body: { format: format.value, raw: body.value }, lead, media: current.media, publishedAt: enteredPublication || (['published', 'archived'].includes(form.get('status')) ? (current.publishedAt || new Date().toISOString()) : current.publishedAt), scheduledAt, updatedAt: new Date().toISOString(), canonicalUrl: `${String(bundle.publication.siteUrl || '').replace(/\/$/, '')}/articles/${slugify(form.get('slug'))}/`, source: current.source || source('article', form.get('id')), featured: document.getElementById('article-featured').checked,
     };
     try { await backend.save('article', saved); } catch (error) { notify(error.message, 6000); return; }
-    await refresh(); notify(`Article enregistré.${autoStockNote}`); setView('articles');
+    await refresh(); notify('Article enregistré.'); setView('articles');
   });
   main.querySelector('[data-action="preview"]').addEventListener('click', () => {
     if (editorMode === 'visual') keepVisual();
@@ -1430,7 +1404,7 @@ function settings() {
     </fieldset><div class="field"><label>Signature<input name="tagline" placeholder="Le journal étudiant du Cégep de Sainte-Foy" value="${esc(publication.tagline || '')}"></label></div><div class="field"><label>Établissement<input name="institution" placeholder="Cégep de Sainte-Foy" value="${esc(publication.institution || '')}"></label></div><div class="field"><label>Année de fondation (facultatif)<input name="founded" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" data-erreur="Écrivez l’année en quatre chiffres, par exemple 1971." placeholder="1971" value="${esc(publication.founded || '')}"></label><small>Au bas des pages : « © 1971–${new Date().getFullYear()} ». Vide : seulement l’année courante.</small></div><div class="field"><label>Droits sur les articles<select name="license"><option value="" ${/by-nc-nd/i.test(publication.license || '') ? '' : 'selected'}>Tous droits réservés (par défaut)</option><option value="CC BY-NC-ND 4.0" ${/by-nc-nd/i.test(publication.license || '') ? 'selected' : ''}>Creative Commons BY-NC-ND 4.0 : partage permis, sans modification ni usage commercial</option></select></label></div><div class="field"><label>Typographie<select name="typography"><option value="modern-accessible">Moderne accessible</option><option value="editorial-classic" ${publication.theme?.typography === 'editorial-classic' ? 'selected' : ''}>Éditoriale classique</option><option value="institutional" ${publication.theme?.typography === 'institutional' ? 'selected' : ''}>Institutionnelle</option></select></label></div>
     <div class="field"><label>Fuseau horaire<select name="timeZone"><option value="America/Toronto" ${publication.timeZone !== 'America/Blanc-Sablon' ? 'selected' : ''}>Heure de l’Est — majorité du Québec</option><option value="America/Blanc-Sablon" ${publication.timeZone === 'America/Blanc-Sablon' ? 'selected' : ''}>Heure de l’Atlantique — Blanc-Sablon</option></select></label></div>
     <div class="field"><label>Couleur principale<input name="accent" type="color" value="${esc(publication.theme?.accent || '#6c2163')}"></label></div><div class="field"><label>Couleur sombre<input name="accentDark" type="color" value="${esc(publication.theme?.accentDark || '#cf7ec1')}"></label></div><div id="admin-contrast" class="notice full" role="status"></div>
-    <fieldset class="field full"><legend>Mât illustré</legend><label><input name="backgroundsEnabled" type="checkbox" ${masthead.backgrounds?.enabled !== false ? 'checked' : ''}> Afficher les images de fond</label><label>Ajouter mes propres images<input id="background-files" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><div id="background-credit" class="grid" hidden><p>Comme dans la banque de photos, une image envoyée porte son crédit : il s’affiche dans le coin du mât.</p><label>Crédit de la photo (obligatoire)<input name="backgroundCredit" placeholder="Nom de l’auteur ou de l’autrice"></label><label>Licence<input name="backgroundLicense" placeholder="CC BY 4.0, domaine public…"></label><label>Lien du crédit<input name="backgroundCreditUrl" type="url" placeholder="https://"></label></div><div class="actions"><button type="button" data-action="choose-masthead-media">Choisir une photo</button><button type="button" data-action="clear-backgrounds">Retirer toutes les images</button></div><p>${masthead.backgrounds?.images?.length || 0} image(s) enregistrée(s). Un nouvel envoi les ajoute à la rotation.</p><label>Cadrage horizontal<input name="mastheadFocalX" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.x ?? 50}"></label><label>Cadrage vertical<input name="mastheadFocalY" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.y ?? 50}"></label><label>Assombrir l’image derrière le titre<input name="overlayStrength" type="range" min="0" max="0.9" step="0.05" value="${masthead.overlayStrength ?? 0.55}"></label><label>Alignement du titre<select name="textAlignment"><option value="left">Gauche</option><option value="center" ${masthead.textAlignment === 'center' ? 'selected' : ''}>Centre</option><option value="right" ${masthead.textAlignment === 'right' ? 'selected' : ''}>Droite</option></select></label><div id="masthead-crop-preview">${cropFrames(masthead.backgrounds?.images?.[0], 'masthead')}</div></fieldset>
+    <fieldset class="field full"><legend>Mât illustré</legend><label><input name="backgroundsEnabled" type="checkbox" ${masthead.backgrounds?.enabled !== false ? 'checked' : ''}> Afficher les images de fond</label><div class="field full"><label for="background-files">Ajouter mes propres images</label><input id="background-files" type="file" accept="image/jpeg,image/png,image/webp" multiple></div><p class="media-quality">Chaque image du mât a besoin d’une description accessible et d’un crédit. Les photos trop grandes sont réduites dans le navigateur, et les métadonnées de l’appareil, y compris la position, sont retirées.</p><div class="actions"><button type="button" data-action="choose-masthead-media">Choisir une photo</button><button type="button" data-action="clear-backgrounds">Retirer toutes les images</button></div><p>${masthead.backgrounds?.images?.length || 0} image(s) enregistrée(s). Un nouvel envoi les ajoute à la rotation.</p><label>Cadrage horizontal<input name="mastheadFocalX" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.x ?? 50}"></label><label>Cadrage vertical<input name="mastheadFocalY" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.y ?? 50}"></label><label>Assombrir l’image derrière le titre<input name="overlayStrength" type="range" min="0" max="0.9" step="0.05" value="${masthead.overlayStrength ?? 0.55}"></label><label>Alignement du titre<select name="textAlignment"><option value="left">Gauche</option><option value="center" ${masthead.textAlignment === 'center' ? 'selected' : ''}>Centre</option><option value="right" ${masthead.textAlignment === 'right' ? 'selected' : ''}>Droite</option></select></label><div id="masthead-crop-preview">${cropFrames(masthead.backgrounds?.images?.[0], 'masthead')}</div></fieldset>
     <fieldset class="field full settings-social"><legend>Réseaux sociaux</legend><small>Une adresse complète par réseau ; un réseau laissé vide n’est pas affiché. Les icônes paraissent dans le mât et au bas des pages du site Web.</small><div class="social-grid">${socialFieldsHtml(publication.social || {})}</div></fieldset>
     <fieldset class="field"><legend>Météo</legend><label><input name="weatherEnabled" type="checkbox" ${masthead.weather?.enabled ? 'checked' : ''}> Afficher la météo</label><label>Localités, séparées par des virgules<input name="weatherLocalities" value="${esc((masthead.weather?.localities || []).join(', '))}" placeholder="Québec"></label><small>Maximum quatre.</small></fieldset>
     <fieldset class="field full"><legend>Sports — Au tableau</legend>
@@ -1441,10 +1415,6 @@ function settings() {
     </fieldset>
     <fieldset class="field"><legend>Outils</legend><label><input name="pomodoro" type="checkbox" ${masthead.tools?.pomodoro !== false ? 'checked' : ''}> Pomodoro LE-RADAR.ca</label><label><input name="solitaire" type="checkbox" ${masthead.tools?.solitaire !== false ? 'checked' : ''}> Solitaire LE-RADAR.ca</label></fieldset>
     <fieldset class="field full"><legend>Radio étudiante</legend><label><input name="radioEnabled" type="checkbox" ${publication.radio?.enabled !== false ? 'checked' : ''}> Afficher la barre radio sous le mât</label><label>Station<select name="station" id="radar-stations"><option value="">Choisir une station</option>${publication.radio?.station ? `<option value="${esc(publication.radio.station)}" selected>${esc(publication.radio.station)}</option>` : ''}</select></label><small>La barre est le module de LE-RADAR : ses stations et son lecteur se mettent à jour chez LE-RADAR, sans toucher au journal. Éteinte, la barre n’existe pas et rien ne part vers le-radar.ca.</small></fieldset>
-    <fieldset class="field full"><legend>Photos d’articles</legend>
-      <label><input name="autoStockPhoto" type="checkbox" ${publication.media?.autoStockPhoto ? 'checked' : ''}> Proposer une photo libre si aucune n’est fournie</label>
-      <small>Le Kiosque choisit, dans la banque du journal, la photo la plus proche du titre et du texte. Une photo choisie ou téléversée manuellement n’est jamais remplacée. Désactivez pour exiger une photo soumise à chaque article.</small>
-    </fieldset>
     <div class="field full"><label>Logo local (SVG, PNG, WebP ou JPEG)<input id="logo-file" type="file" accept="image/svg+xml,image/png,image/webp,image/jpeg"></label><label>Texte alternatif<input name="logoAlt" placeholder="${esc(publication.name || 'La Vigie')}" value="${esc(publication.logo?.alt || '')}"></label><small>Vide : le nom du journal sert de texte alternatif. Vérifiez vos droits d’utilisation pour chaque image téléversée.</small><div id="logo-preview"></div></div>
     <div class="actions full"><button class="primary">Enregistrer</button><button type="button" data-action="recommended-theme">Réinitialiser le thème recommandé</button></div></form></section>`;
 }
@@ -1608,21 +1578,25 @@ function render() {
     });
     form.elements.name.addEventListener('input', showLogo); form.elements.accent.addEventListener('input', showLogo);
     let previewFromFile = false;
-    document.getElementById('background-files').addEventListener('change', (event) => {
-      const chosen = event.target.files[0];
-      document.getElementById('background-credit').hidden = !chosen;
-      if (!chosen) return;
-      // L’aperçu montre ce fichier : le cadrage réglé s’appliquera à lui.
+    const mastheadPond = mountPhotoPond(document.getElementById('background-files'), {
+      multiple: true,
+      requireCredit: true,
+      media: () => bundle.media || [],
+      labelIdle: 'Faites glisser les photos du mât ou <span class="filepond--label-action">parcourir</span>',
+    });
+    const previewMastheadPond = () => {
+      const item = mastheadPond.getFiles()[0];
+      if (!item) return;
       previewFromFile = true;
       selectedMasthead = null;
-      // Une nouvelle image s’affiche (« Retirer toutes les images » avait décoché la case).
       form.elements.backgroundsEnabled.checked = true;
-      document.getElementById('masthead-crop-preview').innerHTML = cropFrames({ src: URL.createObjectURL(chosen), focalPoint: { x: Number(form.elements.mastheadFocalX.value), y: Number(form.elements.mastheadFocalY.value) } }, 'masthead');
-    });
+      document.getElementById('masthead-crop-preview').innerHTML = cropFrames({ src: URL.createObjectURL(item.file), focalPoint: { x: Number(form.elements.mastheadFocalX.value), y: Number(form.elements.mastheadFocalY.value) } }, 'masthead');
+    };
+    mastheadPond.on('addfile', () => previewMastheadPond());
     bindRequiredFlags(form);
     bindSocialFields(form);
     bindSportsForm(form);
-    form.onsubmit = async (event) => { event.preventDefault(); if (!flagInvalidFields(form)) { notify('Remplissez les champs signalés.'); return; } const data = new FormData(form); const publication = structuredClone(bundle.publication); publication.name = data.get('name').trim(); publication.tagline = data.get('tagline').trim(); publication.institution = data.get('institution').trim(); publication.founded = String(data.get('founded') || '').trim(); publication.license = String(data.get('license') || ''); publication.social = readSocial(data); publication.timeZone = data.get('timeZone'); publication.siteUrl = data.get('siteUrl').trim(); publication.slug = slugify(data.get('slug')) || publication.slug; publication.governance = { ...publication.governance, owner: data.get('owner').trim(), contact: data.get('contact').trim(), repo: data.get('repo').trim() }; publication.noindex = data.has('noindex'); publication.fictif = data.has('fictif'); publication.theme = { accent: data.get('accent'), accentDark: data.get('accentDark'), typography: data.get('typography') }; publication.radio = { ...publication.radio, enabled: data.has('radioEnabled'), station: String(data.get('station') || '').trim().toLowerCase(), theme: 'dark', position: 'top' }; delete publication.radio.stream; delete publication.radio.name; delete publication.radio.frequency; delete publication.radio.website; publication.media = { ...publication.media, autoStockPhoto: data.has('autoStockPhoto') }; const localities = data.get('weatherLocalities').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4); const priorImages = clearMastheadImages ? [] : (publication.masthead?.backgrounds?.images || []); const selected = selectedMasthead ? { ...selectedMasthead, focalPoint: { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } } : null; publication.masthead = { backgrounds: { enabled: data.has('backgroundsEnabled'), images: selected ? [selected, ...priorImages.filter((item) => item.id !== selected.id)] : priorImages }, weather: { enabled: data.has('weatherEnabled'), localities }, sports: readSportsForm(form), tools: { pomodoro: data.has('pomodoro'), solitaire: data.has('solitaire') }, overlayStrength: Math.min(0.9, Math.max(0, Number(data.get('overlayStrength')))), textAlignment: data.get('textAlignment') }; const uploads = [...document.getElementById('background-files').files]; const uploadCredit = String(data.get('backgroundCredit') || '').trim(); if (uploads.length && !uploadCredit) { form.elements.backgroundCredit.setAttribute('aria-invalid', 'true'); form.elements.backgroundCredit.focus(); notify('Indiquez le crédit de la photo du mât.'); return; } const uploadCreditUrl = String(data.get('backgroundCreditUrl') || '').trim(); const uploaded = []; for (const [index, file] of uploads.entries()) uploaded.push({ ...await readArticleImage(file, { alt: `Arrière-plan du journal ${publication.name}`, credit: uploadCredit, license: String(data.get('backgroundLicense') || '').trim() }), ...(/^https:\/\//i.test(uploadCreditUrl) ? { creditUrl: uploadCreditUrl } : {}), focalPoint: index === 0 && previewFromFile ? { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } : { x: 50, y: 50 } }); /* L’image envoyée et réglée dans l’aperçu passe en tête : c’est elle que le mât montre d’abord. */ publication.masthead.backgrounds.images = previewFromFile ? [...uploaded, ...publication.masthead.backgrounds.images] : [...publication.masthead.backgrounds.images, ...uploaded]; const logoFile = document.getElementById('logo-file').files[0]; if (logoFile) publication.logo = await readLogo(logoFile, data.get('logoAlt').trim()); else if (publication.logo && isGeneratedInitialsLogoSrc(publication.logo.src)) delete publication.logo; else if (publication.logo) publication.logo.alt = data.get('logoAlt').trim() || publication.name; await backend.savePublication(publication); await refresh(); notify('Configuration enregistrée.'); render(); };
+    form.onsubmit = async (event) => { event.preventDefault(); if (!flagInvalidFields(form)) { notify('Remplissez les champs signalés.'); return; } const data = new FormData(form); const publication = structuredClone(bundle.publication); publication.name = data.get('name').trim(); publication.tagline = data.get('tagline').trim(); publication.institution = data.get('institution').trim(); publication.founded = String(data.get('founded') || '').trim(); publication.license = String(data.get('license') || ''); publication.social = readSocial(data); publication.timeZone = data.get('timeZone'); publication.siteUrl = data.get('siteUrl').trim(); publication.slug = slugify(data.get('slug')) || publication.slug; publication.governance = { ...publication.governance, owner: data.get('owner').trim(), contact: data.get('contact').trim(), repo: data.get('repo').trim() }; publication.noindex = data.has('noindex'); publication.fictif = data.has('fictif'); publication.theme = { accent: data.get('accent'), accentDark: data.get('accentDark'), typography: data.get('typography') }; publication.radio = { ...publication.radio, enabled: data.has('radioEnabled'), station: String(data.get('station') || '').trim().toLowerCase(), theme: 'dark', position: 'top' }; delete publication.radio.stream; delete publication.radio.name; delete publication.radio.frequency; delete publication.radio.website; const localities = data.get('weatherLocalities').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4); const priorImages = clearMastheadImages ? [] : (publication.masthead?.backgrounds?.images || []); const selected = selectedMasthead ? { ...selectedMasthead, focalPoint: { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } } : null; publication.masthead = { backgrounds: { enabled: data.has('backgroundsEnabled'), images: selected ? [selected, ...priorImages.filter((item) => item.id !== selected.id)] : priorImages }, weather: { enabled: data.has('weatherEnabled'), localities }, sports: readSportsForm(form), tools: { pomodoro: data.has('pomodoro'), solitaire: data.has('solitaire') }, overlayStrength: Math.min(0.9, Math.max(0, Number(data.get('overlayStrength')))), textAlignment: data.get('textAlignment') }; const uploaded = []; if (mastheadPond.hasFiles()) { const photos = await mastheadPond.collectPhotos(); previewFromFile = true; for (const [index, photo] of photos.entries()) { const details = { alt: photo.alt, credit: photo.credit, caption: photo.caption }; const focalPoint = index === 0 ? { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } : { x: 50, y: 50 }; let asset; if (onSocle()) { asset = await backend.uploadPhoto({ asset: { id: crypto.randomUUID(), ...details, width: photo.width, height: photo.height, usages: ['masthead'], focalPoint, checksum: photo.checksum }, file: photo.file, bank: true }); } else { asset = { ...await readArticleImage(photo.file, details), width: photo.width, height: photo.height, checksum: photo.checksum }; } uploaded.push({ ...asset, focalPoint }); } } /* L’image envoyée et réglée dans l’aperçu passe en tête : c’est elle que le mât montre d’abord. */ publication.masthead.backgrounds.images = previewFromFile && uploaded.length ? [...uploaded, ...publication.masthead.backgrounds.images] : [...publication.masthead.backgrounds.images, ...uploaded]; const logoFile = document.getElementById('logo-file').files[0]; if (logoFile) publication.logo = await readLogo(logoFile, data.get('logoAlt').trim()); else if (publication.logo && isGeneratedInitialsLogoSrc(publication.logo.src)) delete publication.logo; else if (publication.logo) publication.logo.alt = data.get('logoAlt').trim() || publication.name; await backend.savePublication(publication); await refresh(); notify('Configuration enregistrée.'); render(); };
     main.querySelector('[data-action="clear-backgrounds"]').onclick = () => { selectedMasthead = null; clearMastheadImages = true; form.elements.backgroundsEnabled.checked = false; document.getElementById('masthead-crop-preview').innerHTML = cropFrames(null, 'masthead'); notify('Les images seront retirées à l’enregistrement.'); };
     main.querySelector('[data-action="recommended-theme"]').onclick = () => { form.elements.typography.value = 'modern-accessible'; form.elements.accent.value = '#6c2163'; form.elements.accentDark.value = '#cf7ec1'; };
   }

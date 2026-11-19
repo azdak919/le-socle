@@ -39,8 +39,14 @@ export function adminSidebarFoot(version = SOCLE_VERSION) {
 
 /** Fichiers de l'admin, tous sous `admin/assets/`. */
 export const ADMIN_ASSETS = Object.freeze([
-  'admin.js', 'admin.css', 'runtime.js', 'util.js', 'export.js', 'stock-photo-match.js',
+  'admin.js', 'admin.css', 'runtime.js', 'util.js', 'export.js',
   'marked.esm.js', 'socle-backend.js', 'public-backend.js', 'demo-backend.js', 'sqljs-db.js', 'sql-wasm.js', 'sql-wasm.wasm',
+  'filepond-banque.js', 'filepond.esm.min.js', 'filepond.min.css', 'filepond-locale-fr-fr.js',
+  'filepond-plugin-image-preview.esm.min.js', 'filepond-plugin-image-preview.min.css',
+  'filepond-plugin-image-resize.esm.min.js', 'filepond-plugin-image-transform.esm.min.js',
+  'filepond-plugin-image-exif-orientation.esm.min.js',
+  'filepond-plugin-file-validate-type.esm.min.js',
+  'filepond-plugin-file-validate-size.esm.min.js',
   // Restauration en deux temps des pages /admin/sauvegarde (insérée par PHP et Node).
   'restauration.js',
 ]);

@@ -165,7 +165,9 @@ export class SocleBackend {
    */
   async uploadPhoto({ asset, file, bank = true }) {
     const data = base64(await file.arrayBuffer());
-    const saved = (await this.#request('POST', 'photo', { asset, data, bank })).asset;
+    const payload = await this.#request('POST', 'photo', { asset, data, bank });
+    const saved = { ...payload.asset };
+    if (payload.duplicate) saved.duplicate = payload.duplicate;
     this.#emit({ kind: 'media', id: saved.id });
     return saved;
   }
