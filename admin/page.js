@@ -111,7 +111,7 @@ export function adminShell(options) {
     <main id="admin-main" tabindex="-1">${options.main}</main>
   </div>
 </div><div id="toast" role="status" aria-live="polite"></div>
-<script>(function(){var a=document.querySelector('.admin-nav [aria-current="page"]');if(a&&a.scrollIntoView&&innerWidth<768)a.scrollIntoView({inline:'center',block:'nearest'});})();</script>
+
 ${options.scripts ?? ''}
 </body></html>`;
 }

@@ -19,7 +19,7 @@ Le socle est sous GPL-2.0-only. Le code repris ci-dessous l'est sous une licence
 
 Modification : le dessin est posé, sans retouche, sur le carreau sombre de [LE-RADAR](https://le-radar.ca) (même auteur que le Socle), avec un filet clair en mode sombre ; il est réduit en 16, 32, 180 et 512 px. La licence CC BY 4.0 est compatible avec la GPL ; elle demande cette mention de l'auteur, de la source et de la licence.
 
-Les textes de licence MIT de FilePond et de ses greffons sont dans l'en-tête de chaque fichier copié (`Licensed under MIT`). Les textes de licence MIT de Basecoat, sql.js et Tailwind CSS sont fournis avec leurs paquets npm (`node_modules/basecoat-css/LICENSE.md`, `node_modules/sql.js/LICENSE`, `node_modules/tailwindcss/LICENSE`). Les fichiers de sql.js copiés dans `admin/assets/` n'ont pas d'en-tête : sa licence est recopiée ci-dessous.
+Les textes de licence MIT de FilePond et de ses greffons sont dans l'en-tête de chaque fichier copié (`Licensed under MIT`). Dans `admin/assets/filepond.esm.min.js`, le séparateur décimal de la taille affichée, fixé à un point dans FilePond 4.32, est remplacé par une virgule, pour respecter `labelDecimalSeparator` (« 1,1 Mo »). Les textes de licence MIT de Basecoat, sql.js et Tailwind CSS sont fournis avec leurs paquets npm (`node_modules/basecoat-css/LICENSE.md`, `node_modules/sql.js/LICENSE`, `node_modules/tailwindcss/LICENSE`). Les fichiers de sql.js copiés dans `admin/assets/` n'ont pas d'en-tête : sa licence est recopiée ci-dessous.
 
 ## Licence de sql.js
 

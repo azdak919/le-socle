@@ -25,11 +25,54 @@ FilePond.registerPlugin(
 FilePond.setOptions({
   ...fr,
   labelIdle: 'Faites glisser vos photos ou <span class="filepond--label-action">parcourir</span>',
+  labelFileSizeBytes: 'o',
+  labelFileSizeKilobytes: 'ko',
+  labelFileSizeMegabytes: 'Mo',
+  labelFileSizeGigabytes: 'Go',
+  labelDecimalSeparator: ',',
+  labelThousandsSeparator: ' ',
+  // FilePond 4.32 ignore labelDecimalSeparator dans l’affichage de la taille
+  // (séparateur codé en dur) : le fichier vendu est ajusté pour la virgule.
   credits: false,
 });
 
 /** Long côté maximal après réduction dans le navigateur. */
 export const LONG_SIDE = 2400;
+
+/** Taille affichée à la française : « 94 ko », « 1,2 Mo ». */
+export function formatFileSizeFr(bytes) {
+  const size = Math.round(Math.abs(Number(bytes) || 0));
+  if (size < 1000) return `${size} o`;
+  if (size < 1e6) return `${Math.floor(size / 1000)} ko`;
+  const format = (value, digits) => {
+    const raw = value.toFixed(digits).replace(/0+$/, '').replace(/\.$/, '');
+    return raw.replace('.', ',');
+  };
+  if (size < 1e9) return `${format(size / 1e6, 1)} Mo`;
+  return `${format(size / 1e9, 2)} Go`;
+}
+
+function writeSizeLabel(item) {
+  const sub = item?.container?.querySelector('.filepond--file-info-sub');
+  const bytes = item?.fileSize ?? item?.file?.size;
+  if (sub && Number.isFinite(bytes)) {
+    const label = formatFileSizeFr(bytes);
+    if (sub.textContent !== label) sub.textContent = label;
+  }
+}
+
+function applySizeLabel(item, attempts = 0) {
+  writeSizeLabel(item);
+  if (attempts < 24) requestAnimationFrame(() => applySizeLabel(item, attempts + 1));
+}
+
+function watchSizeLabels(pond) {
+  const tick = () => pond.getFiles().forEach(writeSizeLabel);
+  const root = pond.element;
+  if (!root) return;
+  const obs = new MutationObserver(tick);
+  obs.observe(root, { subtree: true, childList: true, characterData: true });
+}
 
 export async function sha256Hex(buffer) {
   const digest = await crypto.subtle.digest('SHA-256', buffer);
@@ -170,7 +213,7 @@ export function mountPhotoPond(input, options = {}) {
     allowRevert: true,
     instantUpload: false,
     allowProcess: false,
-    imagePreviewHeight: 140,
+    imagePreviewHeight: 120,
     imageResizeTargetWidth: LONG_SIDE,
     imageResizeTargetHeight: LONG_SIDE,
     imageResizeMode: 'contain',
@@ -183,6 +226,7 @@ export function mountPhotoPond(input, options = {}) {
     onaddfile: (error, item) => {
       if (error || !item) return;
       injectWhenReady(item, pond, { requireCredit, defaults });
+      applySizeLabel(item);
       preparePhoto(item.file).then((prepared) => flagDuplicate(item, prepared)).catch(() => {});
     },
     onremovefile: (_error, item) => {

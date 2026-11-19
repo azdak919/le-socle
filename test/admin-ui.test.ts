@@ -346,4 +346,18 @@ test("la banque téléverse avec FilePond, réduit la photo et en ôte l'orienta
   assert.match(adapter, /createImageBitmap\(file, \{ imageOrientation: 'from-image' \}\)/);
   assert.match(adapter, /LONG_SIDE = 2400/);
   assert.match(adapter, /Cette photo est déjà dans la banque/);
+  assert.match(adapter, /labelFileSizeKilobytes: 'ko'/);
+  assert.match(adapter, /1,2 Mo|formatFileSizeFr/);
+  assert.match(adapter, /imagePreviewHeight: 120/);
+  assert.match(admin, /button.disabled = !pond.hasFiles/);
+  assert.match(admin, /length \? `\$\{mediaFilters\(\)\}/);
+});
+
+test("la banque vide cache la recherche, et la navigation mobile passe sur plusieurs lignes", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  const css = readFileSync(join("admin", "ui", "admin.css"), "utf8");
+  const page = readFileSync(join("admin", "page.js"), "utf8");
+  assert.match(admin, /length \? `\$\{mediaFilters\(\)\}<div class="media-grid">/);
+  assert.match(css, /photo-add > \.media-quality/);
+  assert.match(css, /flex-wrap md:flex-nowrap/);
 });
