@@ -218,7 +218,7 @@ export function adminDocument(lang: Lang, title: string, body: string): Result {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title}</title>
+<title>${title}${journalName ? ` — ${escapeHtml(journalName)}` : ""}</title>
 ${socleFavicons()}
 <style>
   :root { --primary: #6d2350; --fg: #1f1a1d; --muted: #6b6468; --border: #e9e3e6; --bg: #fdfcfd; --card: #fff; --accent: #f8eff4; --radius: 0.625rem; color-scheme: light; }

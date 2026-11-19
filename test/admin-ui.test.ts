@@ -60,6 +60,7 @@ test("pages Sauvegarde et Mise à jour : le journal s'il est configuré, sinon l
   setAdminJournalName("La <Vigie>");
   const vigie = String(adminDocument("fr", "Sauvegarde", "<p>x</p>").body);
   assert.match(vigie, /<a class="brand" href="\/admin"><span><strong>La &lt;Vigie&gt;<\/strong><small>Espace de rédaction<\/small>/);
+  assert.match(vigie, /<title>Sauvegarde — La &lt;Vigie&gt;<\/title>/);
   assert.match(vigie, /Propulsé par <a href="https:\/\/azdak919\.github\.io\/le-socle\/">Le Socle<\/a>/);
   setAdminJournalName("");
 });
