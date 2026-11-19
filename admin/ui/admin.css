@@ -129,6 +129,19 @@
 .crop-tablet img { @apply md:h-40; }
 .crop-mobile img { @apply md:h-44; }
 .crop-preview figcaption { @apply mt-1 text-xs text-muted-foreground; }
+/* Mât illustré : les cadres reprennent les proportions réelles du mât du site
+   (mesurées : environ 6,8:1 à 1440 px, 3,9:1 à 820 px, 1,5:1 à 390 px). Sans
+   cela l’aperçu montrait presque toute la photo alors que le site n’en garde
+   qu’une bande à l’ordinateur. */
+.crop-previews[data-crop-prefix="masthead"] { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); align-items: start; }
+.crop-previews[data-crop-prefix="masthead"] .crop-desktop { grid-column: 1 / -1; }
+.crop-previews[data-crop-prefix="masthead"] .crop-preview img { height: auto; }
+.crop-previews[data-crop-prefix="masthead"] .crop-desktop img { aspect-ratio: 27 / 4; }
+.crop-previews[data-crop-prefix="masthead"] .crop-tablet img { aspect-ratio: 4 / 1; }
+.crop-previews[data-crop-prefix="masthead"] .crop-mobile img { aspect-ratio: 3 / 2; }
+@media (max-width: 640px) {
+  .crop-previews[data-crop-prefix="masthead"] { grid-template-columns: minmax(0, 1fr); }
+}
 
 /* Aperçu du mât (logo) avant d’enregistrer : ordinateur et mobile, clair et sombre. */
 .mast-previews { @apply grid gap-3 mt-3 items-start; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
@@ -176,6 +189,13 @@
 #toast { @apply fixed right-4 bottom-4 z-50 rounded-lg bg-foreground px-4 py-2.5 text-sm text-background shadow-lg opacity-0 pointer-events-none transition-opacity; }
 #toast.visible { @apply opacity-100; }
 .entity-list li > div:last-child { @apply flex shrink-0 flex-wrap justify-end gap-2; }
+/* Téléphone : le titre prend toute la largeur, les boutons passent dessous
+   (ils écrasaient le titre en colonne étroite, mot coupé « stationnemer »). */
+@media (max-width: 640px) {
+  .entity-list li { @apply flex-col items-stretch gap-2; }
+  .entity-list li > div:first-child { overflow-wrap: anywhere; }
+  .entity-list li > div:last-child { @apply justify-start; }
+}
 #admin-main fieldset label { @apply flex items-center gap-2 py-0.5; }
 .toolbar p { @apply m-0 mt-1 text-sm text-muted-foreground; }
 

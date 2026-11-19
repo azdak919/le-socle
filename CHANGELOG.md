@@ -1,6 +1,8 @@
 # Journal
 
 ## Non publié
+- Liste des articles (et des signatures, rubriques et catégories) au téléphone : les boutons Modifier et Supprimer passent sous le titre, qui n’est plus écrasé ni coupé au milieu d’un mot.
+- Mât illustré, image envoyée depuis Configuration : on indique son crédit (obligatoire), sa licence et un lien, comme dans la banque de photos ; le crédit s’affiche dans le coin du mât. Le cadrage réglé dans l’aperçu s’applique à l’image envoyée, qui passe en tête de la rotation, et la case « Afficher les images de fond » se recoche toute seule après « Retirer toutes les images ». L’aperçu Ordinateur, Tablette, Mobile reprend les proportions réelles du mât du site (une bande étroite à l’ordinateur), au lieu de montrer presque toute la photo.
 - Version 1.3.3.
 - En haut du menu de l’espace de rédaction : un ancien logo fait seulement d’initiales dans un cercle (« LV ») ne s’affiche plus, le nom du journal paraît à sa place, comme sur le site public. Un vrai logo téléversé s’affiche toujours. « Propulsé par Le Socle » garde son numéro de version.
 - Plan du site (`sitemap.xml`) : il donne aussi les pages des signatures et leur index (`/auteurs/`), les rubriques, les catégories, la revue à imprimer (`/revue/`), la recherche, le plan du site, les archives de chaque année et, s’il y a des équipes, « Au tableau ». Les articles y sont rangés du plus récent au plus ancien.

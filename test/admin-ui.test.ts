@@ -305,3 +305,19 @@ test("la barre de l'espace de rédaction ignore un monogramme d'initiales, comme
   const brand = admin.slice(admin.indexOf("function paintBrandIn"), admin.indexOf("function paintBrandIn") + 1200);
   assert.match(brand, /!isGeneratedInitialsLogoSrc\(pub\.logo\.src\)/);
 });
+
+test("liste des articles au téléphone : les boutons passent sous le titre", () => {
+  const css = readFileSync(join(ROOT, "admin", "ui", "admin.css"), "utf8");
+  assert.match(css, /@media \(max-width: 640px\) \{\s*\.entity-list li \{ @apply flex-col items-stretch gap-2; \}/);
+});
+
+test("mât illustré : crédit demandé à l'envoi, cadrage appliqué au fichier, aperçu aux proportions du site", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  assert.match(admin, /name="backgroundCredit"/);
+  assert.match(admin, /Indiquez le crédit de la photo du mât\./);
+  assert.match(admin, /index === 0 && previewFromFile \? \{ x: Number\(data\.get\('mastheadFocalX'\)\)/);
+  assert.match(admin, /form\.elements\.backgroundsEnabled\.checked = true;/);
+  const css = readFileSync(join(ROOT, "admin", "ui", "admin.css"), "utf8");
+  assert.match(css, /\[data-crop-prefix="masthead"\] \.crop-desktop img \{ aspect-ratio: 27 \/ 4; \}/);
+  assert.match(css, /\[data-crop-prefix="masthead"\] \.crop-mobile img \{ aspect-ratio: 3 \/ 2; \}/);
+});
