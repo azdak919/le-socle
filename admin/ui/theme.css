@@ -11,6 +11,24 @@
   --sidebar: oklch(0.985 0.003 340);
   --sidebar-primary: oklch(0.38 0.12 340);
 }
+
+/* :root ci-dessus recouvre les jetons sombres de Basecoat. On les rétablit
+   pour html.dark / .dark, en gardant la prune du journal. */
+html.dark,
+.dark {
+  --background: oklch(0.16 0.008 340);
+  --foreground: oklch(0.985 0 0);
+  --muted: oklch(0.27 0.01 340);
+  --muted-foreground: oklch(0.72 0.01 340);
+  --accent: oklch(0.28 0.02 340);
+  --accent-foreground: oklch(0.97 0.01 340);
+  --sidebar: oklch(0.18 0.008 340);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0.008 340);
+  --card-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 0.12);
+  --input: oklch(1 0 0 / 0.15);
+}
 @theme inline {
   --font-sans: "Inter", "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-serif: "Fraunces", Georgia, "Times New Roman", serif;

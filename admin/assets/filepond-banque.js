@@ -44,14 +44,44 @@ export function knownChecksums(media = []) {
   );
 }
 
+function fieldsHost(pond) {
+  const parent = pond.element?.parentElement;
+  if (!parent) return null;
+  let host = parent.querySelector(':scope > [data-pond-host]');
+  if (!host) {
+    host = document.createElement('div');
+    host.className = 'pond-host';
+    host.dataset.pondHost = '1';
+    pond.element.after(host);
+  }
+  return host;
+}
+
+function fieldBox(item, pond) {
+  const id = item?.id;
+  if (!id) return null;
+  return fieldsHost(pond)?.querySelector(`[data-pond-fields="${CSS.escape(id)}"]`) || null;
+}
+
+function syncFieldOrder(pond) {
+  const host = fieldsHost(pond);
+  if (!host) return;
+  for (const item of pond.getFiles()) {
+    const box = fieldBox(item, pond);
+    if (box) host.append(box);
+  }
+}
+
 function injectFields(item, pond, { requireCredit, defaults = {} }) {
-  const file = item.container?.querySelector('.filepond--file');
-  if (!file || file.querySelector('[data-pond-fields]')) return;
+  const host = fieldsHost(pond);
+  if (!host) return;
+  if (fieldBox(item, pond)) return fieldBox(item, pond);
   const box = document.createElement('div');
   box.className = 'pond-fields';
-  box.dataset.pondFields = '1';
-  const id = item.id;
+  box.dataset.pondFields = item.id;
+  const name = item.filename || item.file?.name || 'Photo';
   box.innerHTML = `
+    <p class="pond-fields-name">${escapeAttr(name)}</p>
     <label>Description accessible <small>(obligatoire)</small>
       <input type="text" data-pond-alt required placeholder="Ce que montre la photo" value="${escapeAttr(defaults.alt || '')}">
     </label>
@@ -62,7 +92,7 @@ function injectFields(item, pond, { requireCredit, defaults = {} }) {
       <input type="text" data-pond-caption placeholder="Texte affiché sous la photo" value="${escapeAttr(defaults.caption || '')}">
     </label>
     <p class="pond-duplicate" data-pond-duplicate hidden></p>`;
-  file.append(box);
+  host.append(box);
   const sync = () => {
     item.setMetadata('alt', box.querySelector('[data-pond-alt]').value.trim());
     item.setMetadata('credit', box.querySelector('[data-pond-credit]').value.trim());
@@ -70,7 +100,15 @@ function injectFields(item, pond, { requireCredit, defaults = {} }) {
   };
   box.addEventListener('input', sync);
   sync();
+  syncFieldOrder(pond);
   return box;
+}
+
+function injectWhenReady(item, pond, opts, attempts = 0) {
+  if (!item) return;
+  if (injectFields(item, pond, opts)) return;
+  if (attempts > 40) return;
+  requestAnimationFrame(() => injectWhenReady(item, pond, opts, attempts + 1));
 }
 
 function escapeAttr(value) {
@@ -119,7 +157,11 @@ export function mountPhotoPond(input, options = {}) {
     media = [],
     labelIdle,
   } = options;
+  const checksums = () => knownChecksums(typeof media === 'function' ? media() : media);
+  let flagDuplicate = async () => ({ checksum: '', duplicate: null });
+
   const pond = FilePond.create(input, {
+    ...(labelIdle ? { labelIdle } : {}),
     allowMultiple: multiple,
     maxFiles,
     maxFileSize: '8MB',
@@ -136,19 +178,21 @@ export function mountPhotoPond(input, options = {}) {
     imageTransformOutputQuality: 85,
     imageTransformOutputQualityMode: 'always',
     imageTransformOutputMimeType: null,
-    labelIdle: labelIdle || undefined,
     stylePanelLayout: 'compact',
     credits: false,
     onaddfile: (error, item) => {
       if (error || !item) return;
-      injectFields(item, pond, { requireCredit, defaults });
+      injectWhenReady(item, pond, { requireCredit, defaults });
+      preparePhoto(item.file).then((prepared) => flagDuplicate(item, prepared)).catch(() => {});
     },
+    onremovefile: (_error, item) => {
+      fieldBox(item, pond)?.remove();
+    },
+    onreorderfiles: () => syncFieldOrder(pond),
   });
 
-  const checksums = () => knownChecksums(typeof media === 'function' ? media() : media);
-
   const readFields = (item) => {
-    const box = item.container?.querySelector('[data-pond-fields]');
+    const box = fieldBox(item, pond);
     return {
       alt: (box?.querySelector('[data-pond-alt]')?.value || item.getMetadata('alt') || defaults.alt || '').trim(),
       credit: (box?.querySelector('[data-pond-credit]')?.value || item.getMetadata('credit') || defaults.credit || '').trim(),
@@ -156,10 +200,10 @@ export function mountPhotoPond(input, options = {}) {
     };
   };
 
-  const flagDuplicate = async (item, file) => {
+  flagDuplicate = async (item, file) => {
     const hex = await sha256Hex(await file.arrayBuffer());
     const known = checksums().get(hex);
-    const notice = item.container?.querySelector('[data-pond-duplicate]');
+    const notice = fieldBox(item, pond)?.querySelector('[data-pond-duplicate]');
     if (notice && known) {
       notice.hidden = false;
       notice.textContent = `Cette photo est déjà dans la banque${known.alt ? ` (« ${known.alt} »)` : ''}. Vous pouvez l’ajouter quand même.`;

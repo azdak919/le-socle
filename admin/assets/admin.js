@@ -782,7 +782,7 @@ function photoFields(media = {}) {
     <div class="field"><label>Crédit <small>(obligatoire)</small><input name="credit" required value="${esc(media.credit || '')}" placeholder="Prénom Nom ou agence"></label></div>
     <div class="field"><label>Légende<input name="caption" value="${esc(media.caption || '')}" placeholder="Texte affiché sous la photo"></label></div>
     <div class="field"><label>Licence<input name="license" list="license-list" value="${esc(media.license || '')}" placeholder="CC BY-SA 4.0, Tous droits réservés…"></label>${licenseList()}</div>
-    <div class="field"><label>Lien de la licence<input name="licenseUrl" type="url" value="${esc(media.licenseUrl || '')}" placeholder="Se remplit pour une licence Creative Commons"></label></div>
+    <div class="field"><label>Lien de la licence<input name="licenseUrl" type="url" value="${esc(media.licenseUrl || '')}" placeholder="URL d’une licence Creative Commons"></label></div>
     <div class="field"><label>Lien du crédit<input name="creditUrl" type="url" value="${esc(media.creditUrl || '')}" placeholder="https://"></label></div>
     <div class="field full"><label>Mots-clés, séparés par des virgules<input name="keywords" value="${esc((media.keywords || []).join(', '))}" placeholder="Ex. : cafétéria, rentrée, sport"></label></div>
     <fieldset class="field full"><legend>Usages</legend>${Object.entries(MEDIA_USAGE_LABELS).map(([value, label]) => `<label><input type="checkbox" name="usages" value="${value}" ${(media.usages || ['article']).includes(value) ? 'checked' : ''}> ${label}</label>`).join('')}</fieldset>`;
@@ -812,7 +812,7 @@ function mediaLibrary() {
 function photoEditor(media) {
   const dialog = document.createElement('dialog');
   dialog.className = 'media-picker';
-  dialog.innerHTML = `<div class="toolbar"><h2>Fiche de la photo</h2><button type="button" data-close-media aria-label="Fermer">×</button></div><form class="grid" method="dialog"><img class="full" src="${esc(mediaSrc(media))}" alt="" style="max-height:220px;object-fit:contain">${photoFields(media)}<label>Cadrage horizontal<input name="focalX" type="range" min="0" max="100" value="${media.focalPoint?.x ?? 50}"></label><label>Cadrage vertical<input name="focalY" type="range" min="0" max="100" value="${media.focalPoint?.y ?? 50}"></label><div id="fiche-crop-preview" class="full">${cropFrames(media, 'fiche')}</div><div class="actions full"><button class="primary" type="submit">Enregistrer la fiche</button></div></form>`;
+  dialog.innerHTML = `<div class="toolbar"><h2>Fiche de la photo</h2><button type="button" data-close-media aria-label="Fermer">×</button></div><form class="grid" method="dialog"><img class="full" src="${esc(mediaSrc(media))}" alt="" style="max-height:min(140px,28vh);object-fit:contain">${photoFields(media)}<label>Cadrage horizontal<input name="focalX" type="range" min="0" max="100" value="${media.focalPoint?.x ?? 50}"></label><label>Cadrage vertical<input name="focalY" type="range" min="0" max="100" value="${media.focalPoint?.y ?? 50}"></label><div id="fiche-crop-preview" class="full">${cropFrames(media, 'fiche')}</div><div class="actions full"><button class="primary" type="submit">Enregistrer la fiche</button></div></form>`;
   document.body.append(dialog);
   dialog.querySelector('[data-close-media]').onclick = () => dialog.close();
   dialog.addEventListener('close', () => dialog.remove());
@@ -899,9 +899,9 @@ function chooseSharedMedia(onSelect, usage = '') {
   dialog.className = 'media-picker';
   dialog.innerHTML = `<div class="toolbar"><h2>Choisir une photo</h2><button type="button" data-close-media aria-label="Fermer">×</button></div><p>Cliquez sur une photo pour l’utiliser. Son crédit et sa licence la suivent.</p>${mediaFilters()}<div class="media-grid">${mediaCards(true)}</div>`;
   document.body.appendChild(dialog);
-  if (usage) dialog.querySelector('[data-media-usage]').value = usage;
+  // On n’applique pas le filtre d’usage tout de suite : une photo de la banque
+  // doit pouvoir servir au mât ou à un article même si la case n’est pas encore cochée.
   bindMediaFilters(dialog);
-  dialog.querySelector('[data-media-usage]').dispatchEvent(new Event('change'));
   dialog.querySelector('[data-close-media]').onclick = () => dialog.close();
   const grid = dialog.querySelector('.media-grid');
   const paintCards = (idsInOrder = null) => {
