@@ -717,3 +717,76 @@ test("l'API de rédaction PHP suit le même parcours que Node", async () => {
     await php.stop();
   }
 });
+
+test("PHP avec GD : miniatures, EXIF retiré, et repli sans GD", async () => {
+  const png = readFileSync(join(REPO, "test/fixtures/photo-large.png"));
+  const jpeg = readFileSync(join(REPO, "test/fixtures/photo-exif-gps.jpg"));
+  assert.match(jpeg.toString("latin1"), /TestPhone/);
+  const work = mkdtempSync(join(tmpdir(), "socle-php-gd-"));
+  const db = join(work, "socle.sqlite");
+  writeConfig(join(work, "socle.config.json"), { editorial: true, media: true });
+  const store = openSqliteFile(db);
+  await store.migrate(["editorial", "media"]);
+  await store.close();
+  const jpegOk = spawnSync("php", ["-r", "echo function_exists('imagejpeg') && !empty(gd_info()['JPEG Support']) ? '1' : '0';"], { encoding: "utf8" }).stdout.trim() === "1";
+
+  async function withPhp(env: Record<string, string>) {
+    const php = await startPhp(work, {
+      SOCLE_DB: db,
+      SOCLE_CONFIG: join(work, "socle.config.json"),
+      SOCLE_NOW: REDACTION_NOW,
+      SOCLE_BACKUP_DIR: join(work, "sauvegardes"),
+      ...env,
+    });
+    return { call: httpCall(php.url), stop: php.stop };
+  }
+
+  const session = await withPhp({});
+  try {
+    const photo = await session.call("POST", "/v1/redaction/photo", {
+      asset: { id: "pgd", alt: "La cour en hiver", credit: "Léa Roy", width: 3200, height: 1800 },
+      data: png.toString("base64"),
+    });
+    assert.equal(photo.status, 200, JSON.stringify(photo.json));
+    assert.equal(photo.json.asset.src, "/media/banque/pgd.png");
+    assert.deepEqual(photo.json.asset.variants.map((item: { width: number }) => item.width), [480, 960, 1600]);
+    assert.deepEqual(photo.json.asset.variants.map((item: { height: number }) => item.height), [270, 540, 900]);
+    const publication = { id: "11111111-1111-4111-8111-111111111111", slug: "la-gazette", name: "La Gazette", institution: "Cégep du Nord", institutionType: "cegep", lang: "fr-CA", siteUrl: "https://gazette.exemple", timeZone: "America/Toronto", theme: { accent: "#8a1538" }, governance: { owner: "Association", contact: "redaction@gazette.exemple" } };
+    assert.equal((await session.call("POST", "/v1/redaction/publication", { publication })).status, 200);
+    assert.equal((await session.call("POST", "/v1/redaction/entite", { kind: "author", entity: { id: "a1", name: "Léa Roy", slug: "lea-roy" } })).status, 200);
+    assert.equal((await session.call("POST", "/v1/redaction/entite", { kind: "section", entity: { id: "s1", name: "Campus", slug: "campus" } })).status, 200);
+    const lead = { id: "pgd", kind: "image", src: "/media/banque/pgd.png", alt: "La cour en hiver", credit: "Léa Roy" };
+    const published = await session.call("POST", "/v1/redaction/article", { article: { id: "art-gd", slug: "photo-gd", title: "Photo GD", body: { format: "markdown", raw: "x" }, authors: ["lea-roy"], status: "published", section: "campus", publishedAt: REDACTION_NOW, lead } });
+    assert.equal(published.status, 200, JSON.stringify(published.json));
+    for (const width of [480, 960, 1600]) {
+      const variant = await session.call("GET", `/media/banque/pgd-${width}.png`);
+      assert.equal(variant.status, 200, `${width}`);
+      assert.equal(variant.type, "image/png");
+    }
+    if (jpegOk) {
+      const exif = await session.call("POST", "/v1/redaction/photo", {
+        asset: { id: "pexif", alt: "La cour avec EXIF", credit: "Léa Roy" },
+        data: jpeg.toString("base64"),
+      });
+      assert.equal(exif.status, 200, JSON.stringify(exif.json));
+      assert.deepEqual(exif.json.asset.variants.map((item: { width: number }) => item.width), [480, 960, 1600]);
+      const stored = await session.call("GET", "/v1/redaction/fichier?src=%2Fmedia%2Fbanque%2Fpexif.jpg");
+      assert.equal(stored.status, 200);
+      assert.doesNotMatch(stored.bytes.toString("latin1"), /TestPhone/);
+    }
+  } finally {
+    await session.stop();
+  }
+
+  const disabled = await withPhp({ SOCLE_DISABLE_GD: "1" });
+  try {
+    const photo = await disabled.call("POST", "/v1/redaction/photo", {
+      asset: { id: "pgd-off", alt: "Sans miniature", credit: "Léa Roy" },
+      data: png.toString("base64"),
+    });
+    assert.equal(photo.status, 200, JSON.stringify(photo.json));
+    assert.deepEqual(photo.json.asset.variants ?? [], []);
+  } finally {
+    await disabled.stop();
+  }
+});

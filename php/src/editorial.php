@@ -153,7 +153,7 @@ function socle_snapshot(SocleStore $store, string $audience): array {
     }
     $authors = socle_read_kind($store, 'author:');
     if ($audience === 'public') $authors = array_map('socle_public_author', $authors);
-    return [
+    $snapshot = [
         'publication' => $publication,
         'articles' => $articles,
         'authors' => $authors,
@@ -164,6 +164,8 @@ function socle_snapshot(SocleStore $store, string $audience): array {
         ],
         'syncedAt' => socle_iso(socle_now()),
     ];
+    socle_attach_variants($snapshot, socle_media_by_src($store));
+    return $snapshot;
 }
 
 function socle_field(string $id, string $label, string $name, string $value, string $kind = 'text'): string {

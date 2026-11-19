@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type { SocleStore } from "./store.ts";
 import { ModuleOffError } from "./store.ts";
+import { attachLibraryVariants } from "./media.ts";
 
 export const SOURCE_ID = "socle";
 
@@ -339,7 +340,7 @@ export function createSocleEditorial(store: SocleStore) {
         articles = articles.filter((article) => !article.isDemo);
       }
       const authors = await readKind<SocleAuthor>(store, "author:");
-      return {
+      return attachLibraryVariants(store, {
         publication,
         articles,
         authors: options.audience === "public" ? authors.map(publicAuthor) : authors,
@@ -349,7 +350,7 @@ export function createSocleEditorial(store: SocleStore) {
           tags: await readKind<SocleTaxon>(store, "tag:"),
         },
         syncedAt: new Date().toISOString(),
-      };
+      });
     },
     async save(kind: string, entity: { id?: string }) {
       guard();

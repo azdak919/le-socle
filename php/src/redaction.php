@@ -282,11 +282,22 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
                 if ($license !== '') $image['license'] = $license;
                 if ($licenseUrl !== '') $image['licenseUrl'] = $licenseUrl;
                 $image['source'] = $mark;
+                $caption = socle_redaction_text($input['caption'] ?? null, 500);
+                if ($caption !== '') $image['caption'] = $caption;
+                $rewritten = socle_gd_rewrite($bytes, $mime);
+                if ($rewritten !== null) $bytes = $rewritten;
+                $checksum = socle_media_checksum($bytes);
+                $image['checksum'] = $checksum;
+                $variants = socle_media_make_variants($bytes, $mime, $id, SOCLE_REDACTION_EXT[$mime]);
+                $image['variants'] = socle_media_store_variants($store, $variants);
                 $store->put('media', 'image:' . $id, socle_json($image));
                 $store->put('media', 'bytes:' . socle_media_path($src), base64_encode($bytes));
                 if ($credit !== '') $store->delete('media', 'queue:credit:' . $id);
                 else $store->put('media', 'queue:credit:' . $id, $src);
-                return socle_redaction_json(200, ['asset' => $image]);
+                $payload = ['asset' => $image];
+                $duplicate = socle_media_duplicate($store, $checksum, $id);
+                if ($duplicate !== null) $payload['duplicate'] = ['id' => $duplicate['id'] ?? '', 'alt' => $duplicate['alt'] ?? '', 'warning' => 'Cette photo est déjà dans la banque.'];
+                return socle_redaction_json(200, $payload);
             }
             if ($credit === '') return socle_redaction_fail(400, 'crédit requis');
             if ($alt === '') return socle_redaction_fail(400, 'fiche incomplète');
@@ -310,11 +321,21 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
                 'keywords' => array_slice(socle_redaction_list($input['keywords'] ?? null), 0, 30),
                 'usages' => array_slice(socle_redaction_list($input['usages'] ?? null), 0, 10),
                 'source' => $mark,
+                'caption' => socle_redaction_text($input['caption'] ?? null, 500),
             ];
+            $rewritten = socle_gd_rewrite($bytes, $mime);
+            if ($rewritten !== null) $bytes = $rewritten;
+            $checksum = socle_media_checksum($bytes);
+            $asset['checksum'] = $checksum;
+            $variants = socle_media_make_variants($bytes, $mime, $id, SOCLE_REDACTION_EXT[$mime]);
+            $asset['variants'] = socle_media_store_variants($store, $variants);
             $store->put('media', 'library:' . $id, socle_json($asset));
             $store->put('media', 'bytes:' . socle_media_path($src), base64_encode($bytes));
             $store->delete('media', 'queue:credit:' . $id);
-            return socle_redaction_json(200, ['asset' => $asset]);
+            $payload = ['asset' => $asset];
+            $duplicate = socle_media_duplicate($store, $checksum, $id);
+            if ($duplicate !== null) $payload['duplicate'] = ['id' => $duplicate['id'] ?? '', 'alt' => $duplicate['alt'] ?? '', 'warning' => 'Cette photo est déjà dans la banque.'];
+            return socle_redaction_json(200, $payload);
         }
         if ($path === '/v1/redaction/photo/fiche') {
             if (!$config['modules']['media']) return socle_redaction_fail(404, 'Le module media est éteint.');
@@ -331,6 +352,7 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
                 'alt' => socle_redaction_text($input['alt'] ?? null, 500) ?: $current['alt'],
                 'credit' => $credit,
                 'creditUrl' => socle_redaction_text($input['creditUrl'] ?? null, 500),
+                'caption' => socle_redaction_text($input['caption'] ?? null, 500),
                 'license' => socle_redaction_text($input['license'] ?? null, 100) ?: $current['license'],
                 'licenseUrl' => socle_redaction_text($input['licenseUrl'] ?? null, 500),
                 'keywords' => array_slice(socle_redaction_list($input['keywords'] ?? null), 0, 30),
@@ -354,8 +376,11 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
                 if ($uses) $users[] = (string) ($article['title'] ?? '');
             }
             if ($users !== []) return socle_redaction_fail(409, 'Cette photo illustre encore ' . count($users) . ' article(s) : ' . implode(', ', $users) . '.');
+            if (socle_media_used_in_masthead($store, (string) ($asset['src'] ?? ''))) {
+                return socle_redaction_fail(409, 'Cette photo est encore dans le mât illustré.');
+            }
             $store->delete('media', 'library:' . $id);
-            $store->delete('media', 'bytes:' . socle_media_path($asset['src']));
+            socle_media_delete_files($store, is_array($asset) ? $asset : []);
             return socle_redaction_json(200, ['ok' => true]);
         }
     } catch (ModuleOff $error) {
@@ -377,7 +402,13 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
  */
 const SOCLE_REDACTION_ASSETS = [
     'admin.js', 'admin.css', 'runtime.js', 'util.js', 'export.js',
-    'stock-photo-match.js', 'marked.esm.js', 'socle-backend.js',
+    'marked.esm.js', 'socle-backend.js', 'filepond-banque.js',
+    'filepond.esm.min.js', 'filepond.min.css', 'filepond-locale-fr-fr.js',
+    'filepond-plugin-image-preview.esm.min.js', 'filepond-plugin-image-preview.min.css',
+    'filepond-plugin-image-resize.esm.min.js', 'filepond-plugin-image-transform.esm.min.js',
+    'filepond-plugin-image-exif-orientation.esm.min.js',
+    'filepond-plugin-file-validate-type.esm.min.js',
+    'filepond-plugin-file-validate-size.esm.min.js',
 ];
 
 function socle_serve_redaction_page(string $path, string $method): ?array {

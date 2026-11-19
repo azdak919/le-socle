@@ -69,6 +69,11 @@ export async function scenario(call: Call): Promise<string[]> {
   const photo = await step("photo de la banque", "POST", "/v1/redaction/photo", { asset: { id: "p1", alt: "La cour", credit: "Léa Roy", keywords: ["cour", "été"], usages: ["exterior"], width: 1, height: 1, focalPoint: { x: 40, y: 120 } }, data: `data:image/png;base64,${PNG.toString("base64")}` }, 200);
   assert.equal(photo.json.asset.src, "/media/banque/p1.png");
   assert.deepEqual(photo.json.asset.focalPoint, { x: 40, y: 100 });
+  assert.equal(photo.json.asset.checksum, "d85d612a4698a2d718ac87e237ec6ebfe84af1da1e39b322abae806ff5e6305b");
+  assert.deepEqual(photo.json.asset.variants ?? [], []);
+  const dup = await step("doublon", "POST", "/v1/redaction/photo", { asset: { id: "p-dup", alt: "La cour encore", credit: "Léa Roy" }, data: PNG.toString("base64") }, 200);
+  assert.equal(dup.json.duplicate.id, "p1");
+  assert.equal(dup.json.duplicate.warning, "Cette photo est déjà dans la banque.");
   // Une photo d'un seul article garde sa licence à côté du crédit.
   const seule = await step("photo d'article", "POST", "/v1/redaction/photo", { asset: { id: "pa", alt: "Le parc", credit: "Serge M. / Wikimedia Commons", license: "CC BY 2.0", licenseUrl: "https://creativecommons.org/licenses/by/2.0/deed.fr" }, data: PNG.toString("base64"), bank: false }, 200);
   assert.equal(seule.json.asset.license, "CC BY 2.0");
@@ -77,9 +82,12 @@ export async function scenario(call: Call): Promise<string[]> {
   assert.equal(file.type, "image/png");
   assert.deepEqual(file.bytes, PNG);
   await step("fiche sans crédit", "POST", "/v1/redaction/photo/fiche", { asset: { id: "p1", credit: "" } }, 400);
-  await step("fiche", "POST", "/v1/redaction/photo/fiche", { asset: { id: "p1", credit: "Léa Roy", license: "CC BY 4.0", keywords: ["cour"], usages: ["exterior", "article"], focalPoint: { x: 50, y: 30 } } }, 200);
+  await step("fiche", "POST", "/v1/redaction/photo/fiche", { asset: { id: "p1", credit: "Léa Roy", caption: "La cour en août.", license: "CC BY 4.0", keywords: ["cour"], usages: ["exterior", "article"], focalPoint: { x: 50, y: 30 } } }, 200);
   // Une photo de la banque qui n'illustre rien de publié reste privée.
   await step("photo pas encore publique", "GET", "/media/banque/p1.png", undefined, 404);
+  await step("mât avec la photo", "POST", "/v1/redaction/publication", { publication: { ...PUBLICATION, masthead: { backgrounds: { images: [{ src: "/media/banque/p1.png", alt: "La cour", credit: "Léa Roy" }] } } } }, 200);
+  await step("photo dans le mât", "POST", "/v1/redaction/photo/supprimer", { id: "p1" }, 409);
+  await step("retrait du mât", "POST", "/v1/redaction/publication", { publication: PUBLICATION }, 200);
   const lead = { id: "p1", kind: "image", src: "/media/banque/p1.png", alt: "La cour", credit: "Léa Roy" };
   await step("publié", "POST", "/v1/redaction/article", { article: { ...draft, status: "published", section: "campus", publishedAt: NOW, lead } }, 200);
   // Publiée, elle se lit à l'adresse que donne l'instantané : c'est là que
@@ -97,8 +105,11 @@ export async function scenario(call: Call): Promise<string[]> {
   assert.equal(state.json.articles[0].status, "published");
   assert.equal(state.json.authors.length, 1);
   assert.equal(state.json.taxonomies.sections.length, 1);
-  assert.equal(state.json.media.length, 1);
-  assert.equal(state.json.media[0].license, "CC BY 4.0");
+  assert.equal(state.json.media.length, 2);
+  const bank = state.json.media.find((item: { id: string }) => item.id === "p1");
+  assert.equal(bank.license, "CC BY 4.0");
+  assert.equal(bank.caption, "La cour en août.");
+  await step("retirer le doublon", "POST", "/v1/redaction/photo/supprimer", { id: "p-dup" }, 200);
   await step("supprimer l'article", "POST", "/v1/redaction/supprimer", { kind: "article", id: "art-1" }, 200);
   await step("retirer la photo", "POST", "/v1/redaction/photo/supprimer", { id: "p1" }, 200);
   await step("photo publique retirée", "GET", "/media/banque/p1.png", undefined, 404);

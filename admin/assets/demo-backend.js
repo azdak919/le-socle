@@ -483,16 +483,23 @@ export class DemoBackendNavigateur {
       reader.onerror = () => reject(new Error('Lecture de la photo impossible.'));
       reader.readAsDataURL(file);
     });
+    const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+    const checksum = asset.checksum || [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, '0')).join('');
+    const snapshot = await this.getSnapshot({ audience: 'editorial', includeDemo: true }).catch(() => ({ media: [] }));
+    const known = (snapshot.media || []).find((item) => item.checksum && item.checksum === checksum && item.id !== (asset.id || ''));
     const entity = {
       ...asset,
       id: asset.id || crypto.randomUUID(),
       kind: 'image',
       src,
       mime: file.type,
+      checksum,
+      variants: [],
       bank: bank ? 'redaction' : undefined,
       addedAt: now(),
       source: { backend: this.id, backendId: asset.id || file.name, fetchedAt: now() },
     };
+    if (known) entity.duplicate = { id: known.id, alt: known.alt, warning: 'Cette photo est déjà dans la banque.' };
     if (!bank) return entity;
     return this.save('media', entity);
   }
