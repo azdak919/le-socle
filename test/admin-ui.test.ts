@@ -321,3 +321,18 @@ test("mât illustré : crédit demandé à l'envoi, cadrage appliqué au fichier
   assert.match(css, /\[data-crop-prefix="masthead"\] \.crop-desktop img \{ aspect-ratio: 27 \/ 4; \}/);
   assert.match(css, /\[data-crop-prefix="masthead"\] \.crop-mobile img \{ aspect-ratio: 3 \/ 2; \}/);
 });
+
+test("formulaire d'équipe : genre, lien officiel facultatif et case En cours", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  assert.match(admin, /<label>Genre<select data-team-sex>/);
+  assert.match(admin, /<option value="F"[^>]*>Féminin<\/option>/);
+  assert.match(admin, /<option value="M"[^>]*>Masculin<\/option>/);
+  assert.match(admin, /<option value="mixte"[^>]*>Mixte<\/option>/);
+  assert.match(admin, /<label>Lien officiel des résultats, facultatif<input data-team-official type="url"/);
+  assert.match(admin, /<label><input type="checkbox" data-team-live[^>]*> En cours<\/label>/);
+  assert.match(admin, /if \(sex\) team\.sex = sex;/);
+  assert.match(admin, /if \(officialUrl\) team\.officialUrl = officialUrl;/);
+  assert.match(admin, /if \(block\.querySelector\('\[data-team-live\]'\)\?\.checked\) nextGame\.live = true;/);
+  assert.match(admin, /function sportsSexValue\(sex\)/);
+  assert.match(admin, /\['m', 'h', 'men'/);
+});
