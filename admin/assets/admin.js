@@ -806,7 +806,7 @@ function mediaLibrary() {
   const own = (bundle.media || []).filter(ownPhoto).length;
   return `<section class="panel"><div class="toolbar"><div><p>La banque du journal : vos photos, réutilisables dans tous les articles et le mât, avec leur crédit. ${onSocle() ? 'Elles sont gardées sur le serveur du journal.' : 'En démonstration, elles restent dans ce navigateur. Les photos d’exemple du Quorum montrent de vrais campus, pas l’établissement fictif du journal.'}</p></div></div>
     <details class="photo-add" ${own ? '' : 'open'}><summary>Ajouter des photos à la banque</summary><form id="photo-form" class="grid"><div class="field full"><label for="photo-pond">Photos JPEG, PNG ou WebP, 8 Mo au plus, une ou plusieurs</label><input id="photo-pond" name="file" type="file" accept="image/jpeg,image/png,image/webp" multiple></div><div class="actions full"><button class="primary" type="submit">Ajouter à la banque</button></div></form><p class="media-quality">Chaque photo a besoin d’une description accessible et d’un crédit. Les photos trop grandes sont réduites dans le navigateur (2 400 px au plus pour le long côté), et les métadonnées de l’appareil, y compris la position, sont retirées. Vérifiez que vous avez le droit de les publier.</p></details>
-    ${mediaFilters()}<div class="media-grid">${mediaCards()}</div>${(bundle.media || []).length ? '' : '<p class="empty-state">La banque est vide. Ajoutez une première photo avec le formulaire ci-dessus : elle servira ensuite dans les articles et le mât.</p>'}</section>`;
+    ${(bundle.media || []).length ? `${mediaFilters()}<div class="media-grid">${mediaCards()}</div>` : '<p class="empty-state">La banque est vide. Ajoutez une première photo avec le formulaire ci-dessus : elle servira ensuite dans les articles et le mât.</p>'}</section>`;
 }
 
 function photoEditor(media) {
@@ -850,9 +850,14 @@ function bindMediaLibrary() {
     requireCredit: true,
     media: () => bundle.media || [],
   });
+  const button = form.querySelector('button[type="submit"]');
+  const syncSubmit = () => { button.disabled = !pond.hasFiles(); };
+  syncSubmit();
+  pond.on('addfile', syncSubmit);
+  pond.on('removefile', syncSubmit);
   form.onsubmit = async (event) => {
     event.preventDefault();
-    const button = form.querySelector('button[type="submit"]');
+    if (!pond.hasFiles()) return;
     button.disabled = true;
     try {
       const photos = await pond.collectPhotos();

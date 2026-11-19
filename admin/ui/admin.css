@@ -60,7 +60,10 @@
 .admin-brand[data-state="journal-logo"] small { @apply m-0; }
 /* Un logo de journal est souvent large : il garde ses proportions. */
 .admin-brand[data-state="journal-logo"] .admin-brand-logo { @apply h-8 w-auto max-w-40 rounded-none bg-transparent; }
-.admin-nav { @apply flex flex-row md:flex-col gap-1 md:gap-0.5 overflow-x-auto [scrollbar-width:none]; }
+.admin-nav { @apply flex flex-row md:flex-col flex-wrap md:flex-nowrap gap-1 md:gap-0.5 overflow-x-visible md:overflow-x-visible; }
+@media (max-width: 47.99rem) {
+  .admin-nav { row-gap: 0.15rem; padding-block: 0.15rem; }
+}
 .admin-nav button, .admin-nav a {
   @apply no-underline flex shrink-0 whitespace-nowrap min-h-11 md:min-h-0 md:w-full items-center gap-2.5 rounded-md border-0 bg-transparent px-2.5 h-9 text-left text-sm font-medium text-muted-foreground cursor-pointer transition-colors hover:bg-muted hover:text-foreground;
 }
@@ -115,6 +118,7 @@
 .media-editor { @apply grid grid-cols-1 sm:grid-cols-2 gap-3; }
 .media-editor legend, .media-editor .media-quality, .media-editor > label:first-of-type { grid-column: 1 / -1; }
 .media-quality { @apply text-sm text-muted-foreground; }
+.photo-add > .media-quality { @apply mt-3; }
 .media-filters { @apply grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3 my-4; }
 .media-filters label { @apply grid gap-1.5 text-sm font-medium; }
 .media-grid { @apply grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4; }
@@ -256,6 +260,80 @@ body.signed-out .admin-nav { display: none; }
   overflow: hidden;
   font-family: inherit;
   color: var(--color-card-foreground, inherit);
+}
+.filepond--item-panel {
+  background-color: var(--color-muted) !important;
+}
+.filepond--list-scroller {
+  overflow: hidden !important;
+  scrollbar-width: none;
+}
+.filepond--list-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.filepond--file,
+.filepond--file-info,
+.filepond--file-status {
+  color: var(--color-foreground);
+}
+.filepond--file-action-button {
+  color: var(--color-foreground);
+  background-color: var(--color-background);
+  box-shadow: 0 0 0 1px var(--color-border);
+}
+.filepond--image-preview-wrapper {
+  width: 7.5rem;
+  left: 0;
+  right: auto;
+  overflow: hidden;
+  border-radius: 0.375rem 0 0 0.375rem;
+  background-color: var(--color-muted);
+}
+.filepond--image-preview-overlay {
+  display: none;
+}
+.filepond--image-clip,
+.filepond--image-preview,
+.filepond--image-canvas-wrapper,
+.filepond--image-bitmap {
+  inset: 0 !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  transform: none !important;
+}
+.filepond--image-preview canvas,
+.filepond--image-bitmap canvas {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center !important;
+}
+.filepond--file-info {
+  margin-left: 8.25rem;
+}
+.filepond--file-status {
+  margin-right: 0 !important;
+  width: auto !important;
+}
+.filepond--file-action-button:not(.filepond--action-remove-item) {
+  display: none !important;
+}
+.photo-add .filepond--file-info-main {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 47.99rem) {
+  .filepond--image-preview-wrapper { width: 5.25rem; }
+  .filepond--file-info { margin-left: 5.75rem; }
+}
+@media (max-width: 22.99rem) {
+  .filepond--image-preview-wrapper { width: 4.25rem; }
+  .filepond--file-info { margin-left: 4.75rem; }
 }
 .filepond--panel-root {
   background-color: color-mix(in oklab, var(--color-card) 88%, var(--color-card-foreground) 12%);
