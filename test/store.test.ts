@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { openD1Memory } from "../src/d1.ts";
 import { openSqliteMemory } from "../src/sqlite.ts";
 import { ModuleOffError, type SocleStore } from "../src/store.ts";
 
@@ -53,6 +52,3 @@ test("node:sqlite écrit, relit, et refuse un module éteint", async () => {
   await conformance(openSqliteMemory);
 });
 
-test("D1 écrit, relit, et refuse un module éteint", async () => {
-  await conformance(openD1Memory);
-});

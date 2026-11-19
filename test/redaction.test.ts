@@ -5,7 +5,6 @@ import { join } from "node:path";
 import test from "node:test";
 
 import type { SocleConfig } from "../src/config.ts";
-import { openD1Memory } from "../src/d1.ts";
 import { handlePublicMedia } from "../src/public-media.ts";
 import { handleRedaction } from "../src/redaction-http.ts";
 import { createSocleServer } from "../src/server.ts";
@@ -28,7 +27,7 @@ function direct(store: SocleStore, cfg: SocleConfig, actor: string | null | unde
 
 const ON = config({ editorial: true, media: true });
 
-for (const [name, open] of [["SQLite", openSqliteMemory], ["D1", openD1Memory]] as const) {
+for (const [name, open] of [["SQLite", openSqliteMemory]] as const) {
   test(`${name} : l'admin du Kiosque écrit, publie et gère la banque de photos`, async () => {
     const store = await open();
     try {

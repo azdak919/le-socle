@@ -314,6 +314,8 @@ L'ordre pour une rédaction étudiante :
 
 Chiffres relevés le 16 novembre 2026. Ils bougent. La pull request du pilote correspondant les revérifie. Aucune de ces cibles ne demande une carte qui se met à facturer toute seule : le dépassement du forfait Workers gratuit **échoue**, il ne bascule pas sur le payant. On ne crée pas les ressources d'essai (crédit Oracle de 300 $, Workers payant à 5 $ US, Cloudflare Images, forfait Zero Trust payant).
 
+> Note de novembre 2026. Le Worker Cloudflare et le pilote D1 ne sont plus une cible de déploiement du Socle. L’espace de rédaction tourne en PHP, ou en Node pour le développement et les tests. Le site public peut rester des fichiers statiques, y compris sur GitHub Pages ou Cloudflare Pages. Le Worker `sveltia-cms-auth` n’est pas concerné. Les paragraphes qui suivent décrivent l’étude d’origine ; on ne les réécrit pas.
+
 ### Cloudflare Workers, forfait gratuit
 
 Source : documentation Pricing, mise à jour le 13 novembre 2026, et limites D1 / KV, mise à jour le 30 octobre 2026.
