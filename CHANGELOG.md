@@ -1,6 +1,8 @@
 # Journal
 
 ## Non publié
+- Version 1.4.1.
+- Dans un article, le bouton « Choisir une photo de la banque » ouvre de nouveau la banque pour choisir la photo principale.
 - Version 1.4.0.
 - Banque de photos : on y glisse une ou plusieurs photos. Chaque photo a besoin d’une description accessible et d’un crédit. Les photos trop grandes sont réduites dans le navigateur (2 400 px au plus pour le long côté), les métadonnées de l’appareil, y compris la position, sont retirées, et le serveur prépare des miniatures pour le site. Une photo déjà présente est signalée, sans bloquer l’envoi. On ne peut pas retirer une photo encore utilisée dans le mât illustré. Les tailles s’affichent en français (« 94 ko », « 1,1 Mo »), les aperçus sont de petites vignettes, le bouton « Ajouter à la banque » reste inactif tant qu’aucune photo n’est déposée, et la recherche et le filtre Usage n’apparaissent que lorsqu’il y a déjà des photos. Sur un écran étroit, les onglets passent sur plusieurs lignes, sans couper un mot.
 - Formulaire d’équipe : chaque formation a un genre (Féminin, Masculin, Mixte), un lien officiel facultatif vers les résultats, et une case « En cours » pour le prochain match.
