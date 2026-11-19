@@ -379,10 +379,35 @@ function socle_text(int $status, string $body): array {
     return socle_result($status, $body, ['content-type' => 'text/plain; charset=utf-8']);
 }
 
+// Logo du Socle, copie exacte de admin/marque.js (un test le vérifie).
+// Twemoji U+1F9F1 « brique », CC BY 4.0, © Twitter, Inc. et contributeurs (THIRD_PARTY.md).
+const SOCLE_ICON_SVG_B64 = 'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDI0IiBoZWlnaHQ9IjEwMjQiIHZpZXdCb3g9IjAgMCAxMDI0IDEwMjQiIGZpbGw9Im5vbmUiPgogIDxkZWZzPgogICAgPHJhZGlhbEdyYWRpZW50IGlkPSJzYmciIGN4PSI1MCUiIGN5PSIzNiUiIHI9Ijg0JSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMxMTExMTMiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMDkwOTBBIi8+CiAgICA8L3JhZGlhbEdyYWRpZW50PgogIDwvZGVmcz4KICA8c3R5bGU+LmZpbGV0e2Rpc3BsYXk6bm9uZX1AbWVkaWEgKHByZWZlcnMtY29sb3Itc2NoZW1lOmRhcmspey5maWxldHtkaXNwbGF5OmlubGluZX19PC9zdHlsZT4KICA8cmVjdCB3aWR0aD0iMTAyNCIgaGVpZ2h0PSIxMDI0IiByeD0iMjMyIiBmaWxsPSJ1cmwoI3NiZykiLz48cmVjdCBjbGFzcz0iZmlsZXQiIHg9IjYiIHk9IjYiIHdpZHRoPSIxMDEyIiBoZWlnaHQ9IjEwMTIiIHJ4PSIyMjYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLW9wYWNpdHk9Ii4xNCIgc3Ryb2tlLXdpZHRoPSIxMiIvPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwOS4xNyA5Ny45OCkgc2NhbGUoMjIuMzc5NikiPgo8cGF0aCBmaWxsPSIjQzE2OTRGIiBkPSJNMzUuNjI3IDEwLjgyNkwuMzczIDE2LjU2djkuNzIyaC4wMDRjLS4wMTIuMTQ5LjEyOS4yOTUuNDQzLjQ3My43MjcuNDEyIDkuODM1IDUuMjg2IDEwLjU1MyA1LjYzOS44OTUuNDM5IDEuNDQxLjQ5MyAyLjIwNi4xMTIuNjI2LS4zMTIgMTkuMjM2LTEwLjE3MyAyMC45MzItMTEuMDc0Ljg2My0uNDU5IDEuMTQ2LS43MTEgMS4wOTktLjkxOWguMDE4di05LjY4N3oiLz48cGF0aCBmaWxsPSIjQTAwNDFFIiBkPSJNLjM3MyAxNi41NnY5LjcyMmguMDA0Yy0uMDEyLjE0OS4xMjkuMjk1LjQ0My40NzMuNzI3LjQxMiA5LjgzNSA1LjI4NiAxMC41NTMgNS42MzkuNDMyLjIxMi43ODEuMzI5IDEuMTE0LjM1NlYxNi41NkguMzczeiIvPjxwYXRoIGZpbGw9IiNEOTlFODIiIGQ9Ik0yMi4yMjQgNC42ODJjMS4wNzYtLjU1OCAxLjExMy0uNjI4IDIuMjQ5LS4wMjQgMS4xMzYuNjA0IDkuODQ2IDUuMjQ4IDEwLjQ4NyA1LjU4OS44MTQuNDM0IDEuMTEyLjU5MS0uNDQ5IDEuNDIxLTEuNjk2LjkwMi0yMC4zMDYgMTAuNzYzLTIwLjkzMiAxMS4wNzQtLjc2NS4zODEtMS4zMTEuMzI3LTIuMjA2LS4xMTItLjcxOC0uMzUyLTkuODI2LTUuMjI2LTEwLjU1My01LjYzOS0uODItLjQ2NS0uNDgyLS43MDYuNzY5LTEuMzdMMjIuMjI0IDQuNjgyeiIvPjxlbGxpcHNlIGZpbGw9IiNDMTY5NEYiIGN4PSIxMS4xODkiIGN5PSIxNy4xOTEiIHJ4PSIzLjY3OSIgcnk9IjEuODQiLz48cGF0aCBmaWxsPSIjQTAwNDFFIiBkPSJNMTEuNjQyIDE2LjczNGMtMS41NjktLjUxNi0zLjM1Mi0uMzY5LTQuMTA4LjMzOS0uMDA1LjA0LS4wMjQuMDc4LS4wMjQuMTE4IDAgMS4wMTYgMS42NDcgMS44NCAzLjY3OSAxLjg0IDEuMDYzIDAgMi4wMTMtLjIyOSAyLjY4NC0uNTg5LS4zMzMtLjY5Mi0xLjA4Ni0xLjMzMi0yLjIzMS0xLjcwOHoiLz48ZWxsaXBzZSBmaWxsPSIjQzE2OTRGIiBjeD0iMTgiIGN5PSIxMy42MzkiIHJ4PSIzLjY3OSIgcnk9IjEuODQiLz48cGF0aCBmaWxsPSIjQTAwNDFFIiBkPSJNMTguNDUzIDEzLjE4MmMtMS41NjktLjUxNi0zLjM1Mi0uMzY5LTQuMTA4LjMzOS0uMDA1LjA0LS4wMjQuMDc4LS4wMjQuMTE4IDAgMS4wMTYgMS42NDcgMS44NCAzLjY3OSAxLjg0IDEuMDYzIDAgMi4wMTMtLjIyOSAyLjY4NC0uNTg5LS4zMzMtLjY5Mi0xLjA4Ni0xLjMzMi0yLjIzMS0xLjcwOHoiLz48ZWxsaXBzZSBmaWxsPSIjQzE2OTRGIiBjeD0iMjQuODExIiBjeT0iMTAuMDg3IiByeD0iMy42NzkiIHJ5PSIxLjg0Ii8+PHBhdGggZmlsbD0iI0EwMDQxRSIgZD0iTTI1LjI2NCA5LjYzYy0xLjU2OS0uNTE2LTMuMzUyLS4zNjktNC4xMDguMzM5LS4wMDUuMDQtLjAyNC4wNzgtLjAyNC4xMTggMCAxLjAxNiAxLjY0NyAxLjg0IDMuNjc5IDEuODQgMS4wNjMgMCAyLjAxMi0uMjI5IDIuNjg0LS41ODktLjMzMy0uNjkyLTEuMDg2LTEuMzMyLTIuMjMxLTEuNzA4eiIvPgogIDwvZz4KPC9zdmc+Cg==';
+const SOCLE_FAVICON_16_B64 = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACzUlEQVR42lWTzWtcZRTGf8/73jt3JvdmDLUbMVITjC0JJVQiaDEYsYhBq0ig4F7Q6sK/QcS1dKO4t24sdKVE/IL6ESwFUwsGE01T00xM0gRNppOZO/e+x8WYUM/qeRa/8xwOPALIsmxGcu8CIyAvIf43AgwzDKwEbpiFt5vN5nfKsuwVcJckOQDpAOhpJ0cZAlLPl6UhQQi2K9nzPo6Tz53TEVAp4UBIEHkHwG6rQ+wdebeknRfUkhiMAqiZ2YSyrB7+S5UkvOtF7bU6RN7x3KnjvDUzxfZeiwuXvuXqwk3iyFONvQVDyrK6HYCS4267gxk8Pf4I51+c5PToEBvXFinvNukbeZCvltb4aHaO5cZWj+nvr5sQ7bxLNxhPHD/GGy88xdToEPtbO7Q9bF5ZYne5wfC50wyODdP4/U/Ovf8JKztNIgElxujIIK9NPc70xAmqfTFbK1ssfPAF2eB9nDg/TZTUaG1us/jjNdjbo+Y9ZkbUMeMhX+HDZyd5dPoxfr08x8pnczz80gQT77xKmZfkf7fYWVtif3uHMgSSSgwCA6IgSIrA0oVZGlcWGDxzkrHXz5IMZBR5h+Zag9bGFkW3wEcRA2lCKy9odwucRIQZSLg4ZvvnZXZvrPLAM2McnTxGa2ODbjvHxRH1tEoZAt/88RcfX19m9Z8WiXe9H7QxDGMgrtIMgdUv59GRgsr9KVlfDSf4afUOF6+vcHXtDk5Q9R7DiCom1lXwXrLL2aLGqRDjqzXStEqtWmH+9jYXf1nh+1ubBDOySoSZEcx6x6dpZkKWyxQkTpYxLytl6Mwwn95a5+vFdTplIEsiBJTB7u2FlKbZPGjcQYGIWhiJc/gAe3lBfxLhpEMQwIwSzJvZTVWr/U86Z7OS6mA4hAEmiCRKs8NO9uShDyEw44siv+195QdgXOKogevVUYR74IMdQGlmv5npzf395uV/AWbQSYwL+6BNAAAAAElFTkSuQmCC';
+const SOCLE_FAVICON_32_B64 = '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';
+
+function socle_favicons(): string {
+    return '<link rel="icon" type="image/png" sizes="16x16" href="data:image/png;base64,' . SOCLE_FAVICON_16_B64 . '">'
+        . '<link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,' . SOCLE_FAVICON_32_B64 . '">'
+        . '<link rel="icon" type="image/svg+xml" sizes="any" href="data:image/svg+xml;base64,' . SOCLE_ICON_SVG_B64 . '">';
+}
+
+/** Nom du journal pour l’en-tête des pages d’administration ; vide tant qu’il n’est pas configuré. */
+function socle_admin_journal_name(?string $name = null): string {
+    static $current = '';
+    if ($name !== null) $current = trim($name);
+    return $current;
+}
+
+function socle_admin_brand(string $sub): string {
+    $name = socle_admin_journal_name();
+    if ($name !== '') return '<span><strong>' . htmlspecialchars($name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</strong><small>' . $sub . '</small></span>';
+    return '<img class="logo" src="data:image/svg+xml;base64,' . SOCLE_ICON_SVG_B64 . '" alt="" width="32" height="32"><span><strong>Le Socle</strong><small>' . $sub . '</small></span>';
+}
+
 function socle_admin_document(string $lang, string $title, string $body): array {
     $copy = $lang === 'en'
-        ? ['html' => 'en', 'skip' => 'Skip to content', 'back' => 'Dashboard', 'brandSub' => 'Newsroom', 'office' => 'Administration', 'save' => 'Backup', 'update' => 'Update', 'other' => 'Français', 'otherLang' => 'fr']
-        : ['html' => 'fr', 'skip' => 'Aller au contenu', 'back' => 'Tableau de bord', 'brandSub' => 'Rédaction', 'office' => 'Interface d’administration', 'save' => 'Sauvegarde', 'update' => 'Mise à jour', 'other' => 'English', 'otherLang' => 'en'];
+        ? ['html' => 'en', 'skip' => 'Skip to content', 'back' => 'Dashboard', 'brandSub' => 'Newsroom', 'powered' => 'Powered by', 'office' => 'Administration', 'save' => 'Backup', 'update' => 'Update', 'other' => 'Français', 'otherLang' => 'fr']
+        : ['html' => 'fr', 'skip' => 'Aller au contenu', 'back' => 'Tableau de bord', 'brandSub' => 'Espace de rédaction', 'powered' => 'Propulsé par', 'office' => 'Interface d’administration', 'save' => 'Sauvegarde', 'update' => 'Mise à jour', 'other' => 'English', 'otherLang' => 'en'];
     $other = socle_with_lang('/admin', $copy['otherLang']);
     $back = socle_with_lang('/admin', $lang);
     $saveCurrent = $title === $copy['save'] ? ' aria-current="page"' : '';
@@ -393,6 +418,7 @@ function socle_admin_document(string $lang, string $title, string $body): array 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>' . $title . '</title>
+' . socle_favicons() . '
 <style>
   :root { --primary: #6d2350; --fg: #1f1a1d; --muted: #6b6468; --border: #e9e3e6; --bg: #fdfcfd; --card: #fff; --accent: #f8eff4; --radius: 0.625rem; color-scheme: light; }
   * { box-sizing: border-box; }
@@ -403,7 +429,7 @@ function socle_admin_document(string $lang, string $title, string $body): array 
   .skip:focus { left: 0.5rem; top: 0.5rem; background: #fff; padding: 0.5rem; z-index: 2; }
   .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; padding: 0.75rem 1.25rem; background: #fff; border-bottom: 1px solid var(--border); }
   .brand { display: flex; align-items: center; gap: 0.6rem; color: var(--fg); text-decoration: none; }
-  .brand .logo { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 0.5rem; background: var(--primary); color: #fff; font-weight: 700; }
+  .brand .logo { display: block; width: 2rem; height: 2rem; flex: none; }
   .brand strong { display: block; font-size: 0.9rem; line-height: 1.2; }
   .brand small { display: block; color: var(--muted); font-size: 0.75rem; }
   .tabs { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-left: auto; }
@@ -445,13 +471,15 @@ function socle_admin_document(string $lang, string $title, string $body): array 
   @page a4 { size: A4; }
   @page a3 { size: A3; }
   @media (max-width: 40rem) { .tabs { margin-left: 0; width: 100%; } main { margin-top: 1rem; padding: 0 0.6rem; } .panel { padding: 1rem; } }
+  .powered { margin: 1.5rem auto 2rem; padding: 0 1rem; max-width: 52rem; font-size: 0.75rem; color: var(--muted); }
+  .powered a { color: inherit; }
   @media print { nav, .noprint, .bar { display: none; } .panel { border: 0; padding: 0; } }
 </style>
 </head>
 <body>
 <a class="skip" href="#contenu">' . $copy['skip'] . '</a>
 <header class="bar noprint">
-<a class="brand" href="' . $back . '"><span class="logo" aria-hidden="true">K</span><span><strong>Le Kiosque</strong><small>' . $copy['brandSub'] . '</small></span></a>
+<a class="brand" href="' . $back . '">' . socle_admin_brand($copy['brandSub']) . '</a>
 <nav class="tabs" aria-label="' . $copy['office'] . '">
 <a href="' . $back . '">' . $copy['back'] . '</a>
 <a href="' . socle_with_lang('/admin/sauvegarde', $lang) . '"' . $saveCurrent . '>' . $copy['save'] . '</a>
@@ -465,6 +493,7 @@ function socle_admin_document(string $lang, string $title, string $body): array 
 ' . $body . '
 </div>
 </main>
+<p class="powered noprint">' . $copy['powered'] . ' <a href="https://azdak919.github.io/le-socle/">Le Socle</a> ' . htmlspecialchars(socle_package_version(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</p>
 </body>
 </html>';
     return socle_result(200, $html, ['content-type' => 'text/html; charset=utf-8']);

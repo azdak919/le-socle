@@ -45,6 +45,14 @@ function socle_dispatch(string $method, string $uri, string $path, string $raw):
         $photo = socle_public_media($method, $path, $config, $store);
         if ($photo !== null) return $photo;
     }
+    if (str_starts_with($path, '/admin')) {
+        // En-tête des pages d’administration : le journal, s’il est configuré.
+        try {
+            socle_admin_journal_name((string) (socle_read_publication($store)['name'] ?? ''));
+        } catch (Throwable) {
+            socle_admin_journal_name('');
+        }
+    }
     $gate = socle_admin_gate($method, $path, $config, $store, $actor, $actorDefined);
     if ($gate !== null) return $gate;
     if (str_starts_with($path, '/v1/redaction/')) return socle_handle_redaction($method, $uri, $config, $store, $raw, $actor, $actorDefined);

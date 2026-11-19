@@ -443,10 +443,50 @@ async function finishAssistant() {
   }
 }
 
+// Le logo et le nom du Socle, tels que la page les sert : on y revient tant
+// que le journal n’est pas configuré.
+const SOCLE_BRAND = document.querySelector('.admin-brand')?.innerHTML || '';
+
+/** En-tête de la barre latérale : logo ou nom du journal, sinon Le Socle. */
+function paintBrand(state) {
+  // Barre latérale à l’ordinateur ; barre du haut sur mobile, où le menu dit déjà l’écran.
+  document.querySelectorAll('.admin-brand, .admin-header-brand').forEach((root) => paintBrandIn(root, state));
+}
+
+function paintBrandIn(root, state) {
+  const pub = bundle?.publication;
+  const name = String(pub?.name || '').trim();
+  const src = pub?.logo ? mediaSrc(pub.logo) : '';
+  const ready = state === 'journal' && name;
+  if (ready && src) {
+    const alt = esc(pub.logo.alt || name);
+    root.dataset.state = 'journal-logo';
+    root.innerHTML = `<img class="admin-brand-logo" src="${esc(src)}" alt="${alt}"><span><small>Espace de rédaction</small></span>`;
+    return;
+  }
+  if (ready) {
+    root.dataset.state = 'journal-name';
+    root.innerHTML = `<span><strong>${esc(name)}</strong><small>Espace de rédaction</small></span>`;
+    return;
+  }
+  root.dataset.state = 'socle';
+  if (SOCLE_BRAND) root.innerHTML = SOCLE_BRAND;
+}
+
+/** Barre du haut et onglet : le titre de l’écran courant (Articles, Configuration…). */
+function paintTitle() {
+  const label = document.querySelector(`.admin-nav [data-view="${view}"]`)?.textContent.trim() || '';
+  const heading = document.getElementById('admin-page-title');
+  if (heading && label) heading.textContent = label;
+  const name = String(bundle?.publication?.name || '').trim();
+  if (label) document.title = !bundle?.firstRun && name ? `${label} — ${name}` : `${label} — Espace de rédaction`;
+}
+
 /** Écran de connexion (ou de première installation) quand le socle demande une session. */
 async function loginScreen() {
   // Avant la connexion, le menu de la rédaction ne mène nulle part : on le cache.
   document.body.classList.add('signed-out');
+  paintBrand('socle');
   let state = null;
   try { state = await authCall('GET', 'etat'); } catch { state = null; }
   const mode = state?.mode;
@@ -494,7 +534,7 @@ async function fillAccessPanel() {
     const where = SCOPED_ROLES.includes(member.role) ? (scope.length ? `Rubriques : ${scope.join(', ')}` : 'Toutes les rubriques') : '';
     return `<li><div><strong>${esc(member.email)}</strong><small>${esc([ACCOUNT_LABELS[member.role] || member.role, where].filter(Boolean).join(' · '))}</small></div><div><button type="button" data-edit-member="${esc(member.email)}">Modifier</button></div></li>`;
   };
-  panel.innerHTML = `<div class="toolbar"><h2>Équipe : comptes et rôles</h2>${logout}</div><p class="notice">Ces comptes ouvrent la rédaction. Le rôle dit ce que chacun peut faire ; le serveur l’applique. Les signatures, plus bas, sont ce que le public voit.</p><ul class="entity-list" id="member-list">${members.map(memberLine).join('')}</ul>
+  panel.innerHTML = `<div class="toolbar"><h2>Comptes et rôles</h2>${logout}</div><p class="notice">Ces comptes ouvrent la rédaction. Le rôle dit ce que chacun peut faire ; le serveur l’applique. Les signatures, plus bas, sont ce que le public voit.</p><ul class="entity-list" id="member-list">${members.map(memberLine).join('')}</ul>
   <form id="member-form" class="grid"><h3 class="full" id="member-form-title">Ajouter une personne</h3>
   <div class="field"><label>Courriel<input name="email" type="email" required autocomplete="off"></label></div>
   <div class="field"><label>Rôle<select name="role">${roleOptions}</select></label><small id="member-role-help"></small></div>
@@ -556,7 +596,8 @@ function localDateTime(iso) {
 
 async function refresh() {
   bundle = await backend.getSnapshot({ audience: 'editorial', includeDemo: true });
-  document.getElementById('publication-name').textContent = bundle.publication.name;
+  // Socle neuf : la fiche de départ n’est pas encore un journal.
+  paintBrand(bundle.firstRun ? 'socle' : 'journal');
 }
 
 const VIEWS = ['dashboard', 'articles', 'media', 'authors', 'taxonomies', 'settings', 'exports'];
@@ -658,7 +699,7 @@ function statusLabel(status) {
 
 function dashboard() {
   const counts = Object.fromEntries(['draft', 'in-review', 'scheduled', 'published'].map((status) => [status, bundle.articles.filter((item) => item.status === status).length]));
-  return `<section class="panel"><h2>Tableau de bord</h2>
+  return `<section class="panel">
     <div class="grid stats"><article><h3>${counts.draft}</h3><p>Brouillons, invisibles du public.</p></article><article><h3>${counts['in-review']}</h3><p>Articles en révision, invisibles du public.</p></article><article><h3>${counts.published}</h3><p>Articles publiés dans le journal.</p></article>${counts.scheduled ? `<article><h3>${counts.scheduled}</h3><p>Articles programmés, publiés à leur heure.</p></article>` : ''}<article><h3>${bundle.authors.length}</h3><p>Signatures : les noms affichés sous les titres.</p></article></div>
     <div class="actions"><button class="primary" data-action="new-article">Créer un article</button><a class="button" href="${config.publicBasePath}/">Voir le journal</a></div>
     ${onSocle() && missingSettings(bundle.publication).length ? `<div class="notice" role="status" style="margin-top:2rem"><p><strong>Avant la première publication</strong> : il manque ${esc(missingSettings(bundle.publication).join(', '))}. ${missingSettings(bundle.publication).length > 1 ? 'Sans ces renseignements' : 'Sans ce renseignement'}, le site public refuse le contenu.</p><div class="actions">${importButton()}<button data-action="settings-view">Remplir la configuration</button></div></div>` : ''}
@@ -668,7 +709,7 @@ function dashboard() {
 }
 
 function articles() {
-  return `<section class="panel"><div class="toolbar"><div><h2>Articles</h2><p>Seuls les articles « Publiés » paraissent dans le journal.</p></div><button class="primary" data-action="new-article">Nouvel article</button></div>${bundle.articles.length ? '' : '<p class="empty-state">Aucun article pour l’instant. Cliquez sur « Nouvel article » pour écrire le premier.</p>'}<ul class="entity-list">${bundle.articles.map((article) => `<li><div><strong>${esc(article.title)}</strong>${article.isDemo ? ' <small>Exemple local' + (article.isUserModified ? ' modifié' : '') + '</small>' : ''}<small><span class="status-pill status-${esc(article.status)}">${statusLabel(article.status)}</span> · ${esc(articleDate(article))}${article.authors?.length ? ` · ${esc(article.authors.map((slug) => bundle.authors.find((author) => author.slug === slug)?.name || slug).join(', '))}` : ' · sans signature'}</small></div><div><button data-edit-article="${esc(article.id)}">Modifier</button> <button class="danger" data-delete-article="${esc(article.id)}">Supprimer</button></div></li>`).join('')}</ul></section>`;
+  return `<section class="panel"><div class="toolbar"><div><p>Seuls les articles « Publiés » paraissent dans le journal.</p></div><button class="primary" data-action="new-article">Nouvel article</button></div>${bundle.articles.length ? '' : '<p class="empty-state">Aucun article pour l’instant. Cliquez sur « Nouvel article » pour écrire le premier.</p>'}<ul class="entity-list">${bundle.articles.map((article) => `<li><div><strong>${esc(article.title)}</strong>${article.isDemo ? ' <small>Exemple local' + (article.isUserModified ? ' modifié' : '') + '</small>' : ''}<small><span class="status-pill status-${esc(article.status)}">${statusLabel(article.status)}</span> · ${esc(articleDate(article))}${article.authors?.length ? ` · ${esc(article.authors.map((slug) => bundle.authors.find((author) => author.slug === slug)?.name || slug).join(', '))}` : ' · sans signature'}</small></div><div><button data-edit-article="${esc(article.id)}">Modifier</button> <button class="danger" data-delete-article="${esc(article.id)}">Supprimer</button></div></li>`).join('')}</ul></section>`;
 }
 
 const MEDIA_USAGE_LABELS = {
@@ -753,7 +794,7 @@ function photoDetails(form) {
 
 function mediaLibrary() {
   const own = (bundle.media || []).filter(ownPhoto).length;
-  return `<section class="panel"><div class="toolbar"><div><h2>Photos</h2><p>La banque du journal : vos photos, réutilisables dans tous les articles et le mât, avec leur crédit. ${onSocle() ? 'Elles sont gardées sur le serveur du journal.' : 'En démonstration, elles restent dans ce navigateur. Les photos libres du Quorum montrent de vrais campus, pas l’établissement fictif du journal.'}</p></div></div>
+  return `<section class="panel"><div class="toolbar"><div><p>La banque du journal : vos photos, réutilisables dans tous les articles et le mât, avec leur crédit. ${onSocle() ? 'Elles sont gardées sur le serveur du journal.' : 'En démonstration, elles restent dans ce navigateur. Les photos libres du Quorum montrent de vrais campus, pas l’établissement fictif du journal.'}</p></div></div>
     <details class="photo-add" ${own ? '' : 'open'}><summary>Ajouter une photo à la banque</summary><form id="photo-form" class="grid"><div class="field full"><label>Photo JPEG, PNG ou WebP, 8 Mo au plus<input name="file" type="file" accept="image/jpeg,image/png,image/webp" required></label><div id="photo-file-preview"></div></div>${photoFields()}<div class="actions full"><button class="primary" type="submit">Ajouter à la banque</button></div></form><p class="media-quality">Sans crédit, une photo ne va pas dans la banque. Vérifiez que vous avez le droit de la publier.</p></details>
     ${mediaFilters()}<div class="media-grid">${mediaCards()}</div>${(bundle.media || []).length ? '' : '<p class="empty-state">La banque est vide. Ajoutez une première photo avec le formulaire ci-dessus : elle servira ensuite dans les articles et le mât.</p>'}</section>`;
 }
@@ -1203,7 +1244,7 @@ function articleEditor(article) {
 }
 
 function authors() {
-  return `${onSocle() ? '<section class="panel" id="access-panel" hidden></section>' : ''}<section class="panel"><div class="toolbar"><h2>Signatures</h2><button class="primary" data-action="new-author">Nouvelle signature</button></div><div class="notice">Une signature est le nom affiché sous le titre d’un article, avec sa fonction et sa biographie. Elle ne donne aucun accès à la rédaction : pour cela, ajoutez un compte dans « Équipe : comptes et rôles », plus haut.</div>${bundle.authors.length ? '' : '<p class="empty-state">Aucune signature pour l’instant. Créez-en une par personne qui écrit.</p>'}<ul class="entity-list">${bundle.authors.map((author) => `<li><div><strong>${esc(author.name)}</strong><small>${esc([author.role, ROLE_LABELS[author.editorialRole || 'auteur'] || author.editorialRole].filter(Boolean).join(' · '))}</small></div><div><button data-edit-author="${esc(author.id)}">Modifier</button> <button class="danger" data-delete-author="${esc(author.id)}">Supprimer</button></div></li>`).join('')}</ul></section>`;
+  return `${onSocle() ? '<section class="panel" id="access-panel" hidden></section>' : ''}<section class="panel"><div class="toolbar"><h2>Signatures</h2><button class="primary" data-action="new-author">Nouvelle signature</button></div><div class="notice">Une signature est le nom affiché sous le titre d’un article, avec sa fonction et sa biographie. Elle ne donne aucun accès à la rédaction : pour cela, ajoutez un compte dans « Comptes et rôles », plus haut.</div>${bundle.authors.length ? '' : '<p class="empty-state">Aucune signature pour l’instant. Créez-en une par personne qui écrit.</p>'}<ul class="entity-list">${bundle.authors.map((author) => `<li><div><strong>${esc(author.name)}</strong><small>${esc([author.role, ROLE_LABELS[author.editorialRole || 'auteur'] || author.editorialRole].filter(Boolean).join(' · '))}</small></div><div><button data-edit-author="${esc(author.id)}">Modifier</button> <button class="danger" data-delete-author="${esc(author.id)}">Supprimer</button></div></li>`).join('')}</ul></section>`;
 }
 
 function authorEditor(author) {
@@ -1220,7 +1261,7 @@ function taxonomies() {
       : '';
     return `<li><div>${picker}<strong>${esc(item.name)}</strong><small data-taxonomy-code>/${esc(item.slug)}${item.color ? ` · ${esc(item.color)}` : withColor ? ' · couleur du journal' : ''}</small></div><div>${kind === 'section' ? `<button data-move-section="${esc(item.id)}:-1" aria-label="Monter ${esc(item.name)}" title="Monter">↑</button> <button data-move-section="${esc(item.id)}:1" aria-label="Descendre ${esc(item.name)}" title="Descendre">↓</button> ` : ''}<button data-edit-taxonomy="${kind}:${esc(item.id)}">Modifier</button> <button class="danger" data-delete-taxonomy="${kind}:${esc(item.id)}">Supprimer</button></div></li>`;
   }).join('')}</ul></section>`;
-  return `<section class="panel"><h2>Sections et catégories</h2>${group('Sections', 'section', orderedSections(), true)}${group('Catégories', 'category', bundle.taxonomies.categories, true)}${group('Mots-clés', 'tag', bundle.taxonomies.tags, false)}</section>`;
+  return `<section class="panel">${group('Sections', 'section', orderedSections(), true)}${group('Catégories', 'category', bundle.taxonomies.categories, true)}${group('Mots-clés', 'tag', bundle.taxonomies.tags, false)}</section>`;
 }
 
 /** Les sections dans l'ordre du menu du journal. */
@@ -1375,7 +1416,7 @@ function settings() {
   const masthead = publication.masthead || {};
   const governance = publication.governance || {};
   const missing = missingSettings(publication);
-  return `<section class="panel"><div class="toolbar"><h2>Configuration du journal</h2>${importButton()}</div>${missing.length ? `<p class="notice" role="status">À remplir avant de publier : ${esc(missing.join(', '))}.</p>` : ''}<form id="settings-form" class="grid" novalidate>
+  return `<section class="panel"><div class="toolbar"><p>Le nom, l’apparence et les renseignements du journal.</p>${importButton()}</div>${missing.length ? `<p class="notice" role="status">À remplir avant de publier : ${esc(missing.join(', '))}.</p>` : ''}<form id="settings-form" class="grid" novalidate>
     <p class="media-quality full">Les exemples en gris pâle disparaissent quand vous écrivez ; ils ne sont jamais enregistrés.</p>
     <div class="field"><label>Nom (obligatoire)<input name="name" required placeholder="La Vigie" value="${esc(publication.name)}"></label></div>
     <fieldset class="field full"><legend>Adresse, organisme et contacts</legend>
@@ -1425,9 +1466,9 @@ async function readLogo(file, alt) {
 
 function exportsView() {
   if (onSocle()) {
-    return `<section class="panel"><h2>Exporter mon journal</h2><p>Le journal est déjà gardé sur le serveur. Ces boutons en téléchargent une copie de plus sur cet ordinateur ; elle ne contient aucun mot de passe.</p><input id="export-filter" type="hidden" value="all"><div class="actions"><button class="primary" data-action="export-zip">Télécharger les articles (fichiers texte Markdown)</button><button data-action="export-json">Télécharger une copie des données (JSON)</button></div><p class="notice">Pour restaurer une archive, ouvrez la page <a href="${socleRoot()}/admin/sauvegarde">Sauvegarde</a>.</p></section>`;
+    return `<section class="panel"><p>Le journal est déjà gardé sur le serveur. Ces boutons en téléchargent une copie de plus sur cet ordinateur ; elle ne contient aucun mot de passe.</p><input id="export-filter" type="hidden" value="all"><div class="actions"><button class="primary" data-action="export-zip">Télécharger les articles (fichiers texte Markdown)</button><button data-action="export-json">Télécharger une copie des données (JSON)</button></div><p class="notice">Pour restaurer une archive, ouvrez la page <a href="${socleRoot()}/admin/sauvegarde">Sauvegarde</a>.</p></section>`;
   }
-  return `<section class="panel"><h2>Exporter mon journal</h2><p>Les archives sont créées dans ce navigateur. Elles ne contiennent aucun mot de passe, jeton ou secret.</p><div class="field"><label>Contenu de l’export<select id="export-filter"><option value="all">Tout, exemples compris</option><option value="without-demo">Exclure les exemples</option><option value="user-content">Créé ou modifié par moi</option></select></label></div><div class="actions"><button class="primary" data-action="export-zip">Télécharger le journal Markdown</button><button data-action="export-json">Télécharger la sauvegarde JSON</button><button data-action="import-json">Importer une sauvegarde</button><input id="import-file" type="file" accept="application/json" hidden></div><hr><h2>Après la démonstration</h2><div class="post-demo"><article><h3>1. Exporter mon journal</h3><p>Gardez le ZIP Markdown et une sauvegarde JSON.</p></article><article><h3>2. Passer à Sveltia + GitHub</h3><p>Créez un dépôt avec « Use this template », copiez l’export, puis activez Actions et Pages. Cette étape est manuelle et demande les droits GitHub du dépôt.</p><a href="https://github.com/azdak919/le-kiosque/generate">Créer le dépôt</a></article><article><h3>3. Future option PocketBase</h3><p>Point d’extension prévu, mais aucun backend PocketBase, compte ou hébergement n’est offert actuellement.</p></article></div><section class="panel danger-zone"><h3>Réinitialiser Le Quorum</h3><p>La réinitialisation complète efface les changements locaux de ce navigateur. Exportez-les d’abord.</p><button class="danger" data-action="full-reset">Réinitialiser Le Quorum</button></section></section>`;
+  return `<section class="panel"><p>Les archives sont créées dans ce navigateur. Elles ne contiennent aucun mot de passe, jeton ou secret.</p><div class="field"><label>Contenu de l’export<select id="export-filter"><option value="all">Tout, exemples compris</option><option value="without-demo">Exclure les exemples</option><option value="user-content">Créé ou modifié par moi</option></select></label></div><div class="actions"><button class="primary" data-action="export-zip">Télécharger le journal Markdown</button><button data-action="export-json">Télécharger la sauvegarde JSON</button><button data-action="import-json">Importer une sauvegarde</button><input id="import-file" type="file" accept="application/json" hidden></div><hr><h2>Après la démonstration</h2><div class="post-demo"><article><h3>1. Exporter mon journal</h3><p>Gardez le ZIP Markdown et une sauvegarde JSON.</p></article><article><h3>2. Passer à Sveltia + GitHub</h3><p>Créez un dépôt avec « Use this template », copiez l’export, puis activez Actions et Pages. Cette étape est manuelle et demande les droits GitHub du dépôt.</p><a href="https://github.com/azdak919/le-kiosque/generate">Créer le dépôt</a></article><article><h3>3. Future option PocketBase</h3><p>Point d’extension prévu, mais aucun backend PocketBase, compte ou hébergement n’est offert actuellement.</p></article></div><section class="panel danger-zone"><h3>Réinitialiser Le Quorum</h3><p>La réinitialisation complète efface les changements locaux de ce navigateur. Exportez-les d’abord.</p><button class="danger" data-action="full-reset">Réinitialiser Le Quorum</button></section></section>`;
 }
 
 function bindCommon() {
@@ -1448,6 +1489,7 @@ function render() {
   if (onSocle() && bundle.role === 'photographe' && !['dashboard', 'media'].includes(view)) { view = 'media'; history.replaceState(null, '', '#media'); }
   if (onSocle() && authOn() && bundle.role && !isAdminRole() && view === 'settings') { view = 'dashboard'; history.replaceState(null, '', '#dashboard'); }
   main.innerHTML = ({ dashboard, articles, media: mediaLibrary, authors, taxonomies, settings, exports: exportsView }[view] || dashboard)();
+  paintTitle();
   bindLogout(main);
   if (view === 'authors') fillAccessPanel();
   bindCommon();

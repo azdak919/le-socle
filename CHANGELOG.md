@@ -1,6 +1,7 @@
 # Journal
 
 ## Non publié
+- En haut de l’espace de rédaction : le logo du journal, ou son nom s’il n’a pas de logo. Tant que le journal n’est pas configuré, c’est le logo du Socle (une brique) qui s’affiche. La barre du haut donne le titre de la page ouverte (Articles, Configuration…) au lieu de répéter « Rédaction de … » ; sur téléphone, elle montre le journal, puisque le menu indique déjà la page. En bas du menu, une ligne discrète « Propulsé par Le Socle ». L’onglet du navigateur montre l’icône du Socle.
 - Articles : une case « Mettre à la une » dans le formulaire. L’étiquette n’apparaît sur le site que pour l’article ainsi choisi (un seul à la fois). Un monogramme d’initiales généré, encore stocké comme logo dans une ancienne configuration, est ignoré : sans vrai logo téléversé, c’est le nom du journal qui s’affiche.
 - Flux RSS (`/feed.xml`) : les liens d’articles suivent l’adresse courante du site, comme le plan du site, et non un `canonicalUrl` périmé (par exemple après un déplacement de `/journal/` vers la racine). Quand on change `siteUrl` dans la configuration, les adresses stockées des articles sont mises à jour.
 - Premier chargement du site vivant : le vrai nom du journal est inscrit dans la coquille (titre, mât, pied de page), à la place du nom provisoire « Le journal ».
