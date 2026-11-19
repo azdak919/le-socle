@@ -37,6 +37,9 @@ jobs:
         run: npm test
         env:
           KIOSQUE_PIN_DIR: .kiosque-pin
+          # Extensions éprouvées par l'essai de contrat (dossiers séparés par « : »).
+          # Vide : l'exemple examples/extension-bonjour. Les extensions du Radar viendront ici.
+          SOCLE_EXTENSIONS_CONTRAT: ""
       - name: Paquet PHP pour hébergement mutualisé
         run: node tools/paquet-php.mjs
       - name: Publier le paquet PHP (artefact)

@@ -3,7 +3,7 @@ LE KIOSQUE — paquet complet d'un journal étudiant (site du journal + rédacti
 1. Il faut PHP 8.1 ou plus avec SQLite (pdo_sqlite) et un serveur Apache ou LiteSpeed
    (les fichiers .htaccess) : c'est le cas chez presque tous les hébergeurs mutualisés.
    Sur nginx seul, les .htaccess sont ignorés : demandez au service informatique de
-   fermer donnees/ et php/ et d'envoyer le reste à index.php.
+   fermer donnees/, php/ et extensions/ et d'envoyer le reste à index.php.
 2. Décompressez le ZIP : vous obtenez un dossier kiosque-journal/. Déposez le
    CONTENU de ce dossier (pas le dossier lui-même) à la racine de votre espace
    web (gestionnaire de fichiers, FTP ou SFTP), par exemple dans public_html/
@@ -27,3 +27,9 @@ Dernière version, toujours à la même adresse (sans compte GitHub) :
   https://github.com/azdak919/le-kiosque/releases/latest/download/kiosque-journal.zip
 À la main : faites une sauvegarde, puis envoyez les nouveaux fichiers par-dessus
 les anciens SANS remplacer donnees/ (vos articles, photos et comptes y sont).
+
+Extensions : chacune se dépose dans son propre dossier sous extensions/ (FTP ou
+gestionnaire de fichiers), puis s'active dans la rédaction, page Extensions
+(administrateur). La mise à jour ne touche jamais à extensions/ ; ce dossier est
+compris dans la copie faite avant chaque mise à jour. Mode d'emploi : docs/extensions.md
+du dépôt du Socle.

@@ -1,0 +1,15 @@
+{
+  "id": "bonjour",
+  "nom": "Bonjour",
+  "version": "1.0.0",
+  "description": "Extension d’exemple : une page de notes, une carte du tableau de bord, une tâche et un réglage. Elle sert de modèle et d’essai de contrat.",
+  "auteur": "Le Socle",
+  "socle": ">=1.5.0 <2.0.0",
+  "api": 1,
+  "licence": "GPL-2.0-only",
+  "point_entree": "extension.php",
+  "secrets": [],
+  "roles": [
+    { "id": "bonjour-lecteur", "nom": "Lire et écrire les notes de Bonjour", "defaut": ["editeur"] }
+  ]
+}

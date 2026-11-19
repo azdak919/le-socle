@@ -12,11 +12,19 @@ declare(strict_types=1);
  *  3. installation par-dessus, sans jamais toucher donnees/ ;
  *  4. en cas d'échec, retour automatique à la sauvegarde. Le bouton
  *     « Revenir à la version précédente » réinstalle la dernière sauvegarde.
+ *
+ * extensions/ (docs/extensions.md) n'est jamais écrit par une mise à jour,
+ * même si un paquet en contenait un : il est gardé dans la sauvegarde du
+ * programme, et seul le retour arrière le remet tel qu'il était.
  */
 
 const SOCLE_MAJ_DIRS = ['php', 'admin', 'site'];
 const SOCLE_MAJ_FILES = ['index.php', '.htaccess', '.user.ini', 'LISEZMOI.txt', 'LICENSE', 'THIRD_PARTY.md', 'package.json', 'paquet.json'];
 const SOCLE_MAJ_MAX = 60_000_000;
+// Dossier préservé : jamais vidé ni écrit par une mise à jour.
+const SOCLE_MAJ_EXTENSIONS = 'extensions';
+// Marque de la sauvegarde : elle contient l'état exact d'extensions/ (même vide).
+const SOCLE_MAJ_EXTENSIONS_MARQUE = 'extensions/.sauvegarde-du-socle';
 
 function socle_paquet(): ?array {
     $path = socle_root() . '/paquet.json';
@@ -99,10 +107,23 @@ function socle_version_newer(string $offered, string $current): bool {
     return version_compare($offered, $current, '>');
 }
 
-/** Fichiers du programme (tout sauf donnees/), chemin relatif => octets. */
-function socle_program_files(): array {
+/** Fichiers du programme (tout sauf donnees/), chemin relatif => octets ; avec extensions/ pour la sauvegarde. */
+function socle_program_files(bool $withExtensions = false): array {
     $root = socle_root();
     $files = [];
+    if ($withExtensions) {
+        $files[SOCLE_MAJ_EXTENSIONS_MARQUE] = "Sauvegarde du dossier extensions/ par Le Socle.\n";
+        $dir = $root . '/' . SOCLE_MAJ_EXTENSIONS;
+        if (is_dir($dir)) {
+            $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
+            foreach ($iterator as $item) {
+                if (!$item->isFile()) continue;
+                $relative = ltrim(str_replace('\\', '/', substr($item->getPathname(), strlen($root))), '/');
+                if ($relative === SOCLE_MAJ_EXTENSIONS_MARQUE) continue;
+                $files[$relative] = (string) file_get_contents($item->getPathname());
+            }
+        }
+    }
     foreach (SOCLE_MAJ_FILES as $name) {
         if (is_file($root . '/' . $name)) $files[$name] = (string) file_get_contents($root . '/' . $name);
     }
@@ -138,6 +159,7 @@ function socle_install_program(array $files): void {
     $root = socle_root();
     foreach (array_keys($files) as $name) {
         if (!is_string($name) || $name === '' || str_contains($name, '..') || str_starts_with($name, '/') || str_starts_with($name, 'donnees/')) throw new RuntimeException('chemin refusé : ' . $name);
+        if (socle_maj_is_extension($name)) throw new RuntimeException('chemin refusé : ' . $name . ' (extensions/ est préservé)');
     }
     foreach (SOCLE_MAJ_DIRS as $dir) socle_remove_tree($root . '/' . $dir);
     foreach ($files as $name => $data) {
@@ -157,8 +179,32 @@ function socle_install_program(array $files): void {
  */
 const SOCLE_PAQUET_MARQUEUR = 'INSTALLER-A-LA-RACINE.txt';
 
-function socle_paquet_keep(string $relative): bool {
-    return $relative !== '' && !str_starts_with($relative, 'donnees/') && $relative !== SOCLE_PAQUET_MARQUEUR;
+function socle_maj_is_extension(string $relative): bool {
+    return $relative === SOCLE_MAJ_EXTENSIONS || str_starts_with($relative, SOCLE_MAJ_EXTENSIONS . '/');
+}
+
+/** Ce qu'un paquet installe : ni donnees/, ni extensions/ (sauf, pour une sauvegarde, si on le demande). */
+function socle_paquet_keep(string $relative, bool $extensions = false): bool {
+    if ($relative === '' || str_starts_with($relative, 'donnees/') || $relative === SOCLE_PAQUET_MARQUEUR) return false;
+    return $extensions || !socle_maj_is_extension($relative);
+}
+
+/** Remet extensions/ exactement comme dans une sauvegarde qui porte la marque ; sinon n'y touche pas. */
+function socle_restore_extensions(array $files): bool {
+    if (!isset($files[SOCLE_MAJ_EXTENSIONS_MARQUE])) return false;
+    $root = socle_root();
+    foreach (array_keys($files) as $name) {
+        if (!is_string($name) || str_contains($name, '..') || !socle_maj_is_extension($name)) throw new RuntimeException('chemin refusé : ' . $name);
+    }
+    socle_remove_tree($root . '/' . SOCLE_MAJ_EXTENSIONS);
+    if (!is_dir($root . '/' . SOCLE_MAJ_EXTENSIONS) && !mkdir($root . '/' . SOCLE_MAJ_EXTENSIONS, 0775, true)) throw new RuntimeException('dossier extensions/ non recréé');
+    foreach ($files as $name => $data) {
+        if ($name === SOCLE_MAJ_EXTENSIONS_MARQUE || str_ends_with($name, '/')) continue;
+        $target = $root . '/' . $name;
+        if (!is_dir(dirname($target)) && !mkdir(dirname($target), 0775, true) && !is_dir(dirname($target))) throw new RuntimeException('dossier non créé : ' . $name);
+        if (file_put_contents($target, $data) === false) throw new RuntimeException('fichier non écrit : ' . $name);
+    }
+    return true;
 }
 
 /**
@@ -167,14 +213,14 @@ function socle_paquet_keep(string $relative): bool {
  * dossier enveloppant (paquet actuel `kiosque-journal/` avec le marqueur
  * INSTALLER-A-LA-RACINE.txt, anciens paquets `journal/`, sauvegardes).
  */
-function socle_paquet_files(string $zip): array {
+function socle_paquet_files(string $zip, bool $extensions = false): array {
     $entries = socle_unzip($zip);
     $flat = isset($entries['index.php'], $entries['paquet.json'], $entries['php/src/bootstrap.php']);
     if ($flat) {
         $files = [];
         foreach ($entries as $name => $data) {
             $relative = (string) $name;
-            if (!socle_paquet_keep($relative)) continue;
+            if (!socle_paquet_keep($relative, $extensions)) continue;
             $files[$relative] = $data;
         }
         return $files;
@@ -191,7 +237,7 @@ function socle_paquet_files(string $zip): array {
     $files = [];
     foreach ($entries as $name => $data) {
         $relative = substr((string) $name, strlen($root) + 1);
-        if (!socle_paquet_keep($relative)) continue;
+        if (!socle_paquet_keep($relative, $extensions)) continue;
         $files[$relative] = $data;
     }
     return $files;
@@ -213,7 +259,7 @@ function socle_maj_record(array $entry): void {
 function socle_maj_backup(string $version, string $stamp): string {
     $dir = socle_maj_dir();
     $zip = [];
-    foreach (socle_program_files() as $name => $data) $zip[] = ['name' => 'journal/' . $name, 'data' => $data];
+    foreach (socle_program_files(true) as $name => $data) $zip[] = ['name' => 'journal/' . $name, 'data' => $data];
     $name = 'programme-' . preg_replace('/[^0-9A-Za-z.-]/', '', $version) . '-' . $stamp . '.zip';
     if (file_put_contents($dir . '/' . $name, socle_zip_store($zip)) === false) throw new RuntimeException('sauvegarde non écrite');
     $db = socle_env('SOCLE_DB');
@@ -253,7 +299,11 @@ function socle_maj_revert(): array {
     $path = socle_maj_dir() . '/' . basename($last['sauvegarde']);
     if (!is_file($path)) throw new RuntimeException('sauvegarde introuvable');
     $current = socle_paquet_version();
-    socle_install_program(socle_paquet_files((string) file_get_contents($path)));
+    $saved = socle_paquet_files((string) file_get_contents($path), true);
+    $program = array_filter($saved, static fn (string $name): bool => !socle_maj_is_extension($name), ARRAY_FILTER_USE_KEY);
+    $extensions = array_filter($saved, static fn (string $name): bool => socle_maj_is_extension($name), ARRAY_FILTER_USE_KEY);
+    socle_install_program($program);
+    socle_restore_extensions($extensions);
     socle_maj_record(['de' => $current, 'vers' => (string) ($last['de'] ?? ''), 'le' => socle_iso(socle_now()), 'retour' => true]);
     return ['from' => $current, 'to' => (string) ($last['de'] ?? '')];
 }

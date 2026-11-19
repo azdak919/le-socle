@@ -274,7 +274,7 @@ test("fondation et droits sur les articles ; Configuration et Mise à jour à l'
   assert.match(admin, /publication\.license = pick\(journal\.licence, publication\.license \|\| ''\);/);
   assert.match(admin, /publication\.founded = String\(data\.get\('founded'\) \|\| ''\)\.trim\(\); publication\.license = String\(data\.get\('license'\) \|\| ''\);/);
   assert.match(admin, /\(!admin && link\.dataset\.view === 'settings'\)/);
-  assert.match(admin, /\.admin-nav \[data-nav="save"\], \.admin-nav \[data-nav="update"\]'\)\.forEach\(\(link\) => \{ link\.hidden = !admin; \}\)/);
+  assert.match(admin, /\.admin-nav \[data-nav="save"\], \.admin-nav \[data-nav="update"\], \.admin-nav \[data-nav="extensions"\]'\)\.forEach\(\(link\) => \{ link\.hidden = !admin; \}\)/);
   const css = readFileSync(join(ASSETS, "admin.css"), "utf8");
   assert.match(css, /admin-app\{background:linear-gradient\(to right/);
 });

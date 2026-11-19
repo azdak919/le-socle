@@ -242,6 +242,37 @@ final class SocleStore {
         return $rows;
     }
 
+    /* Tables des extensions : ext_<id>, clé-valeur (php/src/extensions.php). */
+    private function extTable(string $table): string {
+        if (preg_match('/^ext_[a-z][a-z0-9_]{1,39}$/', $table) !== 1) throw new RuntimeException('table d’extension refusée : ' . $table);
+        $quoted = socle_quote_ident($table);
+        $this->db->exec('CREATE TABLE IF NOT EXISTS ' . $quoted . ' (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+        return $quoted;
+    }
+
+    public function extPut(string $table, string $key, string $value): void {
+        $sql = 'INSERT INTO ' . $this->extTable($table) . ' (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value';
+        $this->db->prepare($sql)->execute([$key, $value]);
+    }
+
+    public function extGet(string $table, string $key): ?string {
+        $stmt = $this->db->prepare('SELECT value FROM ' . $this->extTable($table) . ' WHERE key = ?');
+        $stmt->execute([$key]);
+        $row = $stmt->fetch();
+        return $row === false ? null : (string) $row['value'];
+    }
+
+    public function extDelete(string $table, string $key): void {
+        $this->db->prepare('DELETE FROM ' . $this->extTable($table) . ' WHERE key = ?')->execute([$key]);
+    }
+
+    /** @return array<string, string> */
+    public function extList(string $table): array {
+        $out = [];
+        foreach ($this->db->query('SELECT key, value FROM ' . $this->extTable($table) . ' ORDER BY key')->fetchAll() as $row) $out[(string) $row['key']] = (string) $row['value'];
+        return $out;
+    }
+
     public function tableReady(string $module): bool {
         return $this->tableExists('mod_' . $module);
     }
@@ -398,6 +429,51 @@ function socle_admin_journal_name(?string $name = null): string {
     return $current;
 }
 
+/** Rôle de la personne qui ouvre une page d'administration (lien Extensions réservé à l'administrateur). */
+function socle_admin_role(?string $role = null, bool $set = true): ?string {
+    static $current = null;
+    if (func_num_args() > 0 && $set) $current = $role;
+    return $current;
+}
+
+/** Styles des pages d'extensions : ajoutés seulement là où ils servent. */
+function socle_admin_extra_css(?bool $on = null): string {
+    static $active = false;
+    if ($on !== null) { $active = $on; return ''; }
+    if (!$active) return '';
+    return '  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85em; background: var(--accent); border-radius: 0.3rem; padding: 0.05rem 0.3rem; overflow-wrap: anywhere; }
+  .note.alerte { background: #fdf0ef; border-color: #f2c6c2; }
+  .note.alerte ul { margin: 0.4rem 0; padding-left: 1.25rem; }
+  .pastille { display: inline-flex; align-items: center; padding: 0.1rem 0.55rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; border: 1px solid transparent; }
+  .pastille-ok { background: #e8f5ec; color: #17603a; border-color: #c4e6cf; }
+  .pastille-attention { background: #fff6e0; color: #7a4b00; border-color: #f2dca6; }
+  .pastille-alerte { background: #fdecea; color: #9b1c1c; border-color: #f3c3bd; }
+  .pastille-neutre { background: var(--accent); color: var(--muted); border-color: var(--border); }
+  .extension { border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem; margin: 1rem 0 0; }
+  .extension-tete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
+  .extension h2 { margin: 0; padding: 0; border: 0; font-size: 1.05rem; }
+  .extension h2 small { color: var(--muted); font-weight: 500; font-size: 0.85rem; }
+  .extension .fiche { font-size: 0.875rem; }
+  .extension .fiche dd { font-weight: 500; overflow-wrap: anywhere; }
+  .extension .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+  .extension .actions form { margin: 0; }
+  .extension fieldset { border: 1px solid var(--border); border-radius: var(--radius); margin: 0.5rem 0; padding: 0.5rem 0.75rem; }
+  .extension legend { font-weight: 600; font-size: 0.875rem; padding: 0 0.25rem; }
+  .taches { list-style: none; padding: 0; margin: 0.5rem 0; }
+  .taches li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+  .taches form { margin: 0; }
+  .vide { text-align: left; border: 1px dashed var(--border); border-radius: var(--radius); padding: 1rem 1.1rem; margin-top: 1rem; }
+  .vide h2 { margin: 0 0 0.25rem; padding: 0; border: 0; }
+  .sous-menu { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: -0.25rem 0 1rem; }
+  .sous-menu a { padding: 0.3rem 0.65rem; border-radius: 0.5rem; text-decoration: none; font-size: 0.875rem; border: 1px solid var(--border); }
+  .sous-menu a[aria-current="page"] { background: var(--accent); font-weight: 600; }
+  label.champ { display: flex; flex-direction: column; align-items: stretch; gap: 0.25rem; margin: 0; max-width: 32rem; }
+  label.champ input, label.champ select { font: inherit; padding: 0.4rem 0.55rem; border: 1px solid var(--border); border-radius: 0.5rem; }
+  .reglages .aide { display: block; }
+  @media (max-width: 40rem) { .extension { padding: 0.85rem; } .extension .fiche { grid-template-columns: 1fr; gap: 0 1rem; } .extension .fiche dd { margin-bottom: 0.35rem; } }
+';
+}
+
 function socle_admin_brand(string $sub): string {
     $name = socle_admin_journal_name();
     if ($name !== '') return '<span><strong>' . htmlspecialchars($name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</strong><small>' . $sub . '</small></span>';
@@ -406,12 +482,16 @@ function socle_admin_brand(string $sub): string {
 
 function socle_admin_document(string $lang, string $title, string $body): array {
     $copy = $lang === 'en'
-        ? ['html' => 'en', 'skip' => 'Skip to content', 'back' => 'Dashboard', 'brandSub' => 'Newsroom', 'powered' => 'Powered by', 'office' => 'Administration', 'save' => 'Backup', 'update' => 'Update', 'other' => 'Français', 'otherLang' => 'fr']
-        : ['html' => 'fr', 'skip' => 'Aller au contenu', 'back' => 'Tableau de bord', 'brandSub' => 'Espace de rédaction', 'powered' => 'Propulsé par', 'office' => 'Interface d’administration', 'save' => 'Sauvegarde', 'update' => 'Mise à jour', 'other' => 'English', 'otherLang' => 'en'];
+        ? ['html' => 'en', 'skip' => 'Skip to content', 'back' => 'Dashboard', 'brandSub' => 'Newsroom', 'powered' => 'Powered by', 'office' => 'Administration', 'save' => 'Backup', 'update' => 'Update', 'extensions' => 'Extensions', 'other' => 'Français', 'otherLang' => 'fr']
+        : ['html' => 'fr', 'skip' => 'Aller au contenu', 'back' => 'Tableau de bord', 'brandSub' => 'Espace de rédaction', 'powered' => 'Propulsé par', 'office' => 'Interface d’administration', 'save' => 'Sauvegarde', 'update' => 'Mise à jour', 'extensions' => 'Extensions', 'other' => 'English', 'otherLang' => 'en'];
     $other = socle_with_lang('/admin', $copy['otherLang']);
     $back = socle_with_lang('/admin', $lang);
     $saveCurrent = $title === $copy['save'] ? ' aria-current="page"' : '';
     $updateCurrent = $title === $copy['update'] ? ' aria-current="page"' : '';
+    // Lien Extensions : administrateur seulement, et quand une extension est déposée (ou sur la page même).
+    $extensionsLink = socle_admin_role() === 'administrateur' && ($title === $copy['extensions'] || (function_exists('socle_ext_presentes') && socle_ext_presentes()))
+        ? '<a href="' . socle_with_lang('/admin/extensions', $lang) . '"' . ($title === $copy['extensions'] ? ' aria-current="page"' : '') . '>' . $copy['extensions'] . '</a>' . "\n"
+        : '';
     $html = '<!DOCTYPE html>
 <html lang="' . $copy['html'] . '">
 <head>
@@ -470,7 +550,7 @@ function socle_admin_document(string $lang, string $title, string $body): array 
   @page tabloid { size: tabloid; }
   @page a4 { size: A4; }
   @page a3 { size: A3; }
-  @media (max-width: 40rem) { .tabs { margin-left: 0; width: 100%; } main { margin-top: 1rem; padding: 0 0.6rem; } .panel { padding: 1rem; } }
+' . socle_admin_extra_css() . '  @media (max-width: 40rem) { .tabs { margin-left: 0; width: 100%; } main { margin-top: 1rem; padding: 0 0.6rem; } .panel { padding: 1rem; } }
   .powered { margin: 1.5rem auto 2rem; padding: 0 1rem; max-width: 52rem; font-size: 0.75rem; color: var(--muted); }
   .powered a { color: inherit; }
   @media print { nav, .noprint, .bar { display: none; } .panel { border: 0; padding: 0; } }
@@ -484,7 +564,7 @@ function socle_admin_document(string $lang, string $title, string $body): array 
 <a href="' . $back . '">' . $copy['back'] . '</a>
 <a href="' . socle_with_lang('/admin/sauvegarde', $lang) . '"' . $saveCurrent . '>' . $copy['save'] . '</a>
 <a href="' . socle_with_lang('/admin/mise-a-jour', $lang) . '"' . $updateCurrent . '>' . $copy['update'] . '</a>
-<a href="' . $other . '" hreflang="' . $copy['otherLang'] . '">' . $copy['other'] . '</a>
+' . $extensionsLink . '<a href="' . $other . '" hreflang="' . $copy['otherLang'] . '">' . $copy['other'] . '</a>
 </nav>
 </header>
 <main id="contenu">

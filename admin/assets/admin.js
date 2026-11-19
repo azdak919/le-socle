@@ -655,7 +655,57 @@ function applyRoleNav() {
   document.querySelectorAll('.admin-nav [data-view]').forEach((link) => {
     link.hidden = (photographer && !['dashboard', 'media'].includes(link.dataset.view)) || (!admin && link.dataset.view === 'settings');
   });
-  document.querySelectorAll('.admin-nav [data-nav="save"], .admin-nav [data-nav="update"]').forEach((link) => { link.hidden = !admin; });
+  document.querySelectorAll('.admin-nav [data-nav="save"], .admin-nav [data-nav="update"], .admin-nav [data-nav="extensions"]').forEach((link) => { link.hidden = !admin; });
+}
+
+/*
+ * Extensions du Socle (docs/extensions.md) : leurs entrées de menu, leurs
+ * cartes du tableau de bord et, pour l'administrateur, les avis d'une
+ * extension coupée. Sans extension, ou hors du Socle PHP, rien ne change.
+ */
+let extensionsInfo = { administrateur: false, menu: [], cartes: [], avis: [] };
+const EXTENSION_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><path d="M17.25 13.5v7.5M13.5 17.25H21"/></svg>';
+
+async function loadExtensions() {
+  if (!onSocle()) return;
+  try {
+    const response = await fetch(`${socleRoot()}/admin/extensions/menu.json`, { credentials: 'same-origin', cache: 'no-store', headers: { accept: 'application/json' } });
+    if (!response.ok || !String(response.headers.get('content-type') || '').includes('json')) return;
+    const data = await response.json();
+    extensionsInfo = { administrateur: data.administrateur === true, menu: Array.isArray(data.menu) ? data.menu : [], cartes: Array.isArray(data.cartes) ? data.cartes : [], avis: Array.isArray(data.avis) ? data.avis : [] };
+  } catch { /* Socle sans extensions (Node, ancienne version) : rien à montrer. */ }
+  paintExtensionNav();
+}
+
+function paintExtensionNav() {
+  const nav = document.querySelector('.admin-nav');
+  if (!nav) return;
+  nav.querySelectorAll('[data-nav="extension"], [data-nav="extensions"]').forEach((link) => link.remove());
+  const before = nav.querySelector('[data-nav="save"]') || nav.querySelector('[data-nav="update"]');
+  if (extensionsInfo.administrateur) {
+    const page = document.createElement('a');
+    page.href = `${socleRoot()}/admin/extensions`;
+    page.dataset.nav = 'extensions';
+    page.innerHTML = `${EXTENSION_ICON}Extensions`;
+    const update = nav.querySelector('[data-nav="update"]');
+    nav.insertBefore(page, update ? update.nextSibling : null);
+  }
+  for (const item of extensionsInfo.menu) {
+    if (typeof item.adresse !== 'string' || !item.adresse.startsWith('/admin/x/')) continue;
+    const link = document.createElement('a');
+    link.href = `${socleRoot()}${item.adresse}`;
+    link.dataset.nav = 'extension';
+    link.innerHTML = `${EXTENSION_ICON}${esc(item.libelle)}`;
+    nav.insertBefore(link, before);
+  }
+}
+
+function extensionsBlock() {
+  if (!onSocle()) return '';
+  const avis = extensionsInfo.avis; // Le Socle ne les envoie qu'à l'administrateur.
+  const notices = avis.map((item) => `<p class="notice" role="status"><strong>Extension « ${esc(item.nom)} »</strong> — ${esc(item.message)} <a href="${socleRoot()}/admin/extensions">Ouvrir Extensions</a></p>`).join('');
+  const cards = extensionsInfo.cartes.map((card) => `<article class="extension-card" data-etat="${esc(card.etat)}"><h3>${esc(card.titre)}</h3>${(card.lignes || []).map((line) => `<p>${esc(line)}</p>`).join('')}${typeof card.lien === 'string' && card.lien.startsWith('/') ? `<a href="${socleRoot()}${esc(card.lien)}">Ouvrir</a>` : ''}</article>`).join('');
+  return `${notices ? `<div class="extension-notices">${notices}</div>` : ''}${cards ? `<div class="grid extension-cards">${cards}</div>` : ''}`;
 }
 
 /** Licences courantes et leur lien, pour la banque et la photo principale. */
@@ -702,6 +752,7 @@ function dashboard() {
   const counts = Object.fromEntries(['draft', 'in-review', 'scheduled', 'published'].map((status) => [status, bundle.articles.filter((item) => item.status === status).length]));
   return `<section class="panel">
     <div class="grid stats"><article><h3>${counts.draft}</h3><p>Brouillons, invisibles du public.</p></article><article><h3>${counts['in-review']}</h3><p>Articles en révision, invisibles du public.</p></article><article><h3>${counts.published}</h3><p>Articles publiés dans le journal.</p></article>${counts.scheduled ? `<article><h3>${counts.scheduled}</h3><p>Articles programmés, publiés à leur heure.</p></article>` : ''}<article><h3>${bundle.authors.length}</h3><p>Signatures : les noms affichés sous les titres.</p></article></div>
+    ${extensionsBlock()}
     <div class="actions"><button class="primary" data-action="new-article">Créer un article</button><a class="button" href="${config.publicBasePath}/">Voir le journal</a></div>
     ${onSocle() && missingSettings(bundle.publication).length ? `<div class="notice" role="status" style="margin-top:2rem"><p><strong>Avant la première publication</strong> : il manque ${esc(missingSettings(bundle.publication).join(', '))}. ${missingSettings(bundle.publication).length > 1 ? 'Sans ces renseignements' : 'Sans ce renseignement'}, le site public refuse le contenu.</p><div class="actions">${importButton()}<button data-action="settings-view">Remplir la configuration</button></div></div>` : ''}
     ${onSocle() ? `<p class="notice" style="margin-top:2rem">Rédaction en ligne${bundle.role ? ` — votre rôle : <strong>${esc(ACCOUNT_LABELS[bundle.role] || bundle.role)}</strong>` : ''}. ${siteVivant ? 'Le site du journal montre un article dès qu’il est publié.' : 'Le journal publié se reconstruit à la prochaine synchronisation.'}${authOn() ? ' <button data-action="logout">Se déconnecter</button>' : ''}</p>` : `<h3 style="margin-top:2rem">Données d’exemple</h3><label><input id="demo-visible" type="checkbox" ${bundle.demoVisible !== false ? 'checked' : ''}> Afficher les exemples publiés sur le site</label>
@@ -1663,6 +1714,7 @@ try {
   backend = await getBackend();
   backend.subscribe(async () => { await refresh(); if (!main.querySelector('form')) render(); });
   await refresh();
+  await loadExtensions();
   if (await finishAssistant()) location.hash = 'dashboard';
   render();
 } catch (error) {
