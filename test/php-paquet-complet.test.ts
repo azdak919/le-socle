@@ -38,7 +38,7 @@ async function call(url: string, init: RequestInit = {}) {
 test("paquet complet : le site du journal servi par le socle PHP", { skip: !hasPhp && !process.env.CI ? "php absent" : false }, async () => {
   const work = mkdtempSync(join(tmpdir(), "socle-complet-"));
   const site = join(work, "site");
-  const shell = (title: string) => `<!doctype html><html><head><title>${title}</title><meta property="og:site_name" content="${title}"><link rel="stylesheet" href="/assets/theme.css"><link rel="alternate" type="application/atom+xml" title="${title}" href="/feed.xml"></head><body><p class="wordmark"><a href="/"><span class="wordmark-name">${title}</span></a></p><a href="/sports/">Sports</a><p class="site-foot__wordmark">${title}</p><p class="site-foot__legal">© 2026 ${title}. Tous droits réservés.</p>`
+  const shell = (title: string) => `<!doctype html><html><head><title>${title}</title><meta property="og:site_name" content="${title}"><link rel="stylesheet" href="/assets/theme.css"><link rel="alternate" type="application/atom+xml" title="${title}" href="/feed.xml"></head><body><header class="masthead"></header><p class="wordmark"><a href="/"><span class="wordmark-name">${title}</span></a></p><a href="/sports/">Sports</a><p class="site-foot__wordmark">${title}</p><p class="site-foot__legal">© 2026 ${title}. Tous droits réservés.</p>`
     + `<script>window.KIOSQUE_EDITORIAL={"mode":"socle-vivant","apiBase":"","publicBasePath":"","adminBasePath":"/redaction","assetsBase":"/assets/editorial"};</script></body></html>`;
   mkdirSync(join(site, "assets", "editorial"), { recursive: true });
   writeFileSync(join(site, "index.html"), shell("Le journal"));
@@ -143,6 +143,13 @@ return true;
     };
     const saved = await call(`${base}/v1/redaction/article`, { method: "POST", headers: { ...json, cookie }, body: JSON.stringify({ article }) });
     assert.equal(saved.status, 200, saved.text);
+    assert.equal((await call(`${base}/v1/redaction/entite`, { method: "POST", headers: { ...json, cookie }, body: JSON.stringify({ kind: "category", entity: { id: "c1", name: "Enquête", slug: "enquete" } }) })).status, 200);
+    // Plan du site : toutes les pages publiques, y compris signatures, revue, catégories et années d'archives.
+    const plan = (await call(`${base}/sitemap.xml`)).text;
+    for (const path of ["/", "/archives/", "/archives/2026/", "/plan-du-site/", "/recherche/", "/revue/", "/auteurs/", "/auteurs/lea-roy/", "/sections/campus/", "/categories/enquete/", "/articles/premier-article/"]) {
+      assert.ok(plan.includes(`<loc>${base}${path}</loc>`), `${path} manque au plan du site :\n${plan}`);
+      assert.equal((await call(`${base}${path}`)).status, 200, `${path} annoncé mais introuvable`);
+    }
     const feedBefore = await call(`${base}/feed.xml`);
     assert.equal(feedBefore.status, 200);
     assert.match(feedBefore.text, new RegExp(`<link href="${base}/articles/premier-article/" rel="alternate"`));
@@ -153,6 +160,13 @@ return true;
     assert.equal(snap.articles.find((item) => item.slug === "premier-article")?.canonicalUrl, "https://phare.example/articles/premier-article/");
     const feedAfter = await call(`${base}/feed.xml`);
     assert.match(feedAfter.text, new RegExp(`<link href="${base}/articles/premier-article/" rel="alternate"`));
+    // Radio : l'emplacement de la barre est dans la première réponse (place réservée), seulement si une station est choisie.
+    assert.doesNotMatch((await call(`${base}/`)).text, /radar-radio-slot/);
+    const radio = await call(`${base}/v1/redaction/publication`, { method: "POST", headers: { ...json, cookie }, body: JSON.stringify({ publication: { name: "Le Phare", slug: "le-phare", noindex: true, fictif: true, siteUrl: "https://phare.example/", radio: { enabled: true, station: "chyz" } } }) });
+    assert.equal(radio.status, 200, radio.text);
+    const withRadio = (await call(`${base}/`)).text;
+    assert.match(withRadio, /<\/header>\n<div class="radar-radio-slot" data-station="chyz"><script src="https:\/\/le-radar\.ca\/radio-barre\.js" data-station="chyz" async onerror="[^"]+"><\/script><\/div>/);
+    assert.equal(withRadio.match(/radar-radio-slot/g)?.length, 1);
     const missing = await call(`${base}/articles/un-article/`);
     assert.equal(missing.status, 404);
     assert.match(missing.text, /demo-banner/);

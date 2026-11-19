@@ -299,3 +299,9 @@ test("réseaux sociaux : un champ par réseau, exemple pâle et adresse vérifi�
   assert.match(admin, /publication\.social = readSocial\(data\);/);
   assert.match(admin, /field\.closest\('details'\)\?\.setAttribute\('open', ''\);/);
 });
+
+test("la barre de l'espace de rédaction ignore un monogramme d'initiales, comme le site public", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  const brand = admin.slice(admin.indexOf("function paintBrandIn"), admin.indexOf("function paintBrandIn") + 1200);
+  assert.match(brand, /!isGeneratedInitialsLogoSrc\(pub\.logo\.src\)/);
+});
