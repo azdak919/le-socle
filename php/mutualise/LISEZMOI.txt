@@ -3,7 +3,7 @@ LE SOCLE — installation sur un hébergement PHP (serveur du cégep, hébergeur
 1. Il faut PHP 8.1 ou plus avec SQLite (pdo_sqlite) et un serveur Apache ou LiteSpeed
    (les fichiers .htaccess) : c'est le cas chez presque tous les hébergeurs mutualisés.
    Sur nginx seul, les .htaccess sont ignorés : demandez au service informatique de
-   fermer socle/donnees/ et socle/php/ et d'envoyer le reste à socle/index.php.
+   fermer socle/donnees/, socle/php/ et socle/extensions/ et d'envoyer le reste à socle/index.php.
 2. Déposez le dossier « socle » tel quel sur le serveur (gestionnaire de fichiers ou FTP),
    à la racine de l'espace web ou dans un sous-dossier. Le programme détecte le
    préfixe tout seul.
@@ -23,3 +23,9 @@ Dernière version, toujours à la même adresse (sans compte GitHub) :
   https://github.com/azdak919/le-socle/releases/latest/download/le-socle-php.zip
 Mettre à jour : faites une sauvegarde, puis envoyez le nouveau dossier « socle » par-dessus
 l'ancien SANS remplacer socle/donnees/ (vos articles, photos et comptes y sont).
+
+Extensions : chacune se dépose dans son propre dossier sous socle/extensions/ (FTP ou
+gestionnaire de fichiers), puis s'active dans la rédaction, page Extensions
+(administrateur). La mise à jour ne touche jamais à socle/extensions/ ; ce dossier est
+compris dans la copie faite avant chaque mise à jour. Mode d'emploi : docs/extensions.md
+du dépôt du Socle.

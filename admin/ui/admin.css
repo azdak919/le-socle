@@ -196,6 +196,16 @@
 .stats article { @apply rounded-xl ring-1 ring-foreground/10 bg-card p-4 shadow-xs; }
 .stats article h3 { @apply m-0! text-3xl! font-semibold tracking-tight tabular-nums; }
 .stats article p { @apply m-0 mt-1 text-xs text-muted-foreground leading-snug; }
+/* Extensions du Socle : cartes du tableau de bord et avis (docs/extensions.md). */
+.extension-cards { @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6; }
+.extension-card { @apply rounded-xl ring-1 ring-foreground/10 bg-card p-4 shadow-xs; }
+.extension-card h3 { @apply m-0! text-sm! font-semibold; }
+.extension-card p { @apply m-0 mt-1 text-sm text-muted-foreground leading-snug; }
+.extension-card a { @apply inline-block mt-2 text-sm font-medium; }
+.extension-card[data-etat="attention"] { @apply ring-amber-400/60; }
+.extension-card[data-etat="alerte"] { @apply ring-red-500/60; }
+.extension-notices { @apply grid gap-2 mb-6; }
+.extension-notices .notice { @apply m-0; }
 #toast { @apply fixed right-4 bottom-4 z-50 rounded-lg bg-foreground px-4 py-2.5 text-sm text-background shadow-lg opacity-0 pointer-events-none transition-opacity; }
 #toast.visible { @apply opacity-100; }
 .entity-list li > div:last-child { @apply flex shrink-0 flex-wrap justify-end gap-2; }

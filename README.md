@@ -62,6 +62,8 @@ npm start
 
 Les modules (rédaction, photos, identité, relecture, audience, abonnements) s’allument seulement au besoin. Le détail est dans le guide d’adoption. Le plan d’architecture est dans [`docs/plan.md`](docs/plan.md).
 
+Un journal peut ajouter ses propres outils par des **extensions** déposées dans `extensions/` : elles survivent aux mises à jour et une extension en erreur est mise de côté sans arrêter l’espace de rédaction. Le contrat est dans [`docs/extensions.md`](docs/extensions.md).
+
 ---
 
 ## Licence et crédits

@@ -455,6 +455,8 @@ function socle_paquet_page(string $lang, bool $allowed, bool $check, ?string $me
     if (!$allowed) {
         $body .= '<p class="aide">' . $t['admin'] . '</p>';
     } elseif ($newer) {
+        // Avant le clic : les extensions installées seraient-elles coupées par la nouvelle version ?
+        $body .= socle_ext_avertissement_maj($latestRedaction, $lang);
         $body .= '<p class="aide">' . $t['safe'] . '</p><form class="noprint" method="post" action="' . socle_with_lang('/admin/mise-a-jour/paquet', $lang) . '"><button type="submit">' . $t['go'] . ' ' . socle_escape($offer['version']) . '</button></form>';
     }
     if ($offer !== null) {
@@ -494,7 +496,7 @@ function socle_update_page(string $lang, array $copy, SocleStore $store, ?string
         ? '<form class="noprint" method="post" action="' . socle_with_lang('/admin/mise-a-jour/revenir', $lang) . '"><button type="submit" class="secondaire">' . $copy['revert'] . '</button></form>'
         : '';
     $form = $allowed && $offered !== null
-        ? '<form class="noprint" method="post" action="' . socle_with_lang('/admin/mise-a-jour', $lang) . '">
+        ? socle_ext_avertissement_maj($offered['version'], $lang) . '<form class="noprint" method="post" action="' . socle_with_lang('/admin/mise-a-jour', $lang) . '">
 ' . $extra . '
 <p><button type="submit" name="confirm" value="1">' . $copy['updateBtn'] . '</button></p>
 </form>'
