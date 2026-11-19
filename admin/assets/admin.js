@@ -1337,19 +1337,45 @@ function sportsTeamsFromPublication(publication) {
   return sports.team ? [sports.team] : [];
 }
 
+function sportsSexValue(sex) {
+  const key = String(sex || '').trim().toLowerCase();
+  if (['f', 'w', 'women', 'woman', 'femmes', 'féminin', 'feminin', 'female'].includes(key)) return 'F';
+  if (['m', 'h', 'men', 'man', 'hommes', 'masculin', 'male'].includes(key)) return 'M';
+  if (['x', 'mixte', 'mixed', 'coed', 'co-ed', 'open', 'ouvert'].includes(key)) return 'mixte';
+  return '';
+}
+
+function officialUrlValue(url) {
+  const raw = String(url || '').trim();
+  if (!/^https?:\/\//i.test(raw)) return '';
+  try { return new URL(raw).href; } catch { return ''; }
+}
+
 function sportsTeamFields(team = {}) {
   const results = (team.results || []).map(formatScoreLine).filter(Boolean).join('\n');
   const next = formatNextLine(team.nextGame);
+  const sex = sportsSexValue(team.sex);
+  const official = officialUrlValue(team.officialUrl || team.resultsSourceUrl);
+  const live = Boolean(team.nextGame && team.nextGame.live);
   return `<fieldset class="field full" data-sports-team>
     <input type="hidden" data-team-id value="${esc(team.id || '')}">
     <label>Nom de l’équipe<input data-team-name placeholder="Les Hiboux" value="${esc(team.name || '')}"></label>
     <label>Code court, 2 à 4 lettres<input data-team-code maxlength="4" placeholder="HIB" value="${esc(team.code || '')}"></label>
     <label>Sport<input data-team-sport placeholder="Hockey" value="${esc(team.sport || '')}"></label>
+    <label>Genre<select data-team-sex>
+      <option value=""${sex ? '' : ' selected'}>Non précisé</option>
+      <option value="F"${sex === 'F' ? ' selected' : ''}>Féminin</option>
+      <option value="M"${sex === 'M' ? ' selected' : ''}>Masculin</option>
+      <option value="mixte"${sex === 'mixte' ? ' selected' : ''}>Mixte</option>
+    </select></label>
     <label>Établissement<input data-team-institution placeholder="Cégep de Sainte-Foy" value="${esc(team.institution || '')}"></label>
+    <label>Lien officiel des résultats, facultatif<input data-team-official type="url" placeholder="https://rseq.ca/" value="${esc(official)}"></label>
+    <small>Adresse http ou https. Le lien paraît sur la page « Au tableau ».</small>
     <label>Résultats, un par ligne<textarea data-team-results rows="3" placeholder="2026-11-12, Carabins, 4-2, domicile">${esc(results)}</textarea></label>
     <small>Format : date (AAAA-MM-JJ), adversaire, vos points-leurs points, domicile ou extérieur.</small>
     <label>Prochain match<input data-team-next placeholder="2026-11-20, 19:00, Carabins, domicile" value="${esc(next)}"></label>
-    <small>Format : date, heure facultative, adversaire, domicile ou extérieur.</small>
+    <label><input type="checkbox" data-team-live${live ? ' checked' : ''}> En cours</label>
+    <small>Format : date, heure facultative, adversaire, domicile ou extérieur. Cochez « En cours » si le match se joue maintenant : il ira au centre du bandeau sur ordinateur.</small>
     <div class="actions"><button type="button" data-remove-team>Retirer cette équipe</button></div>
   </fieldset>`;
 }
@@ -1365,10 +1391,17 @@ function readSportsForm(form) {
     const institution = block.querySelector('[data-team-institution]').value.trim();
     const results = block.querySelector('[data-team-results]').value.split('\n').map((line) => parseScoreLine(line, id)).filter(Boolean);
     const nextGame = parseNextLine(block.querySelector('[data-team-next]').value, id);
+    const sex = sportsSexValue(block.querySelector('[data-team-sex]')?.value);
+    const officialUrl = officialUrlValue(block.querySelector('[data-team-official]')?.value);
     const team = { id, name: name || sport || 'Équipe', code, sport: sport || 'Sport' };
     if (institution) team.institution = institution;
+    if (sex) team.sex = sex;
+    if (officialUrl) team.officialUrl = officialUrl;
     if (results.length) team.results = results;
-    if (nextGame) team.nextGame = nextGame;
+    if (nextGame) {
+      if (block.querySelector('[data-team-live]')?.checked) nextGame.live = true;
+      team.nextGame = nextGame;
+    }
     teams.push(team);
   });
   return { enabled: form.elements.sportsEnabled.checked, teams };
