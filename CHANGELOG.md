@@ -1,6 +1,7 @@
 # Journal
 
 ## Non publié
+- Le Worker Cloudflare n’est plus une cible de déploiement du Socle. L’espace de rédaction tourne en PHP, ou en Node pour le développement et les tests. Le site public peut rester des fichiers statiques (GitHub Pages ou Cloudflare Pages). Le Worker sveltia-cms-auth, lui, est conservé.
 - Liste des articles (et des signatures, rubriques et catégories) au téléphone : les boutons Modifier et Supprimer passent sous le titre, qui n’est plus écrasé ni coupé au milieu d’un mot.
 - Mât illustré, image envoyée depuis Configuration : on indique son crédit (obligatoire), sa licence et un lien, comme dans la banque de photos ; le crédit s’affiche dans le coin du mât. Le cadrage réglé dans l’aperçu s’applique à l’image envoyée, qui passe en tête de la rotation, et la case « Afficher les images de fond » se recoche toute seule après « Retirer toutes les images ». L’aperçu Ordinateur, Tablette, Mobile reprend les proportions réelles du mât du site (une bande étroite à l’ordinateur), au lieu de montrer presque toute la photo.
 - Version 1.3.3.

@@ -3,7 +3,6 @@ import { dirname } from "node:path";
 
 import { buildSiteZip } from "./archive.ts";
 import { defaultConfig, enabledModules, loadConfigFile } from "./config.ts";
-import { d1MigrationSql } from "./d1-migrate.ts";
 import { runMigrate } from "./migrate.ts";
 import { openSqliteFile } from "./sqlite.ts";
 
@@ -33,11 +32,6 @@ async function main(): Promise<void> {
   const dbPath = option("--db", "socle.sqlite");
   const configPath = option("--config", "socle.config.json");
   const config = existsSync(configPath) ? loadConfigFile(configPath) : defaultConfig();
-  if (command === "d1-sql") {
-    // SQL de migration pour D1 (Worker) : `wrangler d1 execute DB --file`.
-    process.stdout.write(d1MigrationSql(enabledModules(config)));
-    return;
-  }
   const store = openSqliteFile(dbPath);
   try {
     if (command === "export") {
@@ -63,7 +57,7 @@ async function main(): Promise<void> {
       if (result.removed) console.log(`retiré : ${result.removed}`);
       return;
     }
-    throw new Error("commande : migrate, export ou d1-sql");
+    throw new Error("commande : migrate ou export");
   } finally {
     await store.close();
   }

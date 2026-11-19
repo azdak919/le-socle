@@ -1,6 +1,6 @@
 /**
  * Logo du Socle (espace de rédaction), en ligne : la page servie, la démo du
- * Kiosque, et les pages Sauvegarde et Mise à jour (Node, Worker, PHP) n'ont
+ * Kiosque, et les pages Sauvegarde et Mise à jour (Node et PHP) n'ont
  * ainsi aucun fichier de plus à servir.
  *
  * Dessin : Twemoji U+1F9F1 « brique » (jdecked/twemoji), CC BY 4.0,

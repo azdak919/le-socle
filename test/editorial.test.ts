@@ -20,7 +20,6 @@ import {
 } from "../src/editorial.ts";
 import { buildSiteZip } from "../src/archive.ts";
 import { defaultConfig } from "../src/config.ts";
-import { openD1Memory } from "../src/d1.ts";
 import { KIOSQUE_PIN } from "../src/kiosque-pin.ts";
 import { openSqliteMemory } from "../src/sqlite.ts";
 import type { SocleStore } from "../src/store.ts";
@@ -95,7 +94,7 @@ function article(patch: Partial<SocleArticle> = {}): SocleArticle {
   };
 }
 
-test("l'adaptateur passe la suite du Kiosque épinglé, hors ligne, sur SQLite et D1", async () => {
+test("l'adaptateur passe la suite du Kiosque épinglé, hors ligne, sur SQLite", async () => {
   const pinDir = process.env.KIOSQUE_PIN_DIR ?? join(root, "../le-kiosque");
   const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: pinDir, encoding: "utf8" }).trim();
   assert.equal(head, KIOSQUE_PIN);
@@ -105,7 +104,6 @@ test("l'adaptateur passe la suite du Kiosque épinglé, hors ligne, sur SQLite e
   };
   const drivers = [
     ["sqlite", () => openSqliteMemory()],
-    ["d1", () => openD1Memory()],
   ] as const;
   for (const [name, open] of drivers) {
     const store = await open();
