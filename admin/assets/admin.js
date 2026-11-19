@@ -456,7 +456,8 @@ function paintBrand(state) {
 function paintBrandIn(root, state) {
   const pub = bundle?.publication;
   const name = String(pub?.name || '').trim();
-  const src = pub?.logo ? mediaSrc(pub.logo) : '';
+  // Même règle que le site public : un monogramme d’initiales généré n’est pas un logo.
+  const src = pub?.logo?.src && !isGeneratedInitialsLogoSrc(pub.logo.src) ? mediaSrc(pub.logo) : '';
   const ready = state === 'journal' && name;
   if (ready && src) {
     const alt = esc(pub.logo.alt || name);

@@ -1,6 +1,9 @@
 # Journal
 
 ## Non publié
+- En haut du menu de l’espace de rédaction : un ancien logo fait seulement d’initiales dans un cercle (« LV ») ne s’affiche plus, le nom du journal paraît à sa place, comme sur le site public. Un vrai logo téléversé s’affiche toujours. « Propulsé par Le Socle » garde son numéro de version.
+- Plan du site (`sitemap.xml`) : il donne aussi les pages des signatures et leur index (`/auteurs/`), les rubriques, les catégories, la revue à imprimer (`/revue/`), la recherche, le plan du site, les archives de chaque année et, s’il y a des équipes, « Au tableau ». Les articles y sont rangés du plus récent au plus ancien.
+- Barre radio de LE-RADAR : sa place est prévue dès la première réponse du serveur, sous le haut de page. La page ne saute plus quand la barre apparaît.
 - Version 1.3.2.
 - En haut de l’espace de rédaction : le logo du journal, ou son nom s’il n’a pas de logo. Tant que le journal n’est pas configuré, c’est le logo du Socle (une brique) qui s’affiche. La barre du haut donne le nom de la page ouverte (Articles, Photos, Configuration…) au lieu de répéter « Rédaction de … », et les titres en double ont disparu. Sur téléphone, la barre montre le journal, puisque le menu indique déjà la page. En bas du menu, une ligne discrète « Propulsé par Le Socle ». L’onglet du navigateur montre l’icône du Socle et le nom de la page, suivi du nom du journal.
 - Articles : une case « Mettre à la une ». L’étiquette « À la une » ne paraît sur le site que pour l’article ainsi choisi, un seul à la fois.

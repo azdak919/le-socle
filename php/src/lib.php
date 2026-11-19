@@ -686,22 +686,44 @@ function socle_live_feed(?SocleStore $store): string {
 
 function socle_live_sitemap(?SocleStore $store): string {
     $base = socle_public_base_url();
-    $urls = [$base . '/', $base . '/archives/', $base . '/plan-du-site/', $base . '/recherche/'];
+    // Toutes les pages publiques du site vivant (comme socle_live_known) :
+    // accueil, archives et leurs années, plan du site, recherche, revue,
+    // signatures, articles (publiés et archivés), sections et catégories.
+    $urls = [$base . '/', $base . '/archives/', $base . '/plan-du-site/', $base . '/recherche/', $base . '/revue/', $base . '/auteurs/'];
     if ($store !== null) {
         try {
             $publication = socle_read_publication($store);
+            $timeZone = is_array($publication) ? (string) ($publication['timeZone'] ?? 'America/Toronto') : 'America/Toronto';
             if (socle_live_teams(is_array($publication) ? $publication : null) !== []) $urls[] = $base . '/sports/';
-            foreach (socle_live_listed(socle_read_articles($store)) as $article) {
+            $paged = array_values(array_filter(socle_read_articles($store), static fn (array $article): bool => in_array((string) ($article['status'] ?? ''), ['published', 'archived'], true)));
+            usort($paged, static fn (array $a, array $b): int => strcmp((string) ($b['publishedAt'] ?? $b['updatedAt'] ?? ''), (string) ($a['publishedAt'] ?? $a['updatedAt'] ?? '')));
+            $years = [];
+            foreach ($paged as $article) {
+                $stamp = (string) ($article['publishedAt'] ?? $article['updatedAt'] ?? '');
+                if ($stamp === '') continue;
+                try {
+                    $year = (new DateTimeImmutable($stamp))->setTimezone(new DateTimeZone($timeZone !== '' ? $timeZone : 'America/Toronto'))->format('Y');
+                } catch (Throwable) {
+                    $year = substr($stamp, 0, 4);
+                }
+                if (preg_match('/^[0-9]{4}$/', $year) === 1) $years[$year] = true;
+            }
+            krsort($years);
+            foreach (array_keys($years) as $year) $urls[] = $base . '/archives/' . $year . '/';
+            foreach ($paged as $article) {
                 $slug = (string) ($article['slug'] ?? '');
                 if ($slug !== '') $urls[] = $base . '/articles/' . rawurlencode($slug) . '/';
             }
-            foreach (socle_read_kind($store, 'section:') as $section) {
-                $slug = (string) ($section['slug'] ?? '');
-                if ($slug !== '') $urls[] = $base . '/sections/' . rawurlencode($slug) . '/';
+            foreach (['section:' => '/sections/', 'category:' => '/categories/', 'author:' => '/auteurs/'] as $kind => $prefix) {
+                foreach (socle_read_kind($store, $kind) as $entity) {
+                    $slug = is_array($entity) ? (string) ($entity['slug'] ?? '') : '';
+                    if ($slug !== '') $urls[] = $base . $prefix . rawurlencode($slug) . '/';
+                }
             }
         } catch (Throwable) {
         }
     }
+    $urls = array_values(array_unique($urls));
     $body = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n";
     foreach ($urls as $loc) $body .= "  <url><loc>" . socle_xml($loc) . "</loc></url>\n";
     return $body . "</urlset>\n";
@@ -716,11 +738,32 @@ function socle_live_sitemap(?SocleStore $store): string {
  */
 
 /**
+ * Barre radio de LE-RADAR : son emplacement est posé dès la première réponse,
+ * sous le mât, pour que la page ne saute pas quand le navigateur la dessine
+ * (le Kiosque réserve sa hauteur et garde cet emplacement s'il vise la même
+ * station). Même ligne d'appel que le Kiosque (radio.js) ; rien si la radio
+ * est éteinte ou sans station.
+ */
+function socle_live_radio_slot(string $html, array $publication): string {
+    $radio = is_array($publication['radio'] ?? null) ? $publication['radio'] : [];
+    if (($radio['enabled'] ?? true) === false) return $html;
+    $station = strtolower(trim((string) ($radio['station'] ?? '')));
+    if (preg_match('/^[a-z0-9-]{2,40}$/', $station) !== 1) return $html;
+    if (str_contains($html, 'class="radar-radio-slot"')) return $html;
+    $slot = '<div class="radar-radio-slot" data-station="' . $station . '"><script src="https://le-radar.ca/radio-barre.js" data-station="' . $station . '" async onerror="this.parentNode.dataset.radarRadio=\'off\'"></script></div>';
+    $at = strpos($html, '</header>');
+    if ($at === false) return $html;
+    $at += strlen('</header>');
+    return substr($html, 0, $at) . "\n" . $slot . substr($html, $at);
+}
+
+/**
  * La coquille du paquet complet est construite avec le nom « Le journal ».
  * On y inscrit le vrai nom dès la première réponse, sans attendre le dessin
  * dans le navigateur (titre, mât, pied de page).
  */
 function socle_live_fill_shell(string $html, array $publication): string {
+    $html = socle_live_radio_slot($html, $publication);
     $name = trim((string) ($publication['name'] ?? ''));
     if ($name === '' || $name === 'Le journal') return $html;
     $safe = socle_escape($name);
