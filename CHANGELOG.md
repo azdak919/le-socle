@@ -1,6 +1,7 @@
 # Journal
 
 ## Non publié
+- Version 1.3.3.
 - En haut du menu de l’espace de rédaction : un ancien logo fait seulement d’initiales dans un cercle (« LV ») ne s’affiche plus, le nom du journal paraît à sa place, comme sur le site public. Un vrai logo téléversé s’affiche toujours. « Propulsé par Le Socle » garde son numéro de version.
 - Plan du site (`sitemap.xml`) : il donne aussi les pages des signatures et leur index (`/auteurs/`), les rubriques, les catégories, la revue à imprimer (`/revue/`), la recherche, le plan du site, les archives de chaque année et, s’il y a des équipes, « Au tableau ». Les articles y sont rangés du plus récent au plus ancien.
 - Barre radio de LE-RADAR : sa place est prévue dès la première réponse du serveur, sous le haut de page. La page ne saute plus quand la barre apparaît.
