@@ -362,3 +362,19 @@ test("la banque vide cache la recherche, et la navigation mobile passe sur plusi
   assert.match(css, /photo-add > \.media-quality/);
   assert.match(css, /flex-wrap md:flex-nowrap/);
 });
+
+test("mât illustré : plusieurs photos de la banque, ordre aléatoire, photos du mât protégées", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  assert.match(admin, /Choisir des photos/);
+  assert.match(admin, /multiple: true/);
+  assert.match(admin, /name="randomOrder"/);
+  assert.match(admin, /Ordre aléatoire/);
+  assert.match(admin, /randomOrder: data.has\('randomOrder'\)/);
+  assert.match(admin, /Une photo utilisée dans le mât ne peut pas être retirée de la banque/);
+  const demo = readFileSync(join(ASSETS, "demo-backend.js"), "utf8");
+  assert.match(demo, /Cette photo est encore dans le mât illustré/);
+  assert.match(demo, /images \|\| \[\]\)\.some\(\(image\) => image\.src === asset\.src\)/);
+  const php = readFileSync(join(ROOT, "php/src/media.php"), "utf8");
+  assert.match(php, /function socle_media_used_in_masthead/);
+  assert.match(php, /foreach \(\(\$publication\['masthead'\]\['backgrounds'\]\['images'\] \?\? \[\]\) as \$image\)/);
+});
