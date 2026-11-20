@@ -1,6 +1,9 @@
 # Journal
 
 ## Non publié
+- Configuration, mât illustré : les photos choisies montrent leur vignette (la même adresse que la banque et les aperçus), le crédit, et les boutons Cadrer, Monter, Descendre et Retirer dans une liste compacte. « Ordre aléatoire » reste à côté de cette liste, activé par défaut. Une photo du mât ne se retire toujours pas de la banque.
+- Configuration, météo : le champ des localités montre les noms de lieux. Enregistrer conserve les coordonnées et le slug MétéoMédia quand le nom n’a pas changé.
+- Sauvegarde : le choix du fichier ZIP est en français (« Choisir un fichier », « Aucun fichier choisi »), au style de la page. En anglais, « Choose a file » et « No file chosen ».
 - Extensions (contrat 1, voir `docs/extensions.md`) : une extension se dépose dans `extensions/<id>/` et s’active dans la nouvelle page Extensions, réservée à l’administrateur. Son manifeste donne la version du Socle demandée, la licence, les noms des secrets attendus et ses rôles. Elle peut ajouter des entrées au menu, des pages, une API, des réglages, des rôles, des tâches planifiées (`POST /v1/taches`), des cartes au tableau de bord, et utiliser l’accès GitHub fourni par le Socle (lancer un workflow, proposer une PR sur une nouvelle branche). Exemple : `examples/extension-bonjour/`.
 - Mise à jour : `extensions/` n’est jamais remplacé. Il est compris dans la copie du programme faite avant la mise à jour et remis tel quel par le retour arrière. L’état des extensions est rangé dans `donnees/extensions.json`. Avant le clic, la page Mise à jour prévient si une extension activée ne sera pas compatible avec la version proposée.
 - Une extension invalide, incompatible, en attente d’un secret ou en erreur est mise de côté sans arrêter l’espace de rédaction ; après 3 erreurs de suite, ou une erreur fatale de PHP, elle est coupée, avec un message clair dans la page Extensions et un avis au tableau de bord de l’administrateur.

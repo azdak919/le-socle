@@ -534,6 +534,13 @@ function socle_admin_document(string $lang, string $title, string $body): array 
   button:hover, .bouton:hover { background: var(--accent); }
   button[type="submit"]:not(.secondaire), .bouton.principal { background: var(--primary); border-color: var(--primary); color: #fff; }
   input[type="file"] { font: inherit; font-size: 0.875rem; max-width: 100%; }
+  label.choix-fichier { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: 0.35rem 0; }
+  .choix-fichier-etiquette { font-weight: 500; }
+  .choix-fichier-bouton { position: relative; display: inline-flex; }
+  .choix-fichier-input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
+  .choix-fichier-input:focus, .choix-fichier-input:focus-visible { outline: none; }
+  .choix-fichier-bouton:focus-within .bouton { outline: 3px solid var(--primary); outline-offset: 2px; }
+  .choix-fichier-nom { color: var(--muted); font-size: 0.875rem; overflow-wrap: anywhere; min-width: 0; }
   button.danger { background: #991b1b; border-color: #991b1b; color: #fff; }
   button.danger:hover { background: #7f1d1d; }
   button:disabled { opacity: 0.6; cursor: default; }

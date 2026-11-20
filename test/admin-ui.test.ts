@@ -261,8 +261,22 @@ test("rédaction pour néophytes : mots simples, états vides, erreurs lisibles"
   assert.match(backend, /'un article publié doit être signé': 'Pour publier, cochez au moins une signature/);
   for (const empty of ["Aucun article pour l’instant", "La banque est vide", "Aucune signature pour l’instant"]) assert.ok(admin.includes(empty), empty);
   assert.match(admin, /document\.body\.classList\.add\('signed-out'\)/);
-  // Pages sans JavaScript : champ de restauration étiqueté, confirmation, et plus de page blanche au rechargement.
-  assert.match(php, /<label>Fichier de sauvegarde \(ZIP\) <input type="file"/);
+  // Pages sans JavaScript : champ de restauration étiqueté en français, confirmation, et plus de page blanche au rechargement.
+  assert.match(php, /<span class="choix-fichier-etiquette">Fichier de sauvegarde \(ZIP\)<\/span>/);
+  assert.match(php, /<span class="bouton">Choisir un fichier<\/span><input class="choix-fichier-input" type="file" name="archive"/);
+  assert.match(php, /data-choix-nom[^>]*>Aucun fichier choisi/);
+  assert.match(php, /<span class="bouton">Choose a file<\/span>/);
+  assert.match(php, /data-choix-nom[^>]*>No file chosen/);
+  const adminPage = readFileSync(join(ROOT, "src/admin.ts"), "utf8");
+  assert.match(adminPage, /choix-fichier-bouton/);
+  assert.match(adminPage, /Choisir un fichier/);
+  assert.match(adminPage, /Aucun fichier choisi/);
+  assert.match(adminPage, /Choose a file/);
+  assert.match(adminPage, /No file chosen/);
+  const restauration = readFileSync(join(ASSETS, "restauration.js"), "utf8");
+  assert.match(restauration, /\[data-choix-nom\]/);
+  assert.match(restauration, /form\.archive\.addEventListener\("change", montrerFichier\)/);
+  assert.match(restauration, /form\.addEventListener\("reset"/);
   assert.match(php, /'\/admin\/mise-a-jour\/paquet\/revenir'\) && \$method === 'GET'\)/);
 });
 
@@ -363,14 +377,57 @@ test("la banque vide cache la recherche, et la navigation mobile passe sur plusi
   assert.match(css, /flex-wrap md:flex-nowrap/);
 });
 
+test("localités météo : le champ montre le nom et l’enregistrement garde les coordonnées", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  const start = admin.indexOf("function localityName(");
+  const end = admin.indexOf("function settings(");
+  assert.ok(start >= 0 && end > start, "fonctions de localités");
+  const fns = new Function(`${admin.slice(start, end)}\nreturn { localityName, formatWeatherLocalities, parseWeatherLocalities };`)() as {
+    formatWeatherLocalities: (value: unknown) => string;
+    parseWeatherLocalities: (text: string, previous: unknown) => unknown[];
+  };
+  const saint = { name: "Saint-Louis-du-Ha! Ha!", latitude: 47.6709, longitude: -68.9797, meteomediaSlug: "saint-louis-du-ha-ha" };
+  const quebec = { name: "Québec", latitude: 46.8139, longitude: -71.208, meteomediaSlug: "quebec", envcanUrl: "https://meteo.gc.ca/quebec" };
+  assert.equal(fns.formatWeatherLocalities([saint, quebec]), "Saint-Louis-du-Ha! Ha!, Québec");
+  assert.equal(fns.formatWeatherLocalities(["Montréal", { name: "  Lévis  " }]), "Montréal, Lévis");
+  assert.equal(fns.formatWeatherLocalities(undefined), "");
+  assert.equal(String([{ name: "Québec" }]), "[object Object]", "le joint brut des objets reste illisible");
+  const round = fns.parseWeatherLocalities("Québec, Saint-Louis-du-Ha! Ha!, Rimouski", [saint, quebec]);
+  assert.deepEqual(round[0], quebec);
+  assert.deepEqual(round[1], saint);
+  assert.equal(round[2], "Rimouski");
+  assert.equal(fns.parseWeatherLocalities("a, b, c, d, e", []).length, 4);
+  assert.deepEqual(fns.parseWeatherLocalities("Montréal", ["Montréal"]), ["Montréal"]);
+  assert.match(admin, /formatWeatherLocalities\(masthead\.weather\?\.localities\)/);
+  assert.match(admin, /parseWeatherLocalities\(data\.get\('weatherLocalities'\), publication\.masthead\?\.weather\?\.localities\)/);
+  assert.doesNotMatch(admin, /weather\?\.localities \|\| \[\]\)\.join\(/);
+});
+
 test("mât illustré : plusieurs photos de la banque, ordre aléatoire, photos du mât protégées", () => {
   const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
   assert.match(admin, /Choisir des photos/);
   assert.match(admin, /multiple: true/);
   assert.match(admin, /name="randomOrder"/);
+  assert.match(admin, /randomOrder !== false/);
   assert.match(admin, /Ordre aléatoire/);
+  assert.match(admin, /class="masthead-random"/);
+  assert.match(admin, /class="masthead-selection"/);
   assert.match(admin, /randomOrder: data.has\('randomOrder'\)/);
   assert.match(admin, /Une photo utilisée dans le mât ne peut pas être retirée de la banque/);
+  const paint = admin.slice(admin.indexOf("const paintMastheadSelection"), admin.indexOf("let clearMastheadImages"));
+  assert.match(paint, /mediaThumb\(item\)/);
+  assert.match(paint, /data-masthead-focus/);
+  assert.match(paint, /data-masthead-up/);
+  assert.match(paint, /data-masthead-down/);
+  assert.match(paint, /data-masthead-remove/);
+  assert.doesNotMatch(paint, /src="\$\{esc\(item\.src\)\}"/);
+  const ui = readFileSync(join(ROOT, "admin/ui/admin.css"), "utf8");
+  assert.match(admin, /class="field full masthead-fieldset"/);
+  assert.match(ui, /fieldset\.masthead-fieldset \{\s*display: flex;\s*flex-direction: column;/);
+  assert.match(ui, /\.masthead-selection \{/);
+  assert.match(ui, /grid-template-areas: "thumb meta" "thumb actions"/);
+  const compiled = readFileSync(join(ASSETS, "admin.css"), "utf8");
+  assert.match(compiled, /\.masthead-selected\{/);
   const demo = readFileSync(join(ASSETS, "demo-backend.js"), "utf8");
   assert.match(demo, /Cette photo est encore dans le mât illustré/);
   assert.match(demo, /images \|\| \[\]\)\.some\(\(image\) => image\.src === asset\.src\)/);

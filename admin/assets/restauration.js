@@ -6,6 +6,15 @@
   var zone = document.getElementById("restaurer-etat");
   if (!form || !zone) return;
   var t = form.dataset;
+  var nom = form.querySelector("[data-choix-nom]");
+  var vide = nom ? nom.textContent : "";
+  function montrerFichier() {
+    if (!nom || !form.archive) return;
+    var file = form.archive.files && form.archive.files[0];
+    nom.textContent = file ? file.name : vide;
+  }
+  if (form.archive) form.archive.addEventListener("change", montrerFichier);
+  form.addEventListener("reset", function () { setTimeout(montrerFichier, 0); });
   var page = location.pathname.replace(/\/$/, "");
   var query = location.search;
   function esc(value) {
