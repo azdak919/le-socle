@@ -14,6 +14,7 @@ require_once __DIR__ . '/notify.php';
 require_once __DIR__ . '/archive.php';
 require_once __DIR__ . '/admin.php';
 require_once __DIR__ . '/maj.php';
+require_once __DIR__ . '/extensions.php';
 
 function socle_dispatch(string $method, string $uri, string $path, string $raw): array {
     $app = str_starts_with($path, '/v1') || str_starts_with($path, '/admin');
@@ -53,8 +54,14 @@ function socle_dispatch(string $method, string $uri, string $path, string $raw):
             socle_admin_journal_name('');
         }
     }
+    if (str_starts_with($path, '/admin')) socle_admin_role(socle_ext_role($store, $actor, $actorDefined));
     $gate = socle_admin_gate($method, $path, $config, $store, $actor, $actorDefined);
     if ($gate !== null) return $gate;
+    // Extensions : chargées seulement pour leurs pages, leur API, les tâches et le menu ; jamais pour le site public.
+    if ($path === '/admin/extensions' || str_starts_with($path, '/admin/extensions/')) return socle_ext_handle_admin($method, $uri, $store, $raw, $actor, $actorDefined);
+    if (str_starts_with($path, '/admin/x/')) return socle_ext_handle_page($method, $uri, $store, $raw, $actor, $actorDefined);
+    if (str_starts_with($path, '/v1/x/')) return socle_ext_handle_api($method, $uri, $store, $raw, $actor, $actorDefined);
+    if ($path === '/v1/taches') return socle_ext_handle_taches($method, $store);
     if (str_starts_with($path, '/v1/redaction/')) return socle_handle_redaction($method, $uri, $config, $store, $raw, $actor, $actorDefined);
     if (str_starts_with($path, '/v1/auth')) {
         return socle_handle_auth($method, $uri, $config, $store, $raw, is_string($cookie) ? $cookie : null, is_string($access) ? $access : null, $smtp);

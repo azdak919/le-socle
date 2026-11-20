@@ -274,7 +274,7 @@ test("fondation et droits sur les articles ; Configuration et Mise à jour à l'
   assert.match(admin, /publication\.license = pick\(journal\.licence, publication\.license \|\| ''\);/);
   assert.match(admin, /publication\.founded = String\(data\.get\('founded'\) \|\| ''\)\.trim\(\); publication\.license = String\(data\.get\('license'\) \|\| ''\);/);
   assert.match(admin, /\(!admin && link\.dataset\.view === 'settings'\)/);
-  assert.match(admin, /\.admin-nav \[data-nav="save"\], \.admin-nav \[data-nav="update"\]'\)\.forEach\(\(link\) => \{ link\.hidden = !admin; \}\)/);
+  assert.match(admin, /\.admin-nav \[data-nav="save"\], \.admin-nav \[data-nav="update"\], \.admin-nav \[data-nav="extensions"\]'\)\.forEach\(\(link\) => \{ link\.hidden = !admin; \}\)/);
   const css = readFileSync(join(ASSETS, "admin.css"), "utf8");
   assert.match(css, /admin-app\{background:linear-gradient\(to right/);
 });
@@ -361,4 +361,20 @@ test("la banque vide cache la recherche, et la navigation mobile passe sur plusi
   assert.match(admin, /length \? `\$\{mediaFilters\(\)\}<div class="media-grid">/);
   assert.match(css, /photo-add > \.media-quality/);
   assert.match(css, /flex-wrap md:flex-nowrap/);
+});
+
+test("mât illustré : plusieurs photos de la banque, ordre aléatoire, photos du mât protégées", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  assert.match(admin, /Choisir des photos/);
+  assert.match(admin, /multiple: true/);
+  assert.match(admin, /name="randomOrder"/);
+  assert.match(admin, /Ordre aléatoire/);
+  assert.match(admin, /randomOrder: data.has\('randomOrder'\)/);
+  assert.match(admin, /Une photo utilisée dans le mât ne peut pas être retirée de la banque/);
+  const demo = readFileSync(join(ASSETS, "demo-backend.js"), "utf8");
+  assert.match(demo, /Cette photo est encore dans le mât illustré/);
+  assert.match(demo, /images \|\| \[\]\)\.some\(\(image\) => image\.src === asset\.src\)/);
+  const php = readFileSync(join(ROOT, "php/src/media.php"), "utf8");
+  assert.match(php, /function socle_media_used_in_masthead/);
+  assert.match(php, /foreach \(\(\$publication\['masthead'\]\['backgrounds'\]\['images'\] \?\? \[\]\) as \$image\)/);
 });

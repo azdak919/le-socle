@@ -1,0 +1,1 @@
+{ "id": "invalide", "nom": "Licence refusée", "version": "1.0.0", "socle": ">=1.5.0", "api": 1, "licence": "Apache-2.0", "secrets": [] }

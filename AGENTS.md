@@ -22,3 +22,5 @@ La source de vérité, quand le clone est sous `VisualCode/`, est `../GIT-AND-TE
 - Les modules sont désactivés par défaut.
 - Aucun secret dans le dépôt.
 - Le build de LE KIOSQUE n'importe pas ce dépôt.
+
+Extensions : le contrat stable est dans [`docs/extensions.md`](docs/extensions.md) (`php/src/extensions.php`). Tout changement d'un point d'accroche doit rester compatible avec `api: 1`, ou passer à `api: 2` avec une période de transition. `test/php-extensions.test.ts` doit rester vert.

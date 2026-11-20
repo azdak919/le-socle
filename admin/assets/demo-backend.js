@@ -65,6 +65,7 @@ function withBootstrap(seed, bootstrap) {
   publication.masthead = {
     backgrounds: {
       enabled: bootstrap.backgroundsEnabled === undefined ? publication.masthead?.backgrounds?.enabled : Boolean(bootstrap.backgroundsEnabled),
+      randomOrder: bootstrap.randomOrder === undefined ? publication.masthead?.backgrounds?.randomOrder !== false : Boolean(bootstrap.randomOrder),
       images: publication.masthead?.backgrounds?.images || [],
     },
     weather: {
