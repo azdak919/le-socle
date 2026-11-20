@@ -1,11 +1,12 @@
 # Journal
 
 ## Non publié
-- Configuration du mât : on peut choisir plusieurs photos dans la médiathèque. Une photo utilisée dans le mât, quelle qu’elle soit, ne peut pas être retirée de la banque. Réglage « Ordre aléatoire » (activé par défaut) : une photo au hasard à chaque visite ; désactivé, le mât commence toujours par la première de la liste.
 - Extensions (contrat 1, voir `docs/extensions.md`) : une extension se dépose dans `extensions/<id>/` et s’active dans la nouvelle page Extensions, réservée à l’administrateur. Son manifeste donne la version du Socle demandée, la licence, les noms des secrets attendus et ses rôles. Elle peut ajouter des entrées au menu, des pages, une API, des réglages, des rôles, des tâches planifiées (`POST /v1/taches`), des cartes au tableau de bord, et utiliser l’accès GitHub fourni par le Socle (lancer un workflow, proposer une PR sur une nouvelle branche). Exemple : `examples/extension-bonjour/`.
 - Mise à jour : `extensions/` n’est jamais remplacé. Il est compris dans la copie du programme faite avant la mise à jour et remis tel quel par le retour arrière. L’état des extensions est rangé dans `donnees/extensions.json`. Avant le clic, la page Mise à jour prévient si une extension activée ne sera pas compatible avec la version proposée.
 - Une extension invalide, incompatible, en attente d’un secret ou en erreur est mise de côté sans arrêter l’espace de rédaction ; après 3 erreurs de suite, ou une erreur fatale de PHP, elle est coupée, avec un message clair dans la page Extensions et un avis au tableau de bord de l’administrateur.
 - Intégration continue : essai du contrat d’extensions (variable `SOCLE_EXTENSIONS_CONTRAT`, l’exemple par défaut), essai de mise à jour avec une extension installée et essai d’isolation avec des extensions volontairement cassées.
+- Version 1.4.2.
+- Configuration du mât : on peut choisir plusieurs photos dans la médiathèque. Une photo utilisée dans le mât, quelle qu’elle soit, ne peut pas être retirée de la banque. Réglage « Ordre aléatoire » (activé par défaut) : une photo au hasard à chaque visite ; désactivé, le mât commence toujours par la première de la liste.
 - Version 1.4.1.
 - Dans un article, le bouton « Choisir une photo de la banque » ouvre de nouveau la banque pour choisir la photo principale.
 - Version 1.4.0.
