@@ -420,3 +420,10 @@ body.signed-out .admin-nav { display: none; }
     grid-column: 1 / -1;
   }
 }
+
+/* Photos retenues pour le mât (sélection multiple dans la banque). */
+.masthead-selected-list { display: grid; gap: 8px; margin: 8px 0 12px; }
+.masthead-selected { display: grid; grid-template-columns: 72px 1fr auto; gap: 8px; align-items: center; padding: 6px; border: 1px solid var(--rule, #d5d0c8); border-radius: 8px; }
+.masthead-selected.is-active { border-color: var(--accent, #6c2163); }
+.masthead-selected img { width: 72px; height: 48px; object-fit: cover; border-radius: 4px; }
+.media-picker [data-media-card].is-selected { outline: 3px solid var(--accent, #6c2163); outline-offset: 2px; }

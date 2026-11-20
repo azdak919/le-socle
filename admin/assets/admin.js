@@ -950,10 +950,24 @@ function bindMediaLibrary() {
   });
 }
 
-function chooseSharedMedia(onSelect, usage = '') {
+function chooseSharedMedia(onSelect, usage = '', options = {}) {
+  if (usage && typeof usage === 'object') {
+    options = usage;
+    usage = options.usage || '';
+  }
+  const multiple = Boolean(options.multiple);
+  const selected = new Map();
+  for (const item of options.selected || []) {
+    if (item && item.id) selected.set(item.id, structuredClone(item));
+  }
   const dialog = document.createElement('dialog');
   dialog.className = 'media-picker';
-  dialog.innerHTML = `<div class="toolbar"><h2>Choisir une photo</h2><button type="button" data-close-media aria-label="Fermer">×</button></div><p>Cliquez sur une photo pour l’utiliser. Son crédit et sa licence la suivent.</p>${mediaFilters()}<div class="media-grid">${mediaCards(true)}</div>`;
+  const title = multiple ? 'Choisir des photos' : 'Choisir une photo';
+  const hint = multiple
+    ? 'Cliquez pour ajouter ou retirer une photo de la liste. L’ordre des sélections est celui du mât. Son crédit et sa licence la suivent.'
+    : 'Cliquez sur une photo pour l’utiliser. Son crédit et sa licence la suivent.';
+  const confirm = multiple ? '<button type="button" class="primary" data-confirm-media>Utiliser ces photos</button>' : '';
+  dialog.innerHTML = `<div class="toolbar"><h2>${title}</h2>${confirm}<button type="button" data-close-media aria-label="Fermer">×</button></div><p>${hint}</p>${mediaFilters()}<div class="media-grid">${mediaCards(true)}</div>`;
   document.body.appendChild(dialog);
   // On n’applique pas le filtre d’usage tout de suite : une photo de la banque
   // doit pouvoir servir au mât ou à un article même si la case n’est pas encore cochée.
@@ -981,14 +995,29 @@ function chooseSharedMedia(onSelect, usage = '') {
       }
     }
     dialog.querySelectorAll('[data-select-media]').forEach((button) => {
+      const id = button.dataset.selectMedia;
+      button.setAttribute('aria-pressed', selected.has(id) ? 'true' : 'false');
+      button.closest('[data-media-card]')?.classList.toggle('is-selected', selected.has(id));
       button.onclick = () => {
         const media = bundle.media.find((item) => item.id === button.dataset.selectMedia);
-        if (media) onSelect(structuredClone(media));
+        if (!media) return;
+        if (multiple) {
+          if (selected.has(media.id)) selected.delete(media.id);
+          else selected.set(media.id, structuredClone(media));
+          button.setAttribute('aria-pressed', selected.has(media.id) ? 'true' : 'false');
+          button.closest('[data-media-card]')?.classList.toggle('is-selected', selected.has(media.id));
+          return;
+        }
+        onSelect(structuredClone(media));
         dialog.close();
       };
     });
   };
   paintCards();
+  dialog.querySelector('[data-confirm-media]')?.addEventListener('click', () => {
+    onSelect([...selected.values()]);
+    dialog.close();
+  });
   dialog.addEventListener('close', () => dialog.remove());
   dialog.showModal();
 }
@@ -1494,7 +1523,7 @@ function settings() {
     </fieldset><div class="field"><label>Signature<input name="tagline" placeholder="Le journal étudiant du Cégep de Sainte-Foy" value="${esc(publication.tagline || '')}"></label></div><div class="field"><label>Établissement<input name="institution" placeholder="Cégep de Sainte-Foy" value="${esc(publication.institution || '')}"></label></div><div class="field"><label>Année de fondation (facultatif)<input name="founded" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" data-erreur="Écrivez l’année en quatre chiffres, par exemple 1971." placeholder="1971" value="${esc(publication.founded || '')}"></label><small>Au bas des pages : « © 1971–${new Date().getFullYear()} ». Vide : seulement l’année courante.</small></div><div class="field"><label>Droits sur les articles<select name="license"><option value="" ${/by-nc-nd/i.test(publication.license || '') ? '' : 'selected'}>Tous droits réservés (par défaut)</option><option value="CC BY-NC-ND 4.0" ${/by-nc-nd/i.test(publication.license || '') ? 'selected' : ''}>Creative Commons BY-NC-ND 4.0 : partage permis, sans modification ni usage commercial</option></select></label></div><div class="field"><label>Typographie<select name="typography"><option value="modern-accessible">Moderne accessible</option><option value="editorial-classic" ${publication.theme?.typography === 'editorial-classic' ? 'selected' : ''}>Éditoriale classique</option><option value="institutional" ${publication.theme?.typography === 'institutional' ? 'selected' : ''}>Institutionnelle</option></select></label></div>
     <div class="field"><label>Fuseau horaire<select name="timeZone"><option value="America/Toronto" ${publication.timeZone !== 'America/Blanc-Sablon' ? 'selected' : ''}>Heure de l’Est — majorité du Québec</option><option value="America/Blanc-Sablon" ${publication.timeZone === 'America/Blanc-Sablon' ? 'selected' : ''}>Heure de l’Atlantique — Blanc-Sablon</option></select></label></div>
     <div class="field"><label>Couleur principale<input name="accent" type="color" value="${esc(publication.theme?.accent || '#6c2163')}"></label></div><div class="field"><label>Couleur sombre<input name="accentDark" type="color" value="${esc(publication.theme?.accentDark || '#cf7ec1')}"></label></div><div id="admin-contrast" class="notice full" role="status"></div>
-    <fieldset class="field full"><legend>Mât illustré</legend><label><input name="backgroundsEnabled" type="checkbox" ${masthead.backgrounds?.enabled !== false ? 'checked' : ''}> Afficher les images de fond</label><div class="field full"><label for="background-files">Ajouter mes propres images</label><input id="background-files" type="file" accept="image/jpeg,image/png,image/webp" multiple></div><p class="media-quality">Chaque image du mât a besoin d’une description accessible et d’un crédit. Les photos trop grandes sont réduites dans le navigateur, et les métadonnées de l’appareil, y compris la position, sont retirées.</p><div class="actions"><button type="button" data-action="choose-masthead-media">Choisir une photo</button><button type="button" data-action="clear-backgrounds">Retirer toutes les images</button></div><p>${masthead.backgrounds?.images?.length || 0} image(s) enregistrée(s). Un nouvel envoi les ajoute à la rotation.</p><label>Cadrage horizontal<input name="mastheadFocalX" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.x ?? 50}"></label><label>Cadrage vertical<input name="mastheadFocalY" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.y ?? 50}"></label><label>Assombrir l’image derrière le titre<input name="overlayStrength" type="range" min="0" max="0.9" step="0.05" value="${masthead.overlayStrength ?? 0.55}"></label><label>Alignement du titre<select name="textAlignment"><option value="left">Gauche</option><option value="center" ${masthead.textAlignment === 'center' ? 'selected' : ''}>Centre</option><option value="right" ${masthead.textAlignment === 'right' ? 'selected' : ''}>Droite</option></select></label><div id="masthead-crop-preview">${cropFrames(masthead.backgrounds?.images?.[0], 'masthead')}</div></fieldset>
+    <fieldset class="field full"><legend>Mât illustré</legend><label><input name="backgroundsEnabled" type="checkbox" ${masthead.backgrounds?.enabled !== false ? 'checked' : ''}> Afficher les images de fond</label><div class="field full"><label for="background-files">Ajouter mes propres images</label><input id="background-files" type="file" accept="image/jpeg,image/png,image/webp" multiple></div><p class="media-quality">Chaque image du mât a besoin d’une description accessible et d’un crédit. Les photos trop grandes sont réduites dans le navigateur, et les métadonnées de l’appareil, y compris la position, sont retirées.</p><div class="actions"><button type="button" data-action="choose-masthead-media">Choisir des photos</button><button type="button" data-action="clear-backgrounds">Retirer toutes les images</button></div><p>${masthead.backgrounds?.images?.length || 0} image(s) enregistrée(s). Un nouvel envoi les ajoute à la rotation. Une photo utilisée dans le mât ne peut pas être retirée de la banque.</p><div id="masthead-selected-list" class="masthead-selected-list"></div><label><input name="randomOrder" type="checkbox" ${masthead.backgrounds?.randomOrder !== false ? 'checked' : ''}> Ordre aléatoire</label><small>Activé (par défaut) : une photo au hasard à chaque visite. Désactivé : toujours commencer par la première de la liste.</small><label>Cadrage horizontal<input name="mastheadFocalX" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.x ?? 50}"></label><label>Cadrage vertical<input name="mastheadFocalY" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.y ?? 50}"></label><label>Assombrir l’image derrière le titre<input name="overlayStrength" type="range" min="0" max="0.9" step="0.05" value="${masthead.overlayStrength ?? 0.55}"></label><label>Alignement du titre<select name="textAlignment"><option value="left">Gauche</option><option value="center" ${masthead.textAlignment === 'center' ? 'selected' : ''}>Centre</option><option value="right" ${masthead.textAlignment === 'right' ? 'selected' : ''}>Droite</option></select></label><div id="masthead-crop-preview">${cropFrames(masthead.backgrounds?.images?.[0], 'masthead')}</div></fieldset>
     <fieldset class="field full settings-social"><legend>Réseaux sociaux</legend><small>Une adresse complète par réseau ; un réseau laissé vide n’est pas affiché. Les icônes paraissent dans le mât et au bas des pages du site Web.</small><div class="social-grid">${socialFieldsHtml(publication.social || {})}</div></fieldset>
     <fieldset class="field"><legend>Météo</legend><label><input name="weatherEnabled" type="checkbox" ${masthead.weather?.enabled ? 'checked' : ''}> Afficher la météo</label><label>Localités, séparées par des virgules<input name="weatherLocalities" value="${esc((masthead.weather?.localities || []).join(', '))}" placeholder="Québec"></label><small>Maximum quatre.</small></fieldset>
     <fieldset class="field full"><legend>Sports — Au tableau</legend>
@@ -1633,25 +1662,41 @@ function render() {
     main.querySelector('[name="radioEnabled"]')?.addEventListener('change', fillStations);
     fillStations();
     const form = document.getElementById('settings-form');
-    let selectedMasthead = structuredClone(bundle.publication.masthead?.backgrounds?.images?.[0] || null);
+    let selectedMastheads = structuredClone(bundle.publication.masthead?.backgrounds?.images || []);
+    let mastheadCropIndex = 0;
+    const paintMastheadSelection = () => {
+      const list = document.getElementById('masthead-selected-list');
+      if (!list) return;
+      if (!selectedMastheads.length) { list.innerHTML = '<p class="muted">Aucune photo choisie pour le mât.</p>'; return; }
+      list.innerHTML = selectedMastheads.map((item, index) => `<div class="masthead-selected${index === mastheadCropIndex ? ' is-active' : ''}" data-masthead-index="${index}"><img src="${esc(item.src)}" alt="${esc(item.alt || '')}"><span>${esc(item.credit ? `Photo : ${item.credit}` : item.alt || 'Photo')} </span><span class="actions"><button type="button" data-masthead-focus="${index}">Cadrer</button><button type="button" data-masthead-up="${index}" ${index === 0 ? 'disabled' : ''}>Monter</button><button type="button" data-masthead-down="${index}" ${index === selectedMastheads.length - 1 ? 'disabled' : ''}>Descendre</button><button type="button" data-masthead-remove="${index}">Retirer</button></span></div>`).join('');
+      list.querySelectorAll('[data-masthead-focus]').forEach((button) => button.onclick = () => { mastheadCropIndex = Number(button.dataset.mastheadFocus); const item = selectedMastheads[mastheadCropIndex]; if (!item) return; form.elements.mastheadFocalX.value = item.focalPoint?.x ?? 50; form.elements.mastheadFocalY.value = item.focalPoint?.y ?? 50; refreshMastheadCrop(); paintMastheadSelection(); });
+      list.querySelectorAll('[data-masthead-up]').forEach((button) => button.onclick = () => { const i = Number(button.dataset.mastheadUp); if (i <= 0) return; [selectedMastheads[i - 1], selectedMastheads[i]] = [selectedMastheads[i], selectedMastheads[i - 1]]; if (mastheadCropIndex === i) mastheadCropIndex = i - 1; else if (mastheadCropIndex === i - 1) mastheadCropIndex = i; paintMastheadSelection(); });
+      list.querySelectorAll('[data-masthead-down]').forEach((button) => button.onclick = () => { const i = Number(button.dataset.mastheadDown); if (i >= selectedMastheads.length - 1) return; [selectedMastheads[i + 1], selectedMastheads[i]] = [selectedMastheads[i], selectedMastheads[i + 1]]; if (mastheadCropIndex === i) mastheadCropIndex = i + 1; else if (mastheadCropIndex === i + 1) mastheadCropIndex = i; paintMastheadSelection(); });
+      list.querySelectorAll('[data-masthead-remove]').forEach((button) => button.onclick = () => { const i = Number(button.dataset.mastheadRemove); selectedMastheads.splice(i, 1); if (mastheadCropIndex >= selectedMastheads.length) mastheadCropIndex = Math.max(0, selectedMastheads.length - 1); const item = selectedMastheads[mastheadCropIndex]; form.elements.mastheadFocalX.value = item?.focalPoint?.x ?? 50; form.elements.mastheadFocalY.value = item?.focalPoint?.y ?? 50; refreshMastheadCrop(); paintMastheadSelection(); });
+    };
     let clearMastheadImages = false;
     const refreshMastheadCrop = () => {
       const x = Number(form.elements.mastheadFocalX.value), y = Number(form.elements.mastheadFocalY.value);
       form.querySelector('#masthead-crop-preview .crop-previews')?.style.setProperty('--crop-position', `${x}% ${y}%`);
+      if (selectedMastheads[mastheadCropIndex]) selectedMastheads[mastheadCropIndex].focalPoint = { x, y };
     };
     form.elements.mastheadFocalX.addEventListener('input', refreshMastheadCrop);
     form.elements.mastheadFocalY.addEventListener('input', refreshMastheadCrop);
     main.querySelector('[data-action="choose-masthead-media"]').onclick = () => chooseSharedMedia((media) => {
-      selectedMasthead = media;
+      const list = Array.isArray(media) ? media : (media ? [media] : []);
+      selectedMastheads = list.map((item) => structuredClone(item));
+      mastheadCropIndex = 0;
       clearMastheadImages = false;
       previewFromFile = false;
       form.elements.backgroundsEnabled.checked = true;
-      form.elements.mastheadFocalX.value = media.focalPoint?.x ?? 50;
-      form.elements.mastheadFocalY.value = media.focalPoint?.y ?? 50;
-      document.getElementById('masthead-crop-preview').innerHTML = cropFrames(media, 'masthead');
-      form.elements.backgroundsEnabled.checked = true;
-      notify('Photo du mât sélectionnée.');
-    }, 'masthead');
+      const first = selectedMastheads[0];
+      form.elements.mastheadFocalX.value = first?.focalPoint?.x ?? 50;
+      form.elements.mastheadFocalY.value = first?.focalPoint?.y ?? 50;
+      document.getElementById('masthead-crop-preview').innerHTML = cropFrames(first || null, 'masthead');
+      paintMastheadSelection();
+      notify(selectedMastheads.length > 1 ? `${selectedMastheads.length} photos choisies pour le mât.` : (selectedMastheads.length ? 'Photo du mât sélectionnée.' : 'Aucune photo choisie pour le mât.'));
+    }, { usage: 'masthead', multiple: true, selected: selectedMastheads });
+    paintMastheadSelection();
     const updateContrast = () => { const ratio = contrastRatio(form.elements.accent.value); document.getElementById('admin-contrast').textContent = ratio >= 4.5 ? `Contraste AA avec du texte blanc : ${ratio.toFixed(2)}:1.` : `Avertissement : contraste de ${ratio.toFixed(2)}:1 avec du texte blanc. La sauvegarde reste permise.`; };
     form.elements.accent.addEventListener('input', updateContrast); updateContrast();
     // La couleur sombre suit la principale, tant qu'on ne la choisit pas soi-même.
@@ -1678,7 +1723,7 @@ function render() {
       const item = mastheadPond.getFiles()[0];
       if (!item) return;
       previewFromFile = true;
-      selectedMasthead = null;
+      /* L’envoi s’ajoute à la liste à l’enregistrement. */
       form.elements.backgroundsEnabled.checked = true;
       document.getElementById('masthead-crop-preview').innerHTML = cropFrames({ src: URL.createObjectURL(item.file), focalPoint: { x: Number(form.elements.mastheadFocalX.value), y: Number(form.elements.mastheadFocalY.value) } }, 'masthead');
     };
@@ -1686,8 +1731,8 @@ function render() {
     bindRequiredFlags(form);
     bindSocialFields(form);
     bindSportsForm(form);
-    form.onsubmit = async (event) => { event.preventDefault(); if (!flagInvalidFields(form)) { notify('Remplissez les champs signalés.'); return; } const data = new FormData(form); const publication = structuredClone(bundle.publication); publication.name = data.get('name').trim(); publication.tagline = data.get('tagline').trim(); publication.institution = data.get('institution').trim(); publication.founded = String(data.get('founded') || '').trim(); publication.license = String(data.get('license') || ''); publication.social = readSocial(data); publication.timeZone = data.get('timeZone'); publication.siteUrl = data.get('siteUrl').trim(); publication.slug = slugify(data.get('slug')) || publication.slug; publication.governance = { ...publication.governance, owner: data.get('owner').trim(), contact: data.get('contact').trim(), repo: data.get('repo').trim() }; publication.noindex = data.has('noindex'); publication.fictif = data.has('fictif'); publication.theme = { accent: data.get('accent'), accentDark: data.get('accentDark'), typography: data.get('typography') }; publication.radio = { ...publication.radio, enabled: data.has('radioEnabled'), station: String(data.get('station') || '').trim().toLowerCase(), theme: 'dark', position: 'top' }; delete publication.radio.stream; delete publication.radio.name; delete publication.radio.frequency; delete publication.radio.website; const localities = data.get('weatherLocalities').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4); const priorImages = clearMastheadImages ? [] : (publication.masthead?.backgrounds?.images || []); const selected = selectedMasthead ? { ...selectedMasthead, focalPoint: { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } } : null; publication.masthead = { backgrounds: { enabled: data.has('backgroundsEnabled'), images: selected ? [selected, ...priorImages.filter((item) => item.id !== selected.id)] : priorImages }, weather: { enabled: data.has('weatherEnabled'), localities }, sports: readSportsForm(form), tools: { pomodoro: data.has('pomodoro'), solitaire: data.has('solitaire') }, overlayStrength: Math.min(0.9, Math.max(0, Number(data.get('overlayStrength')))), textAlignment: data.get('textAlignment') }; const uploaded = []; if (mastheadPond.hasFiles()) { const photos = await mastheadPond.collectPhotos(); previewFromFile = true; for (const [index, photo] of photos.entries()) { const details = { alt: photo.alt, credit: photo.credit, caption: photo.caption }; const focalPoint = index === 0 ? { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } : { x: 50, y: 50 }; let asset; if (onSocle()) { asset = await backend.uploadPhoto({ asset: { id: crypto.randomUUID(), ...details, width: photo.width, height: photo.height, usages: ['masthead'], focalPoint, checksum: photo.checksum }, file: photo.file, bank: true }); } else { asset = { ...await readArticleImage(photo.file, details), width: photo.width, height: photo.height, checksum: photo.checksum }; } uploaded.push({ ...asset, focalPoint }); } } /* L’image envoyée et réglée dans l’aperçu passe en tête : c’est elle que le mât montre d’abord. */ publication.masthead.backgrounds.images = previewFromFile && uploaded.length ? [...uploaded, ...publication.masthead.backgrounds.images] : [...publication.masthead.backgrounds.images, ...uploaded]; const logoFile = document.getElementById('logo-file').files[0]; if (logoFile) publication.logo = await readLogo(logoFile, data.get('logoAlt').trim()); else if (publication.logo && isGeneratedInitialsLogoSrc(publication.logo.src)) delete publication.logo; else if (publication.logo) publication.logo.alt = data.get('logoAlt').trim() || publication.name; await backend.savePublication(publication); await refresh(); notify('Configuration enregistrée.'); render(); };
-    main.querySelector('[data-action="clear-backgrounds"]').onclick = () => { selectedMasthead = null; clearMastheadImages = true; form.elements.backgroundsEnabled.checked = false; document.getElementById('masthead-crop-preview').innerHTML = cropFrames(null, 'masthead'); notify('Les images seront retirées à l’enregistrement.'); };
+    form.onsubmit = async (event) => { event.preventDefault(); if (!flagInvalidFields(form)) { notify('Remplissez les champs signalés.'); return; } const data = new FormData(form); const publication = structuredClone(bundle.publication); publication.name = data.get('name').trim(); publication.tagline = data.get('tagline').trim(); publication.institution = data.get('institution').trim(); publication.founded = String(data.get('founded') || '').trim(); publication.license = String(data.get('license') || ''); publication.social = readSocial(data); publication.timeZone = data.get('timeZone'); publication.siteUrl = data.get('siteUrl').trim(); publication.slug = slugify(data.get('slug')) || publication.slug; publication.governance = { ...publication.governance, owner: data.get('owner').trim(), contact: data.get('contact').trim(), repo: data.get('repo').trim() }; publication.noindex = data.has('noindex'); publication.fictif = data.has('fictif'); publication.theme = { accent: data.get('accent'), accentDark: data.get('accentDark'), typography: data.get('typography') }; publication.radio = { ...publication.radio, enabled: data.has('radioEnabled'), station: String(data.get('station') || '').trim().toLowerCase(), theme: 'dark', position: 'top' }; delete publication.radio.stream; delete publication.radio.name; delete publication.radio.frequency; delete publication.radio.website; const localities = data.get('weatherLocalities').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4); const priorImages = clearMastheadImages ? [] : selectedMastheads; const selectedImages = priorImages.map((item, index) => index === mastheadCropIndex ? { ...item, focalPoint: { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } } : item); publication.masthead = { backgrounds: { enabled: data.has('backgroundsEnabled'), randomOrder: data.has('randomOrder'), images: selectedImages }, weather: { enabled: data.has('weatherEnabled'), localities }, sports: readSportsForm(form), tools: { pomodoro: data.has('pomodoro'), solitaire: data.has('solitaire') }, overlayStrength: Math.min(0.9, Math.max(0, Number(data.get('overlayStrength')))), textAlignment: data.get('textAlignment') }; const uploaded = []; if (mastheadPond.hasFiles()) { const photos = await mastheadPond.collectPhotos(); previewFromFile = true; for (const [index, photo] of photos.entries()) { const details = { alt: photo.alt, credit: photo.credit, caption: photo.caption }; const focalPoint = index === 0 ? { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } : { x: 50, y: 50 }; let asset; if (onSocle()) { asset = await backend.uploadPhoto({ asset: { id: crypto.randomUUID(), ...details, width: photo.width, height: photo.height, usages: ['masthead'], focalPoint, checksum: photo.checksum }, file: photo.file, bank: true }); } else { asset = { ...await readArticleImage(photo.file, details), width: photo.width, height: photo.height, checksum: photo.checksum }; } uploaded.push({ ...asset, focalPoint }); } } /* L’image envoyée et réglée dans l’aperçu passe en tête : c’est elle que le mât montre d’abord. */ publication.masthead.backgrounds.images = previewFromFile && uploaded.length ? [...uploaded, ...publication.masthead.backgrounds.images] : [...publication.masthead.backgrounds.images, ...uploaded]; const logoFile = document.getElementById('logo-file').files[0]; if (logoFile) publication.logo = await readLogo(logoFile, data.get('logoAlt').trim()); else if (publication.logo && isGeneratedInitialsLogoSrc(publication.logo.src)) delete publication.logo; else if (publication.logo) publication.logo.alt = data.get('logoAlt').trim() || publication.name; await backend.savePublication(publication); await refresh(); notify('Configuration enregistrée.'); render(); };
+    main.querySelector('[data-action="clear-backgrounds"]').onclick = () => { selectedMastheads = []; mastheadCropIndex = 0; clearMastheadImages = true; form.elements.backgroundsEnabled.checked = false; document.getElementById('masthead-crop-preview').innerHTML = cropFrames(null, 'masthead'); paintMastheadSelection(); notify('Les images seront retirées à l’enregistrement.'); };
     main.querySelector('[data-action="recommended-theme"]').onclick = () => { form.elements.typography.value = 'modern-accessible'; form.elements.accent.value = '#6c2163'; form.elements.accentDark.value = '#cf7ec1'; };
   }
   if (view === 'exports') {
