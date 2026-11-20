@@ -32,6 +32,7 @@ Aux équipes qui utilisent le Kiosque, et à qui veut faire tourner l’espace d
 - **Banque de photos :** ajout, fiche, crédit obligatoire, licence, retrait. Le photographe gère la banque et n’écrit pas d’articles.
 - **Rédaction :** titre, chapeau, texte, rubriques, signatures multiples, statut (brouillon, en révision, publié). On peut prévisualiser un article dans le thème, sans le publier.
 - **Sauvegarde et restauration :** un fichier ZIP avec les articles, les photos, l’équipe (sans les mots de passe) et les réglages. La même page restaure une archive.
+- **Photos de mât :** on en choisit plusieurs dans la banque, et on peut les afficher dans un ordre aléatoire (activé par défaut).
 - **Mise à jour en un clic**, quand une version est publiée. Une sauvegarde juste avant reste la bonne habitude.
 
 ![Comptes et rôles](site/assets/captures/equipe-roles.jpg)
@@ -41,6 +42,10 @@ Aux équipes qui utilisent le Kiosque, et à qui veut faire tourner l’espace d
 ![Banque de photos](site/assets/captures/banque-photos.jpg)
 
 <p align="center"><em>La banque de photos.</em></p>
+
+![Réglage du mât illustré](site/assets/captures/configuration-mat.jpg)
+
+<p align="center"><em>Plusieurs photos de mât, et l’ordre aléatoire activé par défaut.</em></p>
 
 ---
 
