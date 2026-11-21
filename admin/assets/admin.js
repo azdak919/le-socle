@@ -727,10 +727,14 @@ async function fillAccessPanel() {
   const memberLine = (member) => {
     const scope = (member.sections || []).map(sectionName);
     const where = SCOPED_ROLES.includes(member.role) ? (scope.length ? `Rubriques : ${scope.join(', ')}` : 'Toutes les rubriques') : '';
-    return `<li><div><strong>${esc(member.email)}</strong><small>${esc([ACCOUNT_LABELS[member.role] || member.role, where].filter(Boolean).join(' · '))}</small></div><div><button type="button" data-edit-member="${esc(member.email)}">Modifier</button></div></li>`;
+    const shown = (member.affichage || '').trim();
+    return `<li><div><strong>${esc(shown || member.email)}</strong><small>${esc([shown ? member.email : '', ACCOUNT_LABELS[member.role] || member.role, where].filter(Boolean).join(' · '))}</small></div><div><button type="button" data-edit-member="${esc(member.email)}">Modifier</button></div></li>`;
   };
   panel.innerHTML = `<div class="toolbar"><h2>Comptes et rôles</h2>${logout}</div><p class="notice">Ces comptes ouvrent la rédaction. Le rôle dit ce que chacun peut faire ; le serveur l’applique. Les signatures, plus bas, sont ce que le public voit.</p><ul class="entity-list" id="member-list">${members.map(memberLine).join('')}</ul>
   <form id="member-form" class="grid"><h3 class="full" id="member-form-title">Ajouter une personne</h3>
+  <div class="field"><label>Prénom<input name="prenom" maxlength="120" autocomplete="off"></label></div>
+  <div class="field"><label>Nom<input name="nom" maxlength="120" autocomplete="off"></label></div>
+  <div class="field full"><label>Nom d’affichage (facultatif)<input name="nomAffiche" maxlength="120" autocomplete="off"></label><small>S’il est vide, l’affichage et les signatures utilisent le prénom et le nom.</small></div>
   <div class="field"><label>Courriel<input name="email" type="email" required autocomplete="off"></label></div>
   <div class="field"><label>Rôle<select name="role">${roleOptions}</select></label><small id="member-role-help"></small></div>
   <fieldset class="field full" id="member-sections"><legend>Rubriques permises</legend><small>Rien de coché : toutes les rubriques.</small><div class="chips">${sections.length ? sections.map((item) => `<label><input type="checkbox" name="sections" value="${esc(item.slug)}"> ${esc(item.name)}</label>`).join(' ') : '<em>Aucune section pour l’instant (Sections et catégories).</em>'}</div></fieldset>
@@ -749,6 +753,9 @@ async function fillAccessPanel() {
   panel.querySelectorAll('[data-edit-member]').forEach((button) => button.onclick = () => {
     const member = members.find((item) => item.email === button.dataset.editMember);
     if (!member) return;
+    form.elements.prenom.value = member.prenom || '';
+    form.elements.nom.value = member.nom || '';
+    form.elements.nomAffiche.value = member.nomAffiche || '';
     form.elements.email.value = member.email;
     form.elements.role.value = member.role === 'responsable' ? 'administrateur' : member.role;
     form.querySelectorAll('input[name="sections"]').forEach((box) => { box.checked = (member.sections || []).includes(box.value); });
@@ -760,7 +767,13 @@ async function fillAccessPanel() {
   form.onsubmit = async (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const body = { email: data.get('email').trim(), role: data.get('role') };
+    const body = {
+      email: data.get('email').trim(),
+      role: data.get('role'),
+      prenom: (data.get('prenom') || '').trim(),
+      nom: (data.get('nom') || '').trim(),
+      nomAffiche: (data.get('nomAffiche') || '').trim(),
+    };
     if (SCOPED_ROLES.includes(body.role)) body.sections = data.getAll('sections');
     if (data.get('password')) body.password = data.get('password');
     try { await authCall('POST', 'membres', body); notify('Compte enregistré.'); fillAccessPanel(); } catch (error) { notify(error.message, 5000); }
@@ -1945,8 +1958,9 @@ function bindCommon() {
 function profileView() {
   return `<section class="panel panel-profil" style="max-width:36rem">
     <form id="profile-form" class="grid">
-      <div class="field"><label>Nom<input name="nom" maxlength="120" autocomplete="name"></label></div>
-      <div class="field"><label>Nom d’affichage<input name="nomAffiche" maxlength="120" autocomplete="nickname"></label></div>
+      <div class="field"><label>Prénom<input name="prenom" maxlength="120" autocomplete="given-name"></label></div>
+      <div class="field"><label>Nom<input name="nom" maxlength="120" autocomplete="family-name"></label></div>
+      <div class="field full"><label>Nom d’affichage (facultatif)<input name="nomAffiche" maxlength="120" autocomplete="nickname"></label><small>S’il est vide, l’affichage et les signatures utilisent le prénom et le nom.</small></div>
       <div class="actions full"><button class="primary">Enregistrer le profil</button></div>
     </form>
     <h3>Mot de passe</h3>
@@ -2052,8 +2066,9 @@ async function bindProfile() {
 
   const form = document.getElementById('profile-form');
   if (!form) return;
-  let profile = { nom: '', nomAffiche: '', email: '' };
+  let profile = { prenom: '', nom: '', nomAffiche: '', email: '' };
   try { profile = await authCall('GET', 'profil'); } catch (error) { profileStatus(error.message); }
+  form.elements.prenom.value = profile.prenom || '';
   form.elements.nom.value = profile.nom || '';
   form.elements.nomAffiche.value = profile.nomAffiche || '';
   const emailLine = document.getElementById('profile-email');
@@ -2062,7 +2077,7 @@ async function bindProfile() {
   form.onsubmit = async (event) => {
     event.preventDefault();
     try {
-      await authCall('POST', 'profil', { nom: form.elements.nom.value, nomAffiche: form.elements.nomAffiche.value });
+      await authCall('POST', 'profil', { prenom: form.elements.prenom.value, nom: form.elements.nom.value, nomAffiche: form.elements.nomAffiche.value });
       profileStatus('Profil enregistré.', true);
     } catch (error) { profileStatus(error.message); }
   };

@@ -124,13 +124,17 @@ export async function handleAuth(
     }
     if (path === "/v1/auth/membres" && method === "POST") {
       const body = objectBody(rawBody);
-      const allowed = ["email", "password", "role", "sections"];
+      const allowed = ["email", "password", "role", "sections", "prenom", "nom", "nomAffiche"];
       if (!body || Object.keys(body).some((key) => !allowed.includes(key))) throw new AuthError("demande refusée");
       if (body.sections !== undefined && !Array.isArray(body.sections)) throw new AuthError("demande refusée");
       if (typeof body.email !== "string" || typeof body.role !== "string") throw new AuthError("demande refusée");
       if (body.password !== undefined && deps.auth?.mode !== "motdepasse") throw new AuthError("demande refusée");
       const actor = await emailFromCookie(deps.store, deps.now, headers.cookie);
-      await saveMember(deps.store, actor, body.email, body.role, body.password as string | undefined, body.sections);
+      await saveMember(deps.store, actor, body.email, body.role, body.password as string | undefined, body.sections, {
+        prenom: body.prenom,
+        nom: body.nom,
+        nomAffiche: body.nomAffiche,
+      });
       return { status: 204, body: "", headers: {} };
     }
     if (path === "/v1/auth/reinitialiser" && method === "POST") {
@@ -156,9 +160,9 @@ export async function handleAuth(
     if (path === "/v1/auth/profil" && method === "POST") {
       if (!String(headers["content-type"] ?? "").startsWith("application/json")) throw new AuthError("demande refusée");
       const body = objectBody(rawBody);
-      if (!body || Object.keys(body).sort().join(",") !== "nom,nomAffiche") throw new AuthError("demande refusée");
+      if (!body || Object.keys(body).sort().join(",") !== "nom,nomAffiche,prenom") throw new AuthError("demande refusée");
       const actor = await emailFromCookie(deps.store, deps.now, headers.cookie);
-      const profile = await updateProfile(deps.store, actor, body.nom, body.nomAffiche);
+      const profile = await updateProfile(deps.store, actor, body.prenom, body.nom, body.nomAffiche);
       return { status: 200, body: JSON.stringify(profile), headers: JSON_TYPE };
     }
     if (path === "/v1/auth/profil/motdepasse" && method === "POST") {

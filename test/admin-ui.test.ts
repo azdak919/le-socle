@@ -308,6 +308,11 @@ test("Mon profil : mot de passe plus tôt, textes d’aide au même corps, « Pr
   assert.ok(start !== -1 && end > start);
   const profile = admin.slice(start, end);
   assert.match(profile, /panel-profil/);
+  assert.match(profile, /<label>Prénom<input name="prenom"/);
+  assert.match(profile, /<label>Nom<input name="nom"/);
+  assert.match(profile, /Nom d’affichage \(facultatif\)/);
+  assert.match(profile, /utilisent le prénom et le nom/);
+  assert.ok(profile.indexOf("<label>Prénom") < profile.indexOf("<label>Nom<input"));
   assert.match(profile, /profil-courriel-ligne/);
   assert.match(profile, /<span id="profile-email" class="profil-actuel">/);
   assert.match(profile, /<span id="profile-email-etat" class="profil-courriel-etat" hidden>/);
@@ -335,6 +340,20 @@ test("Mon profil : mot de passe plus tôt, textes d’aide au même corps, « Pr
   assert.match(css, /\.panel-profil \.aide/);
   assert.match(css, /#smtp-panel h3/);
   assert.match(css, /#smtp-panel > \.aide/);
+});
+
+test("Comptes et rôles : prénom et nom à l’ajout d’un membre", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  const start = admin.indexOf("async function fillAccessPanel()");
+  const end = admin.indexOf("function bindLogout(");
+  assert.ok(start !== -1 && end > start);
+  const panel = admin.slice(start, end);
+  assert.match(panel, /<label>Prénom<input name="prenom"/);
+  assert.match(panel, /<label>Nom<input name="nom"/);
+  assert.match(panel, /Nom d’affichage \(facultatif\)/);
+  assert.match(panel, /utilisent le prénom et le nom/);
+  assert.match(panel, /prenom: \(data\.get\('prenom'\)/);
+  assert.ok(panel.indexOf("<label>Prénom") < panel.indexOf("<label>Nom<input"));
 });
 
 test("Configuration : réglages SMTP, hébergeur en premier, sans envoi par mail()", () => {

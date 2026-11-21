@@ -166,7 +166,7 @@ function socle_write_scope(SocleStore $store, string $email, string $role, mixed
     else $store->delete('auth', 'scope:' . $email);
 }
 
-function socle_save_member(SocleStore $store, ?string $actor, string $email, string $role, ?string $password = null, mixed $sections = null): void {
+function socle_save_member(SocleStore $store, ?string $actor, string $email, string $role, ?string $password = null, mixed $sections = null, mixed $names = null): void {
     if ($actor === null || socle_role_of($store, $actor) !== 'administrateur') throw new SocleHttp('réservé à l’administrateur', 403);
     $clean = socle_normalize_email($email);
     if ($clean === null) throw new SocleHttp('demande refusée');
@@ -175,6 +175,15 @@ function socle_save_member(SocleStore $store, ?string $actor, string $email, str
     if ($password !== null) $store->put('auth', 'password:' . $clean, socle_hash_password(socle_check_password($password)));
     $store->put('auth', 'member:' . $clean, $canonical);
     socle_write_scope($store, $clean, $canonical, $sections);
+    if (is_array($names) && (array_key_exists('prenom', $names) || array_key_exists('nom', $names) || array_key_exists('nomAffiche', $names))) {
+        $current = socle_parse_stored_profile($store->get('auth', 'profil:' . $clean));
+        $next = [
+            'prenom' => array_key_exists('prenom', $names) ? socle_clean_name($names['prenom'], 'prénom') : $current['prenom'],
+            'nom' => array_key_exists('nom', $names) ? socle_clean_name($names['nom'], 'nom') : $current['nom'],
+            'nomAffiche' => array_key_exists('nomAffiche', $names) ? socle_clean_name($names['nomAffiche'], 'nom d’affichage') : $current['nomAffiche'],
+        ];
+        $store->put('auth', 'profil:' . $clean, socle_json($next));
+    }
 }
 
 function socle_auth_runtime(): array {
@@ -413,13 +422,39 @@ function socle_members_for_archive(SocleStore $store): array {
             if ($role === null) continue;
             $email = substr($row['key'], strlen('member:'));
             $sections = socle_scope_of($store, $email);
-            $members[] = $sections !== [] ? ['email' => $email, 'role' => $role, 'sections' => $sections] : ['email' => $email, 'role' => $role];
+            $names = socle_parse_stored_profile($store->get('auth', 'profil:' . $email));
+            $record = $sections !== [] ? ['email' => $email, 'role' => $role, 'sections' => $sections] : ['email' => $email, 'role' => $role];
+            if ($names['prenom'] !== '' || $names['nom'] !== '' || $names['nomAffiche'] !== '') {
+                $record['prenom'] = $names['prenom'];
+                $record['nom'] = $names['nom'];
+                $record['nomAffiche'] = $names['nomAffiche'];
+            }
+            $members[] = $record;
         }
         usort($members, static fn (array $a, array $b): int => strcmp($a['email'], $b['email']));
         return $members;
     } catch (ModuleOff) {
         return [];
     }
+}
+
+function socle_list_members(SocleStore $store, ?string $actor): array {
+    if ($actor === null || socle_role_of($store, $actor) !== 'administrateur') throw new SocleHttp('réservé à l’administrateur', 403);
+    $listed = [];
+    foreach (socle_members_for_archive($store) as $member) {
+        $names = socle_parse_stored_profile($store->get('auth', 'profil:' . $member['email']));
+        $row = [
+            'email' => $member['email'],
+            'role' => $member['role'],
+            'prenom' => $names['prenom'],
+            'nom' => $names['nom'],
+            'nomAffiche' => $names['nomAffiche'],
+            'affichage' => socle_nom_pour_affichage($names),
+        ];
+        if (isset($member['sections'])) $row['sections'] = $member['sections'];
+        $listed[] = $row;
+    }
+    return $listed;
 }
 
 function socle_restore_members(SocleStore $store, mixed $value): void {
@@ -432,6 +467,13 @@ function socle_restore_members(SocleStore $store, mixed $value): void {
         try {
             $store->put('auth', 'member:' . $email, $role);
             socle_write_scope($store, $email, $role, $item['sections'] ?? null);
+            if (array_key_exists('prenom', $item) || array_key_exists('nom', $item) || array_key_exists('nomAffiche', $item)) {
+                $store->put('auth', 'profil:' . $email, socle_json([
+                    'prenom' => is_string($item['prenom'] ?? null) ? $item['prenom'] : '',
+                    'nom' => is_string($item['nom'] ?? null) ? $item['nom'] : '',
+                    'nomAffiche' => is_string($item['nomAffiche'] ?? null) ? $item['nomAffiche'] : '',
+                ]));
+            }
         } catch (ModuleOff) {
             return;
         }
@@ -534,25 +576,52 @@ function socle_clean_name(mixed $value, string $label): string {
     return $name;
 }
 
-function socle_load_profile(SocleStore $store, string $email): array {
-    $raw = $store->get('auth', 'profil:' . $email);
-    $nom = '';
-    $nomAffiche = '';
-    if ($raw !== null) {
-        $parsed = json_decode($raw, true);
-        if (is_array($parsed)) {
-            if (is_string($parsed['nom'] ?? null)) $nom = $parsed['nom'];
-            if (is_string($parsed['nomAffiche'] ?? null)) $nomAffiche = $parsed['nomAffiche'];
-        }
+/** Nom montré : le nom d’affichage s’il est rempli, sinon « Prénom Nom ». */
+function socle_nom_pour_affichage(array $names): string {
+    $affiche = trim((string) ($names['nomAffiche'] ?? ''));
+    if ($affiche !== '') return $affiche;
+    $parts = [];
+    foreach (['prenom', 'nom'] as $key) {
+        $part = trim((string) ($names[$key] ?? ''));
+        if ($part !== '') $parts[] = $part;
     }
+    return implode(' ', $parts);
+}
+
+/**
+ * Ancien format : un seul champ `nom` (nom complet), sans clé `prenom`.
+ * On ne le découpe jamais : s’il n’y a pas déjà un nom d’affichage, on y
+ * range l’ancienne valeur, et on laisse prénom et nom à compléter.
+ */
+function socle_parse_stored_profile(?string $raw): array {
+    $empty = ['prenom' => '', 'nom' => '', 'nomAffiche' => ''];
+    if ($raw === null || $raw === '') return $empty;
+    $parsed = json_decode($raw, true);
+    if (!is_array($parsed)) return $empty;
+    $nom = is_string($parsed['nom'] ?? null) ? $parsed['nom'] : '';
+    $nomAffiche = is_string($parsed['nomAffiche'] ?? null) ? $parsed['nomAffiche'] : '';
+    if (array_key_exists('prenom', $parsed)) {
+        return [
+            'prenom' => is_string($parsed['prenom'] ?? null) ? $parsed['prenom'] : '',
+            'nom' => $nom,
+            'nomAffiche' => $nomAffiche,
+        ];
+    }
+    return ['prenom' => '', 'nom' => '', 'nomAffiche' => trim($nomAffiche) !== '' ? $nomAffiche : $nom];
+}
+
+function socle_load_profile(SocleStore $store, string $email): array {
+    $names = socle_parse_stored_profile($store->get('auth', 'profil:' . $email));
     $pending = socle_find_pending_courriel($store, $email, socle_now());
     $confirmingSelf = $pending !== null && (($pending['kind'] ?? '') === 'confirmation' || $pending['nouveau'] === $email);
     $changing = $pending !== null && $pending['nouveau'] !== $email;
     $etat = $confirmingSelf ? 'en-attente' : (socle_email_is_confirmed($store, $email) ? 'confirmee' : 'non-confirmee');
     return [
         'email' => $email,
-        'nom' => $nom,
-        'nomAffiche' => $nomAffiche,
+        'prenom' => $names['prenom'],
+        'nom' => $names['nom'],
+        'nomAffiche' => $names['nomAffiche'],
+        'affichage' => socle_nom_pour_affichage($names),
         'courrielEtat' => $etat,
         'courrielEnAttente' => $changing ? $pending['nouveau'] : null,
     ];
@@ -596,13 +665,14 @@ function socle_read_profile(SocleStore $store, ?string $actor): array {
     return socle_load_profile($store, $actor);
 }
 
-function socle_update_profile(SocleStore $store, ?string $actor, mixed $nom, mixed $nomAffiche): array {
+function socle_update_profile(SocleStore $store, ?string $actor, mixed $prenom, mixed $nom, mixed $nomAffiche): array {
     if ($actor === null || socle_role_of($store, $actor) === null) throw new SocleHttp('accès refusé', 401);
-    $profile = [
+    $names = [
+        'prenom' => socle_clean_name($prenom, 'prénom'),
         'nom' => socle_clean_name($nom, 'nom'),
         'nomAffiche' => socle_clean_name($nomAffiche, 'nom d’affichage'),
     ];
-    $store->put('auth', 'profil:' . $actor, socle_json($profile));
+    $store->put('auth', 'profil:' . $actor, socle_json($names));
     return socle_load_profile($store, $actor);
 }
 
@@ -675,7 +745,7 @@ function socle_confirm_email_change(SocleStore $store, DateTimeImmutable $now, m
     $store->put('auth', 'member:' . $parsed['nouveau'], $role);
     if ($password !== null) $store->put('auth', 'password:' . $parsed['nouveau'], $password);
     if ($scope !== null) $store->put('auth', 'scope:' . $parsed['nouveau'], $scope);
-    if ($profil !== null) $store->put('auth', 'profil:' . $parsed['nouveau'], $profil);
+    if ($profil !== null) $store->put('auth', 'profil:' . $parsed['nouveau'], socle_json(socle_parse_stored_profile($profil)));
     $store->delete('auth', 'member:' . $parsed['email']);
     $store->delete('auth', 'password:' . $parsed['email']);
     $store->delete('auth', 'scope:' . $parsed['email']);
@@ -819,17 +889,17 @@ function socle_handle_auth(string $method, string $url, array $config, SocleStor
         if ($path === '/v1/auth/membres' && $method === 'GET') {
             $actor = socle_email_from_cookie($store, $now, $cookie);
             if ($actor === null || socle_role_of($store, $actor) !== 'administrateur') throw new SocleHttp('réservé à l’administrateur', 403);
-            return socle_result(200, socle_json(socle_members_for_archive($store)), $jsonType);
+            return socle_result(200, socle_json(socle_list_members($store, $actor)), $jsonType);
         }
         if ($path === '/v1/auth/membres' && $method === 'POST') {
             $body = socle_object_body($raw);
-            if ($body === null || array_diff(array_keys($body), ['email', 'password', 'role', 'sections']) !== []) throw new SocleHttp('demande refusée');
+            if ($body === null || array_diff(array_keys($body), ['email', 'password', 'role', 'sections', 'prenom', 'nom', 'nomAffiche']) !== []) throw new SocleHttp('demande refusée');
             if (array_key_exists('sections', $body) && !is_array($body['sections'])) throw new SocleHttp('demande refusée');
             if (!is_string($body['email'] ?? null) || !is_string($body['role'] ?? null)) throw new SocleHttp('demande refusée');
             if (array_key_exists('password', $body) && (socle_auth_runtime()['mode'] ?? null) !== 'motdepasse') throw new SocleHttp('demande refusée');
             if (array_key_exists('password', $body) && !is_string($body['password'])) throw new SocleHttp('mot de passe trop court');
             $actor = socle_email_from_cookie($store, $now, $cookie);
-            socle_save_member($store, $actor, $body['email'], $body['role'], $body['password'] ?? null, $body['sections'] ?? null);
+            socle_save_member($store, $actor, $body['email'], $body['role'], $body['password'] ?? null, $body['sections'] ?? null, $body);
             return socle_result(204);
         }
 
@@ -854,9 +924,9 @@ function socle_handle_auth(string $method, string $url, array $config, SocleStor
         if ($path === '/v1/auth/profil' && $method === 'POST') {
             if (!str_starts_with((string) ($_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? ''), 'application/json')) throw new SocleHttp('demande refusée');
             $body = socle_object_body($raw);
-            if ($body === null || socle_keys($body) !== 'nom,nomAffiche') throw new SocleHttp('demande refusée');
+            if ($body === null || socle_keys($body) !== 'nom,nomAffiche,prenom') throw new SocleHttp('demande refusée');
             $actor = socle_email_from_cookie($store, $now, $cookie);
-            return socle_result(200, socle_json(socle_update_profile($store, $actor, $body['nom'] ?? null, $body['nomAffiche'] ?? null)), $jsonType);
+            return socle_result(200, socle_json(socle_update_profile($store, $actor, $body['prenom'] ?? null, $body['nom'] ?? null, $body['nomAffiche'] ?? null)), $jsonType);
         }
         if ($path === '/v1/auth/profil/motdepasse' && $method === 'POST') {
             if (!str_starts_with((string) ($_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? ''), 'application/json')) throw new SocleHttp('demande refusée');

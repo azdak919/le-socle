@@ -45,7 +45,7 @@ Sur l’adresse HTTPS réelle, pas seulement en local :
 3. « Mot de passe oublié » : inscrire le courriel d’un vrai compte de test, recevoir le message, suivre le lien (une heure, un seul usage), poser un nouveau mot de passe, constater que l’ancienne session est fermée et que l’on peut se reconnecter.
 4. Recommencer avec une adresse **inconnue** : le message à l’écran est le même, aucun courriel n’indique si le compte existe.
 5. Enchaîner plusieurs demandes trop vite : après cinq essais sur la même adresse en 15 minutes, la page demande d’attendre.
-6. « Mon profil » : changer le nom et le nom d’affichage ; changer le mot de passe en saisissant l’actuel ; voir si le courriel est confirmé ; demander un changement de courriel ou confirmer l’adresse actuelle, puis suivre le lien reçu.
+6. « Mon profil » : remplir le prénom et le nom, et au besoin le nom d’affichage ; changer le mot de passe en saisissant l’actuel ; voir si le courriel est confirmé ; demander un changement de courriel ou confirmer l’adresse actuelle, puis suivre le lien reçu.
 7. Configuration, « Envoi de courriel » : enregistrer le relais de l’hébergeur (ou un autre fournisseur) et envoyer un courriel d’essai à votre adresse.
 8. Ouvrir la même page sur un téléphone, en thème clair et en thème sombre.
 

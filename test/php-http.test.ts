@@ -581,6 +581,65 @@ test("PHP : le nouveau courriel n’est appliqué qu’après un lien unique non
   }
 });
 
+test("PHP : prénom et nom, ancien nom complet devenu nom d’affichage", async () => {
+  const work = mkdtempSync(join(tmpdir(), "socle-php-noms-"));
+  const db = join(work, "socle.sqlite");
+  writeConfig(join(work, "socle.config.json"), { auth: true });
+  const prepared = openSqliteFile(db);
+  await prepared.migrate(["auth"]);
+  await prepared.close();
+  const php = await startPhp(work, {
+    SOCLE_DB: db,
+    SOCLE_CONFIG: join(work, "socle.config.json"),
+    SOCLE_AUTH_MODE: "motdepasse",
+    SOCLE_PUBLIC_ORIGIN: "https://journal.example",
+  });
+  const json = { "content-type": "application/json" };
+  const cookieOf = (res: Response) => String(res.headers.get("set-cookie")).split(";")[0];
+  try {
+    const install = await fetch(php.url + "/v1/auth/installation", {
+      method: "POST",
+      headers: json,
+      body: JSON.stringify({ email: "ana@cegep.example", password: "mot de passe d’Ana" }),
+    });
+    assert.equal(install.status, 204, await install.text());
+    const cookie = cookieOf(install);
+    const seed = openSqliteFile(db);
+    await seed.resume();
+    await seed.put("auth", "profil:ana@cegep.example", JSON.stringify({ nom: "Anne Marie" }));
+    await seed.close();
+    const migrated = JSON.parse(await (await fetch(php.url + "/v1/auth/profil", { headers: { cookie } })).text());
+    assert.equal(migrated.prenom, "");
+    assert.equal(migrated.nom, "");
+    assert.equal(migrated.nomAffiche, "Anne Marie");
+    assert.equal(migrated.affichage, "Anne Marie");
+    const savedRes = await fetch(php.url + "/v1/auth/profil", {
+      method: "POST",
+      headers: { ...json, cookie },
+      body: JSON.stringify({ prenom: "Anne", nom: "Marie", nomAffiche: "" }),
+    });
+    const savedBody = await savedRes.text();
+    assert.equal(savedRes.status, 200, savedBody);
+    const saved = JSON.parse(savedBody);
+    assert.equal(saved.prenom, "Anne");
+    assert.equal(saved.nom, "Marie");
+    assert.equal(saved.nomAffiche, "");
+    assert.equal(saved.affichage, "Anne Marie");
+    const memberRes = await fetch(php.url + "/v1/auth/membres", {
+      method: "POST",
+      headers: { ...json, cookie },
+      body: JSON.stringify({ email: "lea@cegep.example", role: "auteur", password: "mot de passe de Léa", prenom: "Léa", nom: "Côté" }),
+    });
+    assert.equal(memberRes.status, 204, await memberRes.text());
+    const team = JSON.parse(await (await fetch(php.url + "/v1/auth/membres", { headers: { cookie } })).text()) as Array<Record<string, unknown>>;
+    assert.deepEqual(team.find((item) => item.email === "lea@cegep.example"), {
+      email: "lea@cegep.example", role: "auteur", prenom: "Léa", nom: "Côté", nomAffiche: "", affichage: "Léa Côté",
+    });
+  } finally {
+    await php.stop();
+  }
+});
+
 test("l'échéance PHP publie comme Node, et le snapshot public aussi", async () => {
   const work = mkdtempSync(join(tmpdir(), "socle-php-review-"));
   const db = join(work, "socle.sqlite");

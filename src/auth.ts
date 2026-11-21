@@ -44,17 +44,66 @@ export type AuthRuntime = {
 };
 
 /** `sections` : rubriques permises (auteur, chef de pupitre) ; absent = toutes. */
-export type MemberRecord = { email: string; role: OrgRole; sections?: string[] };
+export type MemberRecord = {
+  email: string;
+  role: OrgRole;
+  sections?: string[];
+  prenom?: string;
+  nom?: string;
+  nomAffiche?: string;
+  affichage?: string;
+};
 
 export type CourrielEtat = "confirmee" | "non-confirmee" | "en-attente";
 
+export type ProfileNames = { prenom: string; nom: string; nomAffiche: string };
+
 export type ProfileRecord = {
   email: string;
+  prenom: string;
   nom: string;
   nomAffiche: string;
+  affichage: string;
   courrielEtat: CourrielEtat;
   courrielEnAttente: string | null;
 };
+
+/** Nom montré : le nom d’affichage s’il est rempli, sinon « Prénom Nom ». */
+export function nomPourAffichage(names: ProfileNames): string {
+  const affiche = names.nomAffiche.trim();
+  if (affiche) return affiche;
+  return [names.prenom, names.nom].map((part) => part.trim()).filter(Boolean).join(" ");
+}
+
+/**
+ * Ancien format : un seul champ `nom` (nom complet), sans clé `prenom`.
+ * On ne le découpe jamais : s’il n’y a pas déjà un nom d’affichage, on y
+ * range l’ancienne valeur, et on laisse prénom et nom à compléter.
+ */
+export function parseStoredProfile(raw: string | null | undefined): ProfileNames {
+  const empty: ProfileNames = { prenom: "", nom: "", nomAffiche: "" };
+  if (!raw) return empty;
+  try {
+    const parsed = JSON.parse(raw) as { prenom?: unknown; nom?: unknown; nomAffiche?: unknown };
+    if (!parsed || typeof parsed !== "object") return empty;
+    const nom = typeof parsed.nom === "string" ? parsed.nom : "";
+    const nomAffiche = typeof parsed.nomAffiche === "string" ? parsed.nomAffiche : "";
+    if (Object.prototype.hasOwnProperty.call(parsed, "prenom")) {
+      return {
+        prenom: typeof parsed.prenom === "string" ? parsed.prenom : "",
+        nom,
+        nomAffiche,
+      };
+    }
+    return { prenom: "", nom: "", nomAffiche: nomAffiche.trim() ? nomAffiche : nom };
+  } catch {
+    return empty;
+  }
+}
+
+function storedProfileJson(names: ProfileNames): string {
+  return JSON.stringify({ prenom: names.prenom, nom: names.nom, nomAffiche: names.nomAffiche });
+}
 
 /**
  * Mot de passe : PBKDF2-SHA256, sel de 16 octets, 210 000 tours. Même format
@@ -162,7 +211,21 @@ export async function authState(
 
 export async function listMembers(store: SocleStore, actor: string | null): Promise<MemberRecord[]> {
   if (!actor || (await roleOf(store, actor)) !== "administrateur") throw new AuthError("réservé à l’administrateur");
-  return membersForArchive(store);
+  const members = await membersForArchive(store);
+  const listed: MemberRecord[] = [];
+  for (const member of members) {
+    const names = parseStoredProfile(await store.get("auth", `profil:${member.email}`));
+    listed.push({
+      email: member.email,
+      role: member.role,
+      ...(member.sections ? { sections: member.sections } : {}),
+      prenom: names.prenom,
+      nom: names.nom,
+      nomAffiche: names.nomAffiche,
+      affichage: nomPourAffichage(names),
+    });
+  }
+  return listed;
 }
 
 export function isRole(value: string | null | undefined): value is OrgRole {
@@ -242,6 +305,7 @@ export async function saveMember(
   role: string,
   password?: string,
   sections?: unknown,
+  names?: { prenom?: unknown; nom?: unknown; nomAffiche?: unknown },
 ): Promise<void> {
   if (!actor || (await roleOf(store, actor)) !== "administrateur") throw new AuthError("réservé à l’administrateur");
   const clean = normalizeEmail(email);
@@ -254,6 +318,15 @@ export async function saveMember(
   }
   await store.put("auth", `member:${clean}`, canonical);
   await writeScope(store, clean, canonical, sections);
+  if (names && (names.prenom !== undefined || names.nom !== undefined || names.nomAffiche !== undefined)) {
+    const current = parseStoredProfile(await store.get("auth", `profil:${clean}`));
+    const next: ProfileNames = {
+      prenom: names.prenom !== undefined ? cleanName(names.prenom, "prénom") : current.prenom,
+      nom: names.nom !== undefined ? cleanName(names.nom, "nom") : current.nom,
+      nomAffiche: names.nomAffiche !== undefined ? cleanName(names.nomAffiche, "nom d’affichage") : current.nomAffiche,
+    };
+    await store.put("auth", `profil:${clean}`, storedProfileJson(next));
+  }
 }
 
 export async function startMagic(
@@ -399,7 +472,14 @@ export async function membersForArchive(store: SocleStore): Promise<MemberRecord
       if (!role) continue;
       const email = row.key.slice("member:".length);
       const sections = await scopeOf(store, email);
-      members.push(sections.length ? { email, role, sections } : { email, role });
+      const names = parseStoredProfile(await store.get("auth", `profil:${email}`));
+      const record: MemberRecord = sections.length ? { email, role, sections } : { email, role };
+      if (names.prenom || names.nom || names.nomAffiche) {
+        record.prenom = names.prenom;
+        record.nom = names.nom;
+        record.nomAffiche = names.nomAffiche;
+      }
+      members.push(record);
     }
     members.sort((a, b) => a.email.localeCompare(b.email));
     return members;
@@ -413,13 +493,21 @@ export async function restoreMembers(store: SocleStore, value: unknown): Promise
   if (!Array.isArray(value)) return;
   for (const item of value) {
     if (item === null || typeof item !== "object") continue;
-    const record = item as { email?: unknown; role?: unknown; sections?: unknown };
+    const record = item as { email?: unknown; role?: unknown; sections?: unknown; prenom?: unknown; nom?: unknown; nomAffiche?: unknown };
     const email = normalizeEmail(record.email);
     const role = canonicalRole(typeof record.role === "string" ? record.role : null);
     if (!email || !role) continue;
     try {
       await store.put("auth", `member:${email}`, role);
       await writeScope(store, email, role, record.sections);
+      if (record.prenom !== undefined || record.nom !== undefined || record.nomAffiche !== undefined) {
+        const names: ProfileNames = {
+          prenom: typeof record.prenom === "string" ? record.prenom : "",
+          nom: typeof record.nom === "string" ? record.nom : "",
+          nomAffiche: typeof record.nomAffiche === "string" ? record.nomAffiche : "",
+        };
+        await store.put("auth", `profil:${email}`, storedProfileJson(names));
+      }
     } catch (error) {
       if (error instanceof ModuleOffError) return;
       throw error;
@@ -595,18 +683,7 @@ async function findPendingCourriel(store: SocleStore, actor: string, now: Date):
 }
 
 async function loadProfile(store: SocleStore, email: string, now = new Date()): Promise<ProfileRecord> {
-  const raw = await store.get("auth", `profil:${email}`);
-  let nom = "";
-  let nomAffiche = "";
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw) as { nom?: unknown; nomAffiche?: unknown };
-      if (typeof parsed.nom === "string") nom = parsed.nom;
-      if (typeof parsed.nomAffiche === "string") nomAffiche = parsed.nomAffiche;
-    } catch {
-      nom = "";
-    }
-  }
+  const names = parseStoredProfile(await store.get("auth", `profil:${email}`));
   const pending = await findPendingCourriel(store, email, now);
   const confirmingSelf = pending?.kind === "confirmation" || (pending?.nouveau === email);
   const changing = Boolean(pending && pending.nouveau !== email);
@@ -615,8 +692,10 @@ async function loadProfile(store: SocleStore, email: string, now = new Date()): 
     : (await emailIsConfirmed(store, email) ? "confirmee" : "non-confirmee");
   return {
     email,
-    nom,
-    nomAffiche,
+    prenom: names.prenom,
+    nom: names.nom,
+    nomAffiche: names.nomAffiche,
+    affichage: nomPourAffichage(names),
     courrielEtat,
     courrielEnAttente: changing ? pending!.nouveau : null,
   };
@@ -639,16 +718,18 @@ export async function readProfile(store: SocleStore, actor: string | null, now =
 export async function updateProfile(
   store: SocleStore,
   actor: string | null,
+  prenom: unknown,
   nom: unknown,
   nomAffiche: unknown,
 ): Promise<ProfileRecord> {
   if (!actor) throw new AuthError("accès refusé");
   if (!(await roleOf(store, actor))) throw new AuthError("accès refusé");
-  const profile = {
+  const names: ProfileNames = {
+    prenom: cleanName(prenom, "prénom"),
     nom: cleanName(nom, "nom"),
     nomAffiche: cleanName(nomAffiche, "nom d’affichage"),
   };
-  await store.put("auth", `profil:${actor}`, JSON.stringify(profile));
+  await store.put("auth", `profil:${actor}`, storedProfileJson(names));
   return loadProfile(store, actor);
 }
 
@@ -746,7 +827,7 @@ export async function confirmEmailChange(
   await store.put("auth", `member:${parsed.nouveau}`, role);
   if (password) await store.put("auth", `password:${parsed.nouveau}`, password);
   if (scope) await store.put("auth", `scope:${parsed.nouveau}`, scope);
-  if (profil) await store.put("auth", `profil:${parsed.nouveau}`, profil);
+  if (profil) await store.put("auth", `profil:${parsed.nouveau}`, storedProfileJson(parseStoredProfile(profil)));
   await store.delete("auth", `member:${parsed.email}`);
   await store.delete("auth", `password:${parsed.email}`);
   await store.delete("auth", `scope:${parsed.email}`);

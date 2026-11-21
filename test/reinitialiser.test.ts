@@ -6,7 +6,7 @@ import test from "node:test";
 
 import type { AdminDeps } from "../src/admin.ts";
 import { handleAuth } from "../src/auth-http.ts";
-import { hashToken } from "../src/auth.ts";
+import { hashToken, membersForArchive, nomPourAffichage, parseStoredProfile, restoreMembers } from "../src/auth.ts";
 import { defaultConfig } from "../src/config.ts";
 import { openSqliteMemory } from "../src/sqlite.ts";
 
@@ -157,9 +157,9 @@ test("profil : nom, mot de passe actuel exigé, courriel confirmé", async () =>
   const other = cookieOf((await call("POST", "/v1/auth/motdepasse", { email: "ana@cegep.example", password: "mot de passe d’Ana" })).headers);
   assert.equal((await call("GET", "/v1/auth/profil")).status, 401);
   const empty = JSON.parse((await call("GET", "/v1/auth/profil", undefined, cookie)).body);
-  assert.deepEqual(empty, { email: "ana@cegep.example", nom: "", nomAffiche: "", courrielEtat: "non-confirmee", courrielEnAttente: null });
-  const saved = JSON.parse((await call("POST", "/v1/auth/profil", { nom: "  Anne  Marie  ", nomAffiche: "Anne" }, cookie)).body);
-  assert.deepEqual(saved, { email: "ana@cegep.example", nom: "Anne Marie", nomAffiche: "Anne", courrielEtat: "non-confirmee", courrielEnAttente: null });
+  assert.deepEqual(empty, { email: "ana@cegep.example", prenom: "", nom: "", nomAffiche: "", affichage: "", courrielEtat: "non-confirmee", courrielEnAttente: null });
+  const saved = JSON.parse((await call("POST", "/v1/auth/profil", { prenom: "  Anne  ", nom: "  Marie  ", nomAffiche: "Anne" }, cookie)).body);
+  assert.deepEqual(saved, { email: "ana@cegep.example", prenom: "Anne", nom: "Marie", nomAffiche: "Anne", affichage: "Anne", courrielEtat: "non-confirmee", courrielEnAttente: null });
   assert.equal((await call("POST", "/v1/auth/profil/motdepasse", { actuel: "mauvais mot de passe", nouveau: "un secret neuf" }, cookie)).status, 401);
   assert.equal((await call("POST", "/v1/auth/profil/motdepasse", { actuel: "mot de passe d’Ana", nouveau: "court" }, cookie)).status, 400);
   assert.equal((await call("POST", "/v1/auth/profil/motdepasse", { actuel: "mot de passe d’Ana", nouveau: "un secret neuf" }, cookie)).status, 204);
@@ -176,12 +176,71 @@ test("profil : nom, mot de passe actuel exigé, courriel confirmé", async () =>
   const me = JSON.parse((await call("GET", "/v1/auth/etat", undefined, cookie)).body);
   assert.equal(me.email, "anne@cegep.example");
   const profile = JSON.parse((await call("GET", "/v1/auth/profil", undefined, cookie)).body);
-  assert.equal(profile.nom, "Anne Marie");
+  assert.equal(profile.prenom, "Anne");
+  assert.equal(profile.nom, "Marie");
+  assert.equal(profile.nomAffiche, "Anne");
+  assert.equal(profile.affichage, "Anne");
   assert.equal(profile.email, "anne@cegep.example");
   assert.equal(profile.courrielEtat, "confirmee");
   assert.equal(profile.courrielEnAttente, null);
 });
 
+test("profil : un ancien nom complet devient le nom d’affichage, sans être découpé", async () => {
+  assert.deepEqual(parseStoredProfile(JSON.stringify({ nom: "Anne Marie" })), { prenom: "", nom: "", nomAffiche: "Anne Marie" });
+  assert.deepEqual(parseStoredProfile(JSON.stringify({ nom: "Anne Marie", nomAffiche: "Anne" })), { prenom: "", nom: "", nomAffiche: "Anne" });
+  assert.deepEqual(parseStoredProfile(JSON.stringify({ prenom: "", nom: "", nomAffiche: "Anne Marie" })), { prenom: "", nom: "", nomAffiche: "Anne Marie" });
+  assert.deepEqual(parseStoredProfile(JSON.stringify({ prenom: "Anne", nom: "Marie", nomAffiche: "" })), { prenom: "Anne", nom: "Marie", nomAffiche: "" });
+  assert.equal(nomPourAffichage({ prenom: "Anne", nom: "Marie", nomAffiche: "" }), "Anne Marie");
+  assert.equal(nomPourAffichage({ prenom: "Anne", nom: "Marie", nomAffiche: "Anne" }), "Anne");
+  const compose = parseStoredProfile(JSON.stringify({ nom: "Jean-Philippe Tremblay" }));
+  assert.deepEqual(compose, { prenom: "", nom: "", nomAffiche: "Jean-Philippe Tremblay" });
+
+  const { call, store } = await setup();
+  const install = await call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" });
+  const cookie = cookieOf(install.headers);
+  await store.put("auth", "profil:ana@cegep.example", JSON.stringify({ nom: "Anne Marie" }));
+  const got = JSON.parse((await call("GET", "/v1/auth/profil", undefined, cookie)).body);
+  assert.deepEqual(
+    { prenom: got.prenom, nom: got.nom, nomAffiche: got.nomAffiche, affichage: got.affichage },
+    { prenom: "", nom: "", nomAffiche: "Anne Marie", affichage: "Anne Marie" },
+  );
+});
+
+test("membres : prénom et nom, archive compatible, un envoi sans nom ne les efface pas", async () => {
+  const { call, store } = await setup();
+  const install = await call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" });
+  const cookie = cookieOf(install.headers);
+  assert.equal((await call("POST", "/v1/auth/membres", {
+    email: "lea@cegep.example",
+    role: "auteur",
+    password: "mot de passe de Léa",
+    prenom: "  Léa  ",
+    nom: "  Côté  ",
+  }, cookie)).status, 204);
+  const team = JSON.parse((await call("GET", "/v1/auth/membres", undefined, cookie)).body) as Array<Record<string, unknown>>;
+  const lea = team.find((item) => item.email === "lea@cegep.example");
+  assert.deepEqual(lea, { email: "lea@cegep.example", role: "auteur", prenom: "Léa", nom: "Côté", nomAffiche: "", affichage: "Léa Côté" });
+  assert.equal((await call("POST", "/v1/auth/membres", { email: "lea@cegep.example", role: "editeur" }, cookie)).status, 204);
+  const still = JSON.parse((await call("GET", "/v1/auth/membres", undefined, cookie)).body) as Array<Record<string, unknown>>;
+  assert.deepEqual(still.find((item) => item.email === "lea@cegep.example"), {
+    email: "lea@cegep.example", role: "editeur", prenom: "Léa", nom: "Côté", nomAffiche: "", affichage: "Léa Côté",
+  });
+  const archived = await membersForArchive(store);
+  assert.deepEqual(archived.find((item) => item.email === "lea@cegep.example"), {
+    email: "lea@cegep.example", role: "editeur", prenom: "Léa", nom: "Côté", nomAffiche: "",
+  });
+  assert.deepEqual(archived.find((item) => item.email === "ana@cegep.example"), {
+    email: "ana@cegep.example", role: "administrateur",
+  });
+  const other = openSqliteMemory();
+  await other.migrate(["auth"]);
+  await restoreMembers(other, [{ email: "old@cegep.example", role: "auteur" }]);
+  assert.equal(await other.get("auth", "member:old@cegep.example"), "auteur");
+  assert.equal(await other.get("auth", "profil:old@cegep.example"), null);
+  await restoreMembers(other, [{ email: "lea@cegep.example", role: "auteur", prenom: "Léa", nom: "Côté", nomAffiche: "" }]);
+  assert.deepEqual(JSON.parse((await other.get("auth", "profil:lea@cegep.example")) ?? "{}"), { prenom: "Léa", nom: "Côté", nomAffiche: "" });
+  await other.close();
+});
 
 test("profil : le nouveau courriel n’est appliqué qu’après un lien unique non expiré", async () => {
   const sent: Array<{ to: string; text: string }> = [];
