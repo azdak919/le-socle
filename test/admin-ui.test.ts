@@ -230,7 +230,9 @@ test("assistant : exemples en placeholder, jamais de valeur préremplie, champs 
     assert.match(input, /placeholder="[^"]+"/, `exemple pâle pour ${input}`);
     assert.doesNotMatch(input, /\svalue=/, `aucune valeur préremplie pour ${input}`);
   }
-  for (const example of ["Le Quorum", "Cégep de Sainte-Foy", "redaction@exemple.ca"]) assert.ok(form.includes(`placeholder="${example}"`), example);
+  for (const example of ["Le Quorum", "Cégep de Saint-Louis-du-Ha! Ha!", "redaction@exemple.ca"]) assert.ok(form.includes(`placeholder="${example}"`), example);
+  assert.ok(form.includes('placeholder="Association étudiante du Cégep de Saint-Louis-du-Ha! Ha!"'));
+  assert.ok(form.includes('placeholder="Le journal étudiant du Cégep de Saint-Louis-du-Ha! Ha!"'));
   assert.match(form, /fileChooser\(/);
   assert.doesNotMatch(form, /<input name="logo" type="file"/);
   assert.match(admin, /button: 'Choisir un fichier'/);
