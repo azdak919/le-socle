@@ -1,6 +1,6 @@
 # Mettre le Socle en production
 
-Cette liste sert au moment où un journal installe **sa** copie pour de vrai, en HTTPS, avec une équipe qui se connecte. Rien n’est déployé depuis ce dépôt : les secrets, le nom de domaine et l’hébergement sont réglés par la personne qui installe (pour le Radar, c’est Charles). N’écrivez jamais les valeurs des secrets dans un fichier du projet, un ticket ou un message.
+Cette liste sert au moment où un journal installe **sa** copie pour de vrai, en HTTPS, avec une équipe qui se connecte. Rien n’est déployé depuis ce dépôt : les secrets, le nom de domaine et l’hébergement sont réglés par la personne qui installe. N’écrivez jamais les valeurs des secrets dans un fichier du projet, un ticket ou un message.
 
 ## 1. Avant d’ouvrir le journal au public
 
