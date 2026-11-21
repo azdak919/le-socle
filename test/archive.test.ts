@@ -381,7 +381,15 @@ test("restaurer en deux temps : résumé, copie de l'état actuel, puis restaura
     assert.equal(again.status, 400, "un jeton ne sert qu'une fois");
     const page = await handleAdmin("GET", "/admin/sauvegarde", config, deps, new Uint8Array());
     assert.match(String(page.body), /Voir le contenu/);
+    assert.match(String(page.body), /Choisir un fichier/);
+    assert.match(String(page.body), /Aucun fichier choisi/);
+    assert.doesNotMatch(String(page.body), /Choose a file/);
+    assert.match(String(page.body), /label\.choix-fichier/);
     assert.match(String(page.body), /restaurer\/apercu/);
+    const english = await handleAdmin("GET", "/admin/sauvegarde?lang=en", config, deps, new Uint8Array());
+    assert.match(String(english.body), /Choose a file/);
+    assert.match(String(english.body), /No file chosen/);
+    assert.doesNotMatch(String(english.body), /Choisir un fichier/);
     assert.equal(String(page.body).includes("</script>", String(page.body).indexOf("<script>") + 10) , true);
   } finally {
     await store.close();
