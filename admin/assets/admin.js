@@ -560,8 +560,14 @@ function paintTitle() {
 function authHash() {
   const raw = location.hash.slice(1);
   if (raw.startsWith('reinitialiser=')) return { screen: 'reinitialiser', token: decodeURIComponent(raw.slice('reinitialiser='.length)) };
+  if (raw.startsWith('courriel=')) return { screen: 'courriel', token: decodeURIComponent(raw.slice('courriel='.length)) };
   if (raw === 'oubli' || raw.startsWith('oubli')) return { screen: 'oubli' };
   return { screen: 'connexion' };
+}
+
+/** Ces fragments d’adresse ne sont pas des onglets : setView ne doit pas les effacer. */
+function isAuthRoute(raw = location.hash.slice(1)) {
+  return raw === 'oubli' || raw === 'connexion' || raw.startsWith('reinitialiser=') || raw.startsWith('courriel=');
 }
 
 function authCard({ title, intro, form, links }) {
@@ -649,6 +655,24 @@ async function loginScreen() {
           location.hash = 'dashboard';
           location.reload();
         } catch (failure) { showAuthError(error, failure); }
+      };
+      bindThemeToggles();
+      applyTheme();
+      return;
+    }
+    if (route.screen === 'courriel') {
+      main.innerHTML = authCard({
+        title: 'Se connecter',
+        intro: 'Connectez-vous pour confirmer votre nouveau courriel. Le lien reste valable après la connexion.',
+        form: `<form id="login-form" class="grid"><div class="field full"><label>Courriel<input name="email" type="email" autocomplete="username" required placeholder="vous@exemple.ca"></label></div><div class="field full"><label>Mot de passe<input name="password" type="password" autocomplete="current-password" required></label></div><div class="actions full"><button class="primary">Se connecter</button></div><p id="login-error" class="notice" role="alert" hidden></p></form>`,
+        links: '<a href="#oubli">Mot de passe oublié ?</a>',
+      });
+      document.getElementById('login-form').onsubmit = async (event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        const error = document.getElementById('login-error');
+        try { await authCall('POST', 'motdepasse', { email: data.get('email').trim(), password: data.get('password') }); location.reload(); }
+        catch (failure) { showAuthError(error, failure); }
       };
       bindThemeToggles();
       applyTheme();
@@ -774,6 +798,7 @@ async function refresh() {
 const VIEWS = ['dashboard', 'articles', 'media', 'authors', 'taxonomies', 'settings', 'exports', 'profil'];
 
 function setView(next) {
+  if (isAuthRoute()) return;
   view = VIEWS.includes(next) ? next : 'dashboard';
   document.querySelectorAll('.admin-nav [data-view]').forEach((link) => {
     if (link.dataset.view === view) link.setAttribute('aria-current', 'page');

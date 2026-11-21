@@ -286,6 +286,14 @@ test("rédaction pour néophytes : mots simples, états vides, erreurs lisibles"
   assert.match(php, /'\/admin\/mise-a-jour\/paquet\/revenir'\) && \$method === 'GET'\)/);
 });
 
+test("les liens de réinitialisation et de confirmation de courriel survivent au chargement", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  assert.match(admin, /function isAuthRoute\(/);
+  assert.match(admin, /if \(isAuthRoute\(\)\) return;/);
+  assert.match(admin, /raw\.startsWith\('courriel='\)/);
+  assert.match(admin, /Connectez-vous pour confirmer votre nouveau courriel/);
+});
+
 test("fondation et droits sur les articles ; Configuration et Mise à jour à l'administrateur", () => {
   const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
   assert.match(admin, /<input name="fondation" inputmode="numeric" maxlength="4" pattern="\[0-9\]\{4\}"[^>]*placeholder="1971">/);
