@@ -184,7 +184,7 @@ function applyTheme() {
   document.documentElement.classList.toggle('dark', themeIsDark());
   const label = themeChoice() === 'sombre' ? 'Thème sombre' : themeChoice() === 'clair' ? 'Thème clair' : 'Thème du système';
   document.querySelectorAll('[data-theme-toggle]').forEach((button) => {
-    button.textContent = label;
+    button.innerHTML = `<span class="label-long">${label}</span><span class="label-short">Thème</span>`;
     button.setAttribute('aria-label', `${label}. Changer le thème.`);
   });
 }
@@ -1808,8 +1808,8 @@ function profileView() {
     <form id="profile-email-form" class="grid">
       <div class="field full"><label>Nouveau courriel<input name="courriel" type="email" autocomplete="email" required placeholder="vous@exemple.ca"></label></div>
       <div class="actions full"><button class="primary">Demander la confirmation</button></div>
-      <p class="auth-intro">Un lien de confirmation part à la nouvelle adresse, s’il est possible d’envoyer un courriel. Sinon, demandez à l’administrateur.</p>
     </form>
+    <p class="auth-intro">Un lien de confirmation part à la nouvelle adresse, s’il est possible d’envoyer un courriel. Sinon, demandez à l’administrateur.</p>
     <h3>Mot de passe</h3>
     <form id="profile-password-form" class="grid">
       <div class="field full"><label>Mot de passe actuel<input name="actuel" type="password" autocomplete="current-password" required></label></div>

@@ -84,6 +84,8 @@
 .admin-header h1 .muted { @apply text-muted-foreground font-normal; }
 .admin-header a.btn, .admin-header button.btn, .admin-header-actions { @apply shrink-0; }
 .admin-header-actions { @apply flex items-center gap-2; }
+.label-short { @apply md:hidden; }
+.label-long { @apply hidden md:inline; }
 .local-warning { @apply mx-4 md:mx-8 mt-3 flex items-center gap-2 text-xs text-muted-foreground; }
 .local-warning svg { @apply size-3.5 shrink-0; }
 #admin-main { @apply w-full max-w-6xl px-4 md:px-8 py-6 md:py-8; }
