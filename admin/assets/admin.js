@@ -323,25 +323,56 @@ function bindRequiredFlags(form) {
   });
 }
 
+/** Même libellés que la page Sauvegarde : le bouton natif du navigateur est en anglais. */
+function fileChooserLabels() {
+  const english = String(document.documentElement.lang || '').toLowerCase().startsWith('en');
+  return english
+    ? { button: 'Choose a file', empty: 'No file chosen' }
+    : { button: 'Choisir un fichier', empty: 'Aucun fichier choisi' };
+}
+
+function fileChooser(attrs, etiquette = '') {
+  const labels = fileChooserLabels();
+  const caption = etiquette ? `<span class="choix-fichier-etiquette">${etiquette}</span>` : '';
+  return `<label class="choix-fichier">${caption}<span class="choix-fichier-bouton"><span class="button">${labels.button}</span><input class="choix-fichier-input" ${attrs}></span><span class="choix-fichier-nom" data-choix-nom>${labels.empty}</span></label>`;
+}
+
+function bindFileChoosers(root) {
+  (root || document).querySelectorAll('.choix-fichier-input').forEach((input) => {
+    if (input.dataset.choixBound) return;
+    input.dataset.choixBound = '1';
+    const name = input.closest('.choix-fichier')?.querySelector('[data-choix-nom]');
+    const empty = name ? name.textContent : '';
+    const show = () => {
+      if (!name) return;
+      const files = input.files;
+      if (!files || !files.length) name.textContent = empty;
+      else if (files.length === 1) name.textContent = files[0].name;
+      else name.textContent = `${files.length} fichiers`;
+    };
+    input.addEventListener('change', show);
+  });
+}
+
 function assistantForm() {
   return `<section class="panel assistant" style="max-width:40rem"><h2>Installer le journal</h2>
 <p>Ce journal est neuf. Remplissez ce formulaire une fois : le site et la rédaction seront prêts. Tout se change ensuite dans « Configuration ».</p>
 <form id="login-form" class="grid" novalidate>
 <fieldset class="field full"><legend>Le journal</legend>
 <p class="muted">Les exemples en gris pâle disparaissent quand vous écrivez ; un champ laissé vide n’enregistre rien. Les champs marqués « obligatoire » doivent être remplis.</p>
-<label>Nom du journal (obligatoire)<input name="nom" required maxlength="80" placeholder="La Vigie"></label>
-<label>Établissement (facultatif)<input name="etablissement" maxlength="120" placeholder="Cégep de Sainte-Foy"></label>
+<label>Nom du journal (obligatoire)<input name="nom" required maxlength="80" placeholder="Le Quorum"></label>
+<label>Établissement (facultatif)<input name="etablissement" maxlength="120" placeholder="Cégep de Saint-Louis-du-Ha! Ha!"></label>
 <label>Année de fondation (facultatif)<input name="fondation" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" data-erreur="Écrivez l’année en quatre chiffres, par exemple 1971." placeholder="1971"></label>
-<label>Organisme responsable du journal (facultatif)<input name="organisme" maxlength="120" placeholder="Association étudiante du Cégep de Sainte-Foy"></label>
+<label>Organisme responsable du journal (facultatif)<input name="organisme" maxlength="120" placeholder="Association étudiante du Cégep de Saint-Louis-du-Ha! Ha!"></label>
 <label>Courriel de la rédaction, affiché sur le site (facultatif)<input name="contact" type="email" placeholder="redaction@exemple.ca"></label>
-<label>Signature (facultatif)<input name="signature" maxlength="120" placeholder="Le journal étudiant du Cégep de Sainte-Foy"></label>
+<label>Signature (facultatif)<input name="signature" maxlength="120" placeholder="Le journal étudiant du Cégep de Saint-Louis-du-Ha! Ha!"></label>
 <label>Sections, séparées par des virgules (obligatoire)<input name="sections" required placeholder="Campus, Culture, Sports"></label>
 <label>Droits sur les articles<select name="licence"><option value="">Tous droits réservés (par défaut)</option><option value="CC BY-NC-ND 4.0">Creative Commons BY-NC-ND 4.0 : partage permis, sans modification ni usage commercial</option></select></label>
 <small>Affiché au bas de chaque page : « © 2026 Nom du journal. Tous droits réservés. » Avec l’année de fondation : « © 1971–2026 ». L’année courante se met à jour toute seule.</small>
 </fieldset>
 <fieldset class="field full"><legend>Apparence</legend>
 <label>Couleur principale<input name="couleur" type="color" value="#6c2163"></label>
-<label>Logo (facultatif : PNG, JPEG, WebP ou SVG, 500 ko au plus)<input name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label>
+${fileChooser('name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"', 'Logo (facultatif : PNG, JPEG, WebP ou SVG, 500 ko au plus)')}
 <div data-mast-preview class="full"></div>
 </fieldset>
 <details class="field full assistant-social"><summary>Réseaux sociaux (facultatif)</summary>
@@ -365,6 +396,7 @@ ${socialFieldsHtml()}
 
 function bindAssistant() {
   const form = document.getElementById('login-form');
+  bindFileChoosers(form);
   const radio = form.elements.radio;
   const stationLabel = form.querySelector('[data-station]');
   radio.addEventListener('change', () => {
@@ -1454,7 +1486,7 @@ function sportsTeamFields(team = {}) {
       <option value="M"${sex === 'M' ? ' selected' : ''}>Masculin</option>
       <option value="mixte"${sex === 'mixte' ? ' selected' : ''}>Mixte</option>
     </select></label>
-    <label>Établissement<input data-team-institution placeholder="Cégep de Sainte-Foy" value="${esc(team.institution || '')}"></label>
+    <label>Établissement<input data-team-institution placeholder="Cégep de Saint-Louis-du-Ha! Ha!" value="${esc(team.institution || '')}"></label>
     <label>Lien officiel des résultats, facultatif<input data-team-official type="url" placeholder="https://rseq.ca/" value="${esc(official)}"></label>
     <small>Adresse http ou https. Le lien paraît sur la page « Au tableau ».</small>
     <label>Résultats, un par ligne<textarea data-team-results rows="3" placeholder="2026-11-12, Carabins, 4-2, domicile">${esc(results)}</textarea></label>
@@ -1505,6 +1537,33 @@ function bindSportsForm(form) {
   });
 }
 
+/** Nom montré pour une localité : une chaîne, ou un objet { name, latitude, longitude, meteomediaSlug }. */
+function localityName(locality) {
+  if (locality && typeof locality === 'object') return String(locality.name || '').trim();
+  return String(locality ?? '').trim();
+}
+
+/** Le champ de Configuration n’édite que les noms, séparés par des virgules. */
+function formatWeatherLocalities(localities) {
+  return (Array.isArray(localities) ? localities : []).map(localityName).filter(Boolean).join(', ');
+}
+
+/**
+ * À l’enregistrement, un nom inchangé retrouve son objet (coordonnées, slug
+ * MétéoMédia, lien Environnement Canada). Un nom nouveau reste une chaîne :
+ * le site la géocode. Quatre localités au plus, dans l’ordre tapé.
+ */
+function parseWeatherLocalities(text, previous) {
+  const names = String(text || '').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4);
+  const pool = (Array.isArray(previous) ? previous : []).map((item) => ({ item, used: false }));
+  return names.map((name) => {
+    const match = pool.find((entry) => !entry.used && localityName(entry.item) === name);
+    if (!match) return name;
+    match.used = true;
+    return match.item && typeof match.item === 'object' ? { ...match.item } : match.item;
+  });
+}
+
 function settings() {
   const publication = bundle.publication;
   const masthead = publication.masthead || {};
@@ -1512,20 +1571,20 @@ function settings() {
   const missing = missingSettings(publication);
   return `<section class="panel"><div class="toolbar"><p>Le nom, l’apparence et les renseignements du journal.</p>${importButton()}</div>${missing.length ? `<p class="notice" role="status">À remplir avant de publier : ${esc(missing.join(', '))}.</p>` : ''}<form id="settings-form" class="grid" novalidate>
     <p class="media-quality full">Les exemples en gris pâle disparaissent quand vous écrivez ; ils ne sont jamais enregistrés.</p>
-    <div class="field"><label>Nom (obligatoire)<input name="name" required placeholder="La Vigie" value="${esc(publication.name)}"></label></div>
+    <div class="field"><label>Nom (obligatoire)<input name="name" required placeholder="Le Quorum" value="${esc(publication.name)}"></label></div>
     <fieldset class="field full"><legend>Adresse, organisme et contacts</legend>
       <label>Adresse du site public<input name="siteUrl" type="url" placeholder="https://votre-journal.com/" value="${esc(publication.siteUrl || detectedSiteUrl())}"></label><small>${(() => { const detected = detectedSiteUrl(); const current = String(publication.siteUrl || '').replace(/\/+$/, ''); return !onSocle() || !current || current === detected.replace(/\/+$/, '') ? `Détectée automatiquement : ${esc(detected)}` : `L’adresse enregistrée ne correspond plus à l’emplacement actuel du site (${esc(detected)}). Enregistrez pour la mettre à jour, ou corrigez-la.`; })()}</small>
       <label>Nom court du journal, utilisé dans les adresses (obligatoire)<input name="slug" required placeholder="la-vigie" pattern="[a-z0-9]+(-[a-z0-9]+)*" value="${esc(publication.slug === 'mon-journal' ? slugify(publication.name || '') : publication.slug || '')}"></label><small>Lettres minuscules, chiffres et tirets, par exemple la-boussole.</small>
-      <label>Organisme ou personne responsable<input name="owner" placeholder="Association étudiante du Cégep de Sainte-Foy" value="${esc(governance.owner || '')}"></label>
+      <label>Organisme ou personne responsable<input name="owner" placeholder="Association étudiante du Cégep de Saint-Louis-du-Ha! Ha!" value="${esc(governance.owner || '')}"></label>
       <label>Courriel de la rédaction<input name="contact" type="email" placeholder="redaction@exemple.ca" value="${esc(governance.contact || '')}"></label>
       <label>Dépôt GitHub du journal, facultatif<input name="repo" placeholder="organisation/journal" value="${esc(governance.repo || '')}"></label>
       <label><input name="noindex" type="checkbox" ${publication.noindex ? 'checked' : ''}> Cacher le journal des moteurs de recherche (journal d’essai ou fictif)</label><label><input name="fictif" type="checkbox" ${publication.fictif ? 'checked' : ''}> Afficher le bandeau « Journal étudiant fictif »</label>
-    </fieldset><div class="field"><label>Signature<input name="tagline" placeholder="Le journal étudiant du Cégep de Sainte-Foy" value="${esc(publication.tagline || '')}"></label></div><div class="field"><label>Établissement<input name="institution" placeholder="Cégep de Sainte-Foy" value="${esc(publication.institution || '')}"></label></div><div class="field"><label>Année de fondation (facultatif)<input name="founded" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" data-erreur="Écrivez l’année en quatre chiffres, par exemple 1971." placeholder="1971" value="${esc(publication.founded || '')}"></label><small>Au bas des pages : « © 1971–${new Date().getFullYear()} ». Vide : seulement l’année courante.</small></div><div class="field"><label>Droits sur les articles<select name="license"><option value="" ${/by-nc-nd/i.test(publication.license || '') ? '' : 'selected'}>Tous droits réservés (par défaut)</option><option value="CC BY-NC-ND 4.0" ${/by-nc-nd/i.test(publication.license || '') ? 'selected' : ''}>Creative Commons BY-NC-ND 4.0 : partage permis, sans modification ni usage commercial</option></select></label></div><div class="field"><label>Typographie<select name="typography"><option value="modern-accessible">Moderne accessible</option><option value="editorial-classic" ${publication.theme?.typography === 'editorial-classic' ? 'selected' : ''}>Éditoriale classique</option><option value="institutional" ${publication.theme?.typography === 'institutional' ? 'selected' : ''}>Institutionnelle</option></select></label></div>
+    </fieldset><div class="field"><label>Signature<input name="tagline" placeholder="Le journal étudiant du Cégep de Saint-Louis-du-Ha! Ha!" value="${esc(publication.tagline || '')}"></label></div><div class="field"><label>Établissement<input name="institution" placeholder="Cégep de Saint-Louis-du-Ha! Ha!" value="${esc(publication.institution || '')}"></label></div><div class="field"><label>Année de fondation (facultatif)<input name="founded" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" data-erreur="Écrivez l’année en quatre chiffres, par exemple 1971." placeholder="1971" value="${esc(publication.founded || '')}"></label><small>Au bas des pages : « © 1971–${new Date().getFullYear()} ». Vide : seulement l’année courante.</small></div><div class="field"><label>Droits sur les articles<select name="license"><option value="" ${/by-nc-nd/i.test(publication.license || '') ? '' : 'selected'}>Tous droits réservés (par défaut)</option><option value="CC BY-NC-ND 4.0" ${/by-nc-nd/i.test(publication.license || '') ? 'selected' : ''}>Creative Commons BY-NC-ND 4.0 : partage permis, sans modification ni usage commercial</option></select></label></div><div class="field"><label>Typographie<select name="typography"><option value="modern-accessible">Moderne accessible</option><option value="editorial-classic" ${publication.theme?.typography === 'editorial-classic' ? 'selected' : ''}>Éditoriale classique</option><option value="institutional" ${publication.theme?.typography === 'institutional' ? 'selected' : ''}>Institutionnelle</option></select></label></div>
     <div class="field"><label>Fuseau horaire<select name="timeZone"><option value="America/Toronto" ${publication.timeZone !== 'America/Blanc-Sablon' ? 'selected' : ''}>Heure de l’Est — majorité du Québec</option><option value="America/Blanc-Sablon" ${publication.timeZone === 'America/Blanc-Sablon' ? 'selected' : ''}>Heure de l’Atlantique — Blanc-Sablon</option></select></label></div>
     <div class="field"><label>Couleur principale<input name="accent" type="color" value="${esc(publication.theme?.accent || '#6c2163')}"></label></div><div class="field"><label>Couleur sombre<input name="accentDark" type="color" value="${esc(publication.theme?.accentDark || '#cf7ec1')}"></label></div><div id="admin-contrast" class="notice full" role="status"></div>
-    <fieldset class="field full"><legend>Mât illustré</legend><label><input name="backgroundsEnabled" type="checkbox" ${masthead.backgrounds?.enabled !== false ? 'checked' : ''}> Afficher les images de fond</label><div class="field full"><label for="background-files">Ajouter mes propres images</label><input id="background-files" type="file" accept="image/jpeg,image/png,image/webp" multiple></div><p class="media-quality">Chaque image du mât a besoin d’une description accessible et d’un crédit. Les photos trop grandes sont réduites dans le navigateur, et les métadonnées de l’appareil, y compris la position, sont retirées.</p><div class="actions"><button type="button" data-action="choose-masthead-media">Choisir des photos</button><button type="button" data-action="clear-backgrounds">Retirer toutes les images</button></div><p>${masthead.backgrounds?.images?.length || 0} image(s) enregistrée(s). Un nouvel envoi les ajoute à la rotation. Une photo utilisée dans le mât ne peut pas être retirée de la banque.</p><div id="masthead-selected-list" class="masthead-selected-list"></div><label><input name="randomOrder" type="checkbox" ${masthead.backgrounds?.randomOrder !== false ? 'checked' : ''}> Ordre aléatoire</label><small>Activé (par défaut) : une photo au hasard à chaque visite. Désactivé : toujours commencer par la première de la liste.</small><label>Cadrage horizontal<input name="mastheadFocalX" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.x ?? 50}"></label><label>Cadrage vertical<input name="mastheadFocalY" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.y ?? 50}"></label><label>Assombrir l’image derrière le titre<input name="overlayStrength" type="range" min="0" max="0.9" step="0.05" value="${masthead.overlayStrength ?? 0.55}"></label><label>Alignement du titre<select name="textAlignment"><option value="left">Gauche</option><option value="center" ${masthead.textAlignment === 'center' ? 'selected' : ''}>Centre</option><option value="right" ${masthead.textAlignment === 'right' ? 'selected' : ''}>Droite</option></select></label><div id="masthead-crop-preview">${cropFrames(masthead.backgrounds?.images?.[0], 'masthead')}</div></fieldset>
+    <fieldset class="field full masthead-fieldset"><legend>Mât illustré</legend><label><input name="backgroundsEnabled" type="checkbox" ${masthead.backgrounds?.enabled !== false ? 'checked' : ''}> Afficher les images de fond</label><div class="field full"><label for="background-files">Ajouter mes propres images</label><input id="background-files" type="file" accept="image/jpeg,image/png,image/webp" multiple></div><p class="media-quality">Chaque image du mât a besoin d’une description accessible et d’un crédit. Les photos trop grandes sont réduites dans le navigateur, et les métadonnées de l’appareil, y compris la position, sont retirées.</p><div class="actions"><button type="button" data-action="choose-masthead-media">Choisir des photos</button><button type="button" data-action="clear-backgrounds">Retirer toutes les images</button></div><p class="media-quality">${masthead.backgrounds?.images?.length || 0} image(s) enregistrée(s). Un nouvel envoi les ajoute à la rotation. Une photo utilisée dans le mât ne peut pas être retirée de la banque.</p><div class="masthead-selection"><div id="masthead-selected-list" class="masthead-selected-list"></div><label class="masthead-random"><span><input name="randomOrder" type="checkbox" ${masthead.backgrounds?.randomOrder !== false ? 'checked' : ''}> Ordre aléatoire</span><small>Activé (par défaut) : une photo au hasard à chaque visite. Désactivé : toujours commencer par la première de la liste.</small></label></div><label>Cadrage horizontal<input name="mastheadFocalX" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.x ?? 50}"></label><label>Cadrage vertical<input name="mastheadFocalY" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.y ?? 50}"></label><label>Assombrir l’image derrière le titre<input name="overlayStrength" type="range" min="0" max="0.9" step="0.05" value="${masthead.overlayStrength ?? 0.55}"></label><label>Alignement du titre<select name="textAlignment"><option value="left">Gauche</option><option value="center" ${masthead.textAlignment === 'center' ? 'selected' : ''}>Centre</option><option value="right" ${masthead.textAlignment === 'right' ? 'selected' : ''}>Droite</option></select></label><div id="masthead-crop-preview">${cropFrames(masthead.backgrounds?.images?.[0], 'masthead')}</div></fieldset>
     <fieldset class="field full settings-social"><legend>Réseaux sociaux</legend><small>Une adresse complète par réseau ; un réseau laissé vide n’est pas affiché. Les icônes paraissent dans le mât et au bas des pages du site Web.</small><div class="social-grid">${socialFieldsHtml(publication.social || {})}</div></fieldset>
-    <fieldset class="field"><legend>Météo</legend><label><input name="weatherEnabled" type="checkbox" ${masthead.weather?.enabled ? 'checked' : ''}> Afficher la météo</label><label>Localités, séparées par des virgules<input name="weatherLocalities" value="${esc((masthead.weather?.localities || []).join(', '))}" placeholder="Québec"></label><small>Maximum quatre.</small></fieldset>
+    <fieldset class="field"><legend>Météo</legend><label><input name="weatherEnabled" type="checkbox" ${masthead.weather?.enabled ? 'checked' : ''}> Afficher la météo</label><label class="localites">Localités, séparées par des virgules<input name="weatherLocalities" value="${esc(formatWeatherLocalities(masthead.weather?.localities))}" placeholder="Québec"></label><small>Maximum quatre.</small></fieldset>
     <fieldset class="field full"><legend>Sports — Au tableau</legend>
       <label><input name="sportsEnabled" type="checkbox" ${(masthead.sports?.enabled !== false && sportsTeamsFromPublication(publication).length) || masthead.sports?.enabled ? 'checked' : ''}> Afficher les scores dans le mât et la page « Au tableau »</label>
       <p class="muted">Ajoutez à la main les équipes du cégep, leurs résultats et le prochain match. La page « Au tableau » n’apparaît que si au moins une équipe est enregistrée.</p>
@@ -1534,7 +1593,7 @@ function settings() {
     </fieldset>
     <fieldset class="field"><legend>Outils</legend><label><input name="pomodoro" type="checkbox" ${masthead.tools?.pomodoro !== false ? 'checked' : ''}> Pomodoro LE-RADAR.ca</label><label><input name="solitaire" type="checkbox" ${masthead.tools?.solitaire !== false ? 'checked' : ''}> Solitaire LE-RADAR.ca</label></fieldset>
     <fieldset class="field full"><legend>Radio étudiante</legend><label><input name="radioEnabled" type="checkbox" ${publication.radio?.enabled !== false ? 'checked' : ''}> Afficher la barre radio sous le mât</label><label>Station<select name="station" id="radar-stations"><option value="">Choisir une station</option>${publication.radio?.station ? `<option value="${esc(publication.radio.station)}" selected>${esc(publication.radio.station)}</option>` : ''}</select></label><small>La barre est le module de LE-RADAR : ses stations et son lecteur se mettent à jour chez LE-RADAR, sans toucher au journal. Éteinte, la barre n’existe pas et rien ne part vers le-radar.ca.</small></fieldset>
-    <div class="field full"><label>Logo local (SVG, PNG, WebP ou JPEG)<input id="logo-file" type="file" accept="image/svg+xml,image/png,image/webp,image/jpeg"></label><label>Texte alternatif<input name="logoAlt" placeholder="${esc(publication.name || 'La Vigie')}" value="${esc(publication.logo?.alt || '')}"></label><small>Vide : le nom du journal sert de texte alternatif. Vérifiez vos droits d’utilisation pour chaque image téléversée.</small><div id="logo-preview"></div></div>
+    <div class="field full">${fileChooser('id="logo-file" type="file" accept="image/svg+xml,image/png,image/webp,image/jpeg"', 'Logo local (SVG, PNG, WebP ou JPEG)')}<label>Texte alternatif<input name="logoAlt" placeholder="${esc(publication.name || 'Le Quorum')}" value="${esc(publication.logo?.alt || '')}"></label><small>Vide : le nom du journal sert de texte alternatif. Vérifiez vos droits d’utilisation pour chaque image téléversée.</small><div id="logo-preview"></div></div>
     <div class="actions full"><button class="primary">Enregistrer</button><button type="button" data-action="recommended-theme">Réinitialiser le thème recommandé</button></div></form></section>`;
 }
 
@@ -1668,7 +1727,13 @@ function render() {
       const list = document.getElementById('masthead-selected-list');
       if (!list) return;
       if (!selectedMastheads.length) { list.innerHTML = '<p class="muted">Aucune photo choisie pour le mât.</p>'; return; }
-      list.innerHTML = selectedMastheads.map((item, index) => `<div class="masthead-selected${index === mastheadCropIndex ? ' is-active' : ''}" data-masthead-index="${index}"><img src="${esc(item.src)}" alt="${esc(item.alt || '')}"><span>${esc(item.credit ? `Photo : ${item.credit}` : item.alt || 'Photo')} </span><span class="actions"><button type="button" data-masthead-focus="${index}">Cadrer</button><button type="button" data-masthead-up="${index}" ${index === 0 ? 'disabled' : ''}>Monter</button><button type="button" data-masthead-down="${index}" ${index === selectedMastheads.length - 1 ? 'disabled' : ''}>Descendre</button><button type="button" data-masthead-remove="${index}">Retirer</button></span></div>`).join('');
+      list.innerHTML = selectedMastheads.map((item, index) => {
+        const title = item.alt || item.caption || 'Photo';
+        const credit = item.credit ? `Photo : ${item.credit}` : '';
+        const last = index === selectedMastheads.length - 1;
+        // mediaThumb, comme la banque : base publique ou fichier du serveur, pas le chemin racine brut.
+        return `<article class="masthead-selected${index === mastheadCropIndex ? ' is-active' : ''}" data-masthead-index="${index}"><img src="${esc(mediaThumb(item))}" alt="" width="88" height="60" style="object-position:${Number(item.focalPoint?.x ?? 50)}% ${Number(item.focalPoint?.y ?? 50)}%"><div class="masthead-selected-meta"><strong>${esc(title)}</strong>${credit ? `<span>${esc(credit)}</span>` : ''}</div><div class="actions"><button type="button" data-masthead-focus="${index}">Cadrer</button><button type="button" data-masthead-up="${index}" ${index === 0 ? 'disabled' : ''}>Monter</button><button type="button" data-masthead-down="${index}" ${last ? 'disabled' : ''}>Descendre</button><button type="button" data-masthead-remove="${index}">Retirer</button></div></article>`;
+      }).join('');
       list.querySelectorAll('[data-masthead-focus]').forEach((button) => button.onclick = () => { mastheadCropIndex = Number(button.dataset.mastheadFocus); const item = selectedMastheads[mastheadCropIndex]; if (!item) return; form.elements.mastheadFocalX.value = item.focalPoint?.x ?? 50; form.elements.mastheadFocalY.value = item.focalPoint?.y ?? 50; refreshMastheadCrop(); paintMastheadSelection(); });
       list.querySelectorAll('[data-masthead-up]').forEach((button) => button.onclick = () => { const i = Number(button.dataset.mastheadUp); if (i <= 0) return; [selectedMastheads[i - 1], selectedMastheads[i]] = [selectedMastheads[i], selectedMastheads[i - 1]]; if (mastheadCropIndex === i) mastheadCropIndex = i - 1; else if (mastheadCropIndex === i - 1) mastheadCropIndex = i; paintMastheadSelection(); });
       list.querySelectorAll('[data-masthead-down]').forEach((button) => button.onclick = () => { const i = Number(button.dataset.mastheadDown); if (i >= selectedMastheads.length - 1) return; [selectedMastheads[i + 1], selectedMastheads[i]] = [selectedMastheads[i], selectedMastheads[i + 1]]; if (mastheadCropIndex === i) mastheadCropIndex = i + 1; else if (mastheadCropIndex === i + 1) mastheadCropIndex = i; paintMastheadSelection(); });
@@ -1703,6 +1768,7 @@ function render() {
     let darkTouched = Boolean(bundle.publication.theme?.accentDark) && bundle.publication.theme.accentDark !== darkVariant(bundle.publication.theme?.accent || '#6c2163');
     form.elements.accentDark.addEventListener('input', () => { darkTouched = true; });
     form.elements.accent.addEventListener('input', () => { if (!darkTouched) form.elements.accentDark.value = darkVariant(form.elements.accent.value); });
+    bindFileChoosers(form);
     const showLogo = bindMastPreview(document.getElementById('logo-preview'), {
       file: document.getElementById('logo-file'),
       current: bundle.publication.logo?.src && !isGeneratedInitialsLogoSrc(bundle.publication.logo.src) ? mediaSrc(bundle.publication.logo) : '',
@@ -1731,7 +1797,7 @@ function render() {
     bindRequiredFlags(form);
     bindSocialFields(form);
     bindSportsForm(form);
-    form.onsubmit = async (event) => { event.preventDefault(); if (!flagInvalidFields(form)) { notify('Remplissez les champs signalés.'); return; } const data = new FormData(form); const publication = structuredClone(bundle.publication); publication.name = data.get('name').trim(); publication.tagline = data.get('tagline').trim(); publication.institution = data.get('institution').trim(); publication.founded = String(data.get('founded') || '').trim(); publication.license = String(data.get('license') || ''); publication.social = readSocial(data); publication.timeZone = data.get('timeZone'); publication.siteUrl = data.get('siteUrl').trim(); publication.slug = slugify(data.get('slug')) || publication.slug; publication.governance = { ...publication.governance, owner: data.get('owner').trim(), contact: data.get('contact').trim(), repo: data.get('repo').trim() }; publication.noindex = data.has('noindex'); publication.fictif = data.has('fictif'); publication.theme = { accent: data.get('accent'), accentDark: data.get('accentDark'), typography: data.get('typography') }; publication.radio = { ...publication.radio, enabled: data.has('radioEnabled'), station: String(data.get('station') || '').trim().toLowerCase(), theme: 'dark', position: 'top' }; delete publication.radio.stream; delete publication.radio.name; delete publication.radio.frequency; delete publication.radio.website; const localities = data.get('weatherLocalities').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4); const priorImages = clearMastheadImages ? [] : selectedMastheads; const selectedImages = priorImages.map((item, index) => index === mastheadCropIndex ? { ...item, focalPoint: { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } } : item); publication.masthead = { backgrounds: { enabled: data.has('backgroundsEnabled'), randomOrder: data.has('randomOrder'), images: selectedImages }, weather: { enabled: data.has('weatherEnabled'), localities }, sports: readSportsForm(form), tools: { pomodoro: data.has('pomodoro'), solitaire: data.has('solitaire') }, overlayStrength: Math.min(0.9, Math.max(0, Number(data.get('overlayStrength')))), textAlignment: data.get('textAlignment') }; const uploaded = []; if (mastheadPond.hasFiles()) { const photos = await mastheadPond.collectPhotos(); previewFromFile = true; for (const [index, photo] of photos.entries()) { const details = { alt: photo.alt, credit: photo.credit, caption: photo.caption }; const focalPoint = index === 0 ? { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } : { x: 50, y: 50 }; let asset; if (onSocle()) { asset = await backend.uploadPhoto({ asset: { id: crypto.randomUUID(), ...details, width: photo.width, height: photo.height, usages: ['masthead'], focalPoint, checksum: photo.checksum }, file: photo.file, bank: true }); } else { asset = { ...await readArticleImage(photo.file, details), width: photo.width, height: photo.height, checksum: photo.checksum }; } uploaded.push({ ...asset, focalPoint }); } } /* L’image envoyée et réglée dans l’aperçu passe en tête : c’est elle que le mât montre d’abord. */ publication.masthead.backgrounds.images = previewFromFile && uploaded.length ? [...uploaded, ...publication.masthead.backgrounds.images] : [...publication.masthead.backgrounds.images, ...uploaded]; const logoFile = document.getElementById('logo-file').files[0]; if (logoFile) publication.logo = await readLogo(logoFile, data.get('logoAlt').trim()); else if (publication.logo && isGeneratedInitialsLogoSrc(publication.logo.src)) delete publication.logo; else if (publication.logo) publication.logo.alt = data.get('logoAlt').trim() || publication.name; await backend.savePublication(publication); await refresh(); notify('Configuration enregistrée.'); render(); };
+    form.onsubmit = async (event) => { event.preventDefault(); if (!flagInvalidFields(form)) { notify('Remplissez les champs signalés.'); return; } const data = new FormData(form); const publication = structuredClone(bundle.publication); publication.name = data.get('name').trim(); publication.tagline = data.get('tagline').trim(); publication.institution = data.get('institution').trim(); publication.founded = String(data.get('founded') || '').trim(); publication.license = String(data.get('license') || ''); publication.social = readSocial(data); publication.timeZone = data.get('timeZone'); publication.siteUrl = data.get('siteUrl').trim(); publication.slug = slugify(data.get('slug')) || publication.slug; publication.governance = { ...publication.governance, owner: data.get('owner').trim(), contact: data.get('contact').trim(), repo: data.get('repo').trim() }; publication.noindex = data.has('noindex'); publication.fictif = data.has('fictif'); publication.theme = { accent: data.get('accent'), accentDark: data.get('accentDark'), typography: data.get('typography') }; publication.radio = { ...publication.radio, enabled: data.has('radioEnabled'), station: String(data.get('station') || '').trim().toLowerCase(), theme: 'dark', position: 'top' }; delete publication.radio.stream; delete publication.radio.name; delete publication.radio.frequency; delete publication.radio.website; const localities = parseWeatherLocalities(data.get('weatherLocalities'), publication.masthead?.weather?.localities); const priorImages = clearMastheadImages ? [] : selectedMastheads; const selectedImages = priorImages.map((item, index) => index === mastheadCropIndex ? { ...item, focalPoint: { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } } : item); publication.masthead = { backgrounds: { enabled: data.has('backgroundsEnabled'), randomOrder: data.has('randomOrder'), images: selectedImages }, weather: { enabled: data.has('weatherEnabled'), localities }, sports: readSportsForm(form), tools: { pomodoro: data.has('pomodoro'), solitaire: data.has('solitaire') }, overlayStrength: Math.min(0.9, Math.max(0, Number(data.get('overlayStrength')))), textAlignment: data.get('textAlignment') }; const uploaded = []; if (mastheadPond.hasFiles()) { const photos = await mastheadPond.collectPhotos(); previewFromFile = true; for (const [index, photo] of photos.entries()) { const details = { alt: photo.alt, credit: photo.credit, caption: photo.caption }; const focalPoint = index === 0 ? { x: Number(data.get('mastheadFocalX')), y: Number(data.get('mastheadFocalY')) } : { x: 50, y: 50 }; let asset; if (onSocle()) { asset = await backend.uploadPhoto({ asset: { id: crypto.randomUUID(), ...details, width: photo.width, height: photo.height, usages: ['masthead'], focalPoint, checksum: photo.checksum }, file: photo.file, bank: true }); } else { asset = { ...await readArticleImage(photo.file, details), width: photo.width, height: photo.height, checksum: photo.checksum }; } uploaded.push({ ...asset, focalPoint }); } } /* L’image envoyée et réglée dans l’aperçu passe en tête : c’est elle que le mât montre d’abord. */ publication.masthead.backgrounds.images = previewFromFile && uploaded.length ? [...uploaded, ...publication.masthead.backgrounds.images] : [...publication.masthead.backgrounds.images, ...uploaded]; const logoFile = document.getElementById('logo-file').files[0]; if (logoFile) publication.logo = await readLogo(logoFile, data.get('logoAlt').trim()); else if (publication.logo && isGeneratedInitialsLogoSrc(publication.logo.src)) delete publication.logo; else if (publication.logo) publication.logo.alt = data.get('logoAlt').trim() || publication.name; await backend.savePublication(publication); await refresh(); notify('Configuration enregistrée.'); render(); };
     main.querySelector('[data-action="clear-backgrounds"]').onclick = () => { selectedMastheads = []; mastheadCropIndex = 0; clearMastheadImages = true; form.elements.backgroundsEnabled.checked = false; document.getElementById('masthead-crop-preview').innerHTML = cropFrames(null, 'masthead'); paintMastheadSelection(); notify('Les images seront retirées à l’enregistrement.'); };
     main.querySelector('[data-action="recommended-theme"]').onclick = () => { form.elements.typography.value = 'modern-accessible'; form.elements.accent.value = '#6c2163'; form.elements.accentDark.value = '#cf7ec1'; };
   }
