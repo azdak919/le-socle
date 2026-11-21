@@ -86,7 +86,7 @@ return true;
     assert.equal((await call(`${base}/v1/redaction/etat`)).status, 401);
     assert.equal((await call(`${base}/donnees/socle.sqlite`)).status, 404, "la base n’est jamais servie");
     const state = JSON.parse((await call(`${base}/v1/auth/etat`)).text);
-    assert.deepEqual(state, { mode: "motdepasse", installed: false, email: null, role: null });
+    assert.deepEqual(state, { mode: "motdepasse", installed: false, email: null, role: null, journal: null, courriel: false });
     const json = { "content-type": "application/json" };
     const install = await call(`${base}/v1/auth/installation`, { method: "POST", headers: json, body: JSON.stringify({ email: "resp@cegep.example", password: "un long secret" }) });
     assert.equal(install.status, 204, install.text);

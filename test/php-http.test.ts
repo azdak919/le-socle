@@ -436,8 +436,130 @@ test("le lien magique PHP part par SMTP et n'enregistre que le hachage", async (
     assert.match(rows[0]?.value ?? "", /ada@journal\.example/);
     const back = await fetch(php.url + "/v1/auth/lien?token=" + encodeURIComponent(token), { redirect: "manual" });
     assert.equal(back.status, 303);
-    assert.match(back.headers.get("set-cookie") ?? "", /^socle_session=.+; HttpOnly; Path=\/; SameSite=Lax; Max-Age=43200$/);
+    assert.match(back.headers.get("set-cookie") ?? "", /^socle_session=.+; HttpOnly; Path=\/; SameSite=Lax; Secure; Max-Age=43200$/);
     assert.equal((await fetch(php.url + "/v1/auth/lien?token=" + encodeURIComponent(token), { redirect: "manual" })).status, 400);
+  } finally {
+    await php.stop();
+    await new Promise<void>((resolve) => smtp.close(() => resolve()));
+  }
+});
+
+
+test("PHP : le nouveau courriel n’est appliqué qu’après un lien unique non expiré", async () => {
+  const work = mkdtempSync(join(tmpdir(), "socle-php-courriel-"));
+  const db = join(work, "socle.sqlite");
+  writeConfig(join(work, "socle.config.json"), { auth: true });
+  const prepared = openSqliteFile(db);
+  await prepared.migrate(["auth"]);
+  await prepared.close();
+  const mails: string[] = [];
+  const smtp = createNet();
+  await new Promise<void>((resolve) => smtp.listen(0, "127.0.0.1", resolve));
+  const address = smtp.address();
+  assert.ok(address && typeof address === "object");
+  smtp.on("connection", (socket) => {
+    let buffer = "";
+    socket.write("220 ready\r\n");
+    socket.on("data", (chunk) => {
+      buffer += chunk.toString();
+      if (!buffer.includes("\r\n")) return;
+      const lines = buffer.split("\r\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        mails.push(line);
+        if (line.startsWith("EHLO")) socket.write("250 ok\r\n");
+        else if (line.startsWith("MAIL FROM")) socket.write("250 ok\r\n");
+        else if (line.startsWith("RCPT TO")) socket.write("250 ok\r\n");
+        else if (line === "DATA") socket.write("354 go\r\n");
+        else if (line === ".") socket.write("250 queued\r\n");
+        else if (line === "QUIT") socket.end("221 bye\r\n");
+      }
+    });
+  });
+  const envAt = (now: string) => ({
+    SOCLE_DB: db,
+    SOCLE_CONFIG: join(work, "socle.config.json"),
+    SOCLE_NOW: now,
+    SOCLE_AUTH_MODE: "motdepasse",
+    SOCLE_PUBLIC_ORIGIN: "https://journal.example",
+    SOCLE_SMTP_HOST: "127.0.0.1",
+    SOCLE_SMTP_PORT: String(address.port),
+    SOCLE_SMTP_FROM: "redaction@journal.example",
+  });
+  const json = { "content-type": "application/json" };
+  const tokenOf = () => {
+    const raw = mails.join("\n");
+    const match = raw.match(/https:\/\/journal\.example\/redaction\/#courriel=([^\s]+)/);
+    assert.ok(match?.[1], raw);
+    return decodeURIComponent(match[1].replace(/[>]+$/, ""));
+  };
+  const cookieOf = (res: Response) => String(res.headers.get("set-cookie")).split(";")[0];
+  const start = "2026-11-21T20:00:00.000Z";
+  let php = await startPhp(work, envAt(start));
+  let cookie = "";
+  try {
+    const install = await fetch(php.url + "/v1/auth/installation", {
+      method: "POST",
+      headers: json,
+      body: JSON.stringify({ email: "ana@cegep.example", password: "mot de passe d’Ana" }),
+    });
+    assert.equal(install.status, 204, await install.text());
+    cookie = cookieOf(install);
+    const change = await fetch(php.url + "/v1/auth/profil/courriel", {
+      method: "POST",
+      headers: { ...json, cookie },
+      body: JSON.stringify({ courriel: "anne@cegep.example" }),
+    });
+    assert.equal(change.status, 202, await change.text());
+    const first = tokenOf();
+    const etat = JSON.parse(await (await fetch(php.url + "/v1/auth/etat", { headers: { cookie } })).text());
+    assert.equal(etat.email, "ana@cegep.example");
+    const saved = openSqliteFile(db);
+    await saved.resume();
+    const pending = (await saved.list("auth")).filter((row) => row.key.startsWith("courriel:"));
+    await saved.close();
+    assert.equal(pending.length, 1);
+    assert.equal(pending[0]?.key, "courriel:" + createHash("sha256").update(first).digest("hex"));
+    assert.equal(pending[0]?.value.includes(first), false);
+    await php.stop();
+    php = await startPhp(work, envAt("2026-11-21T21:00:01.000Z"));
+    const expired = await fetch(php.url + "/v1/auth/profil/courriel/confirmer", {
+      method: "POST",
+      headers: { ...json, cookie },
+      body: JSON.stringify({ token: first }),
+    });
+    assert.equal(expired.status, 400);
+    assert.equal(await expired.text(), "lien expiré");
+    assert.equal(JSON.parse(await (await fetch(php.url + "/v1/auth/etat", { headers: { cookie } })).text()).email, "ana@cegep.example");
+    mails.length = 0;
+    const again = await fetch(php.url + "/v1/auth/profil/courriel", {
+      method: "POST",
+      headers: { ...json, cookie },
+      body: JSON.stringify({ courriel: "anne@cegep.example" }),
+    });
+    assert.equal(again.status, 202, await again.text());
+    const second = tokenOf();
+    assert.equal((await fetch(php.url + "/v1/auth/profil/courriel/confirmer", {
+      method: "POST",
+      headers: json,
+      body: JSON.stringify({ token: second }),
+    })).status, 401);
+    const confirmed = await fetch(php.url + "/v1/auth/profil/courriel/confirmer", {
+      method: "POST",
+      headers: { ...json, cookie },
+      body: JSON.stringify({ token: second }),
+    });
+    const confirmedBody = await confirmed.text();
+    assert.equal(confirmed.status, 200, confirmedBody);
+    assert.deepEqual(JSON.parse(confirmedBody), { email: "anne@cegep.example" });
+    assert.equal(JSON.parse(await (await fetch(php.url + "/v1/auth/etat", { headers: { cookie } })).text()).email, "anne@cegep.example");
+    const reuse = await fetch(php.url + "/v1/auth/profil/courriel/confirmer", {
+      method: "POST",
+      headers: { ...json, cookie },
+      body: JSON.stringify({ token: second }),
+    });
+    assert.equal(reuse.status, 400);
+    assert.equal(await reuse.text(), "lien inconnu");
   } finally {
     await php.stop();
     await new Promise<void>((resolve) => smtp.close(() => resolve()));

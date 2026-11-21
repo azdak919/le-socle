@@ -1,5 +1,5 @@
 import { connect, type Socket } from "node:net";
-import { connect as connectTls } from "node:tls";
+import { connect as connectTls, type TLSSocket } from "node:tls";
 
 export type SmtpSettings = {
   host: string;
@@ -8,6 +8,8 @@ export type SmtpSettings = {
   user?: string;
   password?: string;
   from: string;
+  /** Seulement pour les essais locaux : ne pas activer en production. */
+  rejectUnauthorized?: boolean;
 };
 
 export function smtpFromEnv(env: NodeJS.ProcessEnv = process.env): SmtpSettings | null {
@@ -26,18 +28,36 @@ export function smtpFromEnv(env: NodeJS.ProcessEnv = process.env): SmtpSettings 
   };
 }
 
+function tlsOptions(settings: SmtpSettings): { servername: string; rejectUnauthorized: boolean } {
+  return { servername: settings.host, rejectUnauthorized: settings.rejectUnauthorized !== false };
+}
+
 export async function sendSmtp(settings: SmtpSettings, to: string, subject: string, text: string): Promise<void> {
-  const socket = settings.secure
-    ? connectTls({ host: settings.host, port: settings.port, servername: settings.host })
+  let socket: Socket = settings.secure
+    ? connectTls({ host: settings.host, port: settings.port, ...tlsOptions(settings) })
     : connect({ host: settings.host, port: settings.port });
   socket.setTimeout(5000);
   socket.on("timeout", () => socket.destroy(new Error("smtp muet")));
-  const replies = replyReader(socket);
+  let replies = replyReader(socket);
   try {
     await connected(socket, settings.secure === true);
     await expectCode(await replies.next(), 220);
     await writeLine(socket, "EHLO socle");
-    await expectCode(await replies.next(), 250);
+    const ehlo = await expectCode(await replies.next(), 250);
+    // Port 587 typique : STARTTLS si le serveur l'annonce. Sans cette annonce, on
+    // reste en clair (essais locaux). En production, le journal règle SOCLE_SMTP_SECURE=1
+    // (port 465) ou un serveur qui propose STARTTLS.
+    if (!settings.secure && /\bSTARTTLS\b/i.test(ehlo)) {
+      await writeLine(socket, "STARTTLS");
+      await expectCode(await replies.next(), 220);
+      replies.stop();
+      socket = await upgradeTls(socket, tlsOptions(settings));
+      socket.setTimeout(5000);
+      socket.on("timeout", () => socket.destroy(new Error("smtp muet")));
+      replies = replyReader(socket);
+      await writeLine(socket, "EHLO socle");
+      await expectCode(await replies.next(), 250);
+    }
     if (settings.user) {
       await writeLine(socket, "AUTH LOGIN");
       await expectCode(await replies.next(), 334);
@@ -162,7 +182,15 @@ function replyReader(socket: Socket): { next: () => Promise<string>; stop: () =>
   };
 }
 
-function expectCode(reply: string, code: number): void {
+function expectCode(reply: string, code: number): string {
   const last = reply.split("\n").at(-1) ?? "";
   if (!last.startsWith(String(code))) throw new Error("smtp refusé");
+  return reply;
+}
+
+function upgradeTls(socket: Socket, options: { servername: string; rejectUnauthorized: boolean }): Promise<TLSSocket> {
+  return new Promise((resolve, reject) => {
+    const tlsSocket = connectTls({ socket, ...options }, () => resolve(tlsSocket));
+    tlsSocket.once("error", reject);
+  });
 }

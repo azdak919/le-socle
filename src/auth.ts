@@ -6,8 +6,12 @@ import { ModuleOffError, type SocleStore } from "./store.ts";
 /** Anciens noms de rôle encore lus (comptes et archives d’avant 1.2). */
 const LEGACY_ROLES: Record<string, (typeof ROLES)[number]> = { responsable: "administrateur" };
 const MAGIC_MS = 15 * 60 * 1000;
+const RESET_MS = 60 * 60 * 1000;
+const EMAIL_CHANGE_MS = 60 * 60 * 1000;
 const SESSION_MS = 12 * 60 * 60 * 1000;
 const STATE_MS = 10 * 60 * 1000;
+const RESET_MAX = 5;
+const RESET_IP_MAX = 20;
 
 export type { OrgRole } from "./roles.ts";
 export type AuthMode = "magic" | "github" | "access" | "motdepasse";
@@ -27,7 +31,7 @@ export class AuthError extends Error {
 
 export type AuthRuntime = {
   mode?: string;
-  mailer?: (to: string, url: string) => Promise<void>;
+  mailer?: (to: string, subject: string, text: string) => Promise<void>;
   fetch?: (input: string, init?: RequestInit) => Promise<Response>;
   verifyAccess?: (token: string) => Promise<string | null>;
   publicOrigin?: string;
@@ -38,6 +42,8 @@ export type AuthRuntime = {
 
 /** `sections` : rubriques permises (auteur, chef de pupitre) ; absent = toutes. */
 export type MemberRecord = { email: string; role: OrgRole; sections?: string[] };
+
+export type ProfileRecord = { email: string; nom: string; nomAffiche: string };
 
 /**
  * Mot de passe : PBKDF2-SHA256, sel de 16 octets, 210 000 tours. Même format
@@ -124,12 +130,22 @@ export async function authState(
   store: SocleStore,
   runtime: AuthRuntime | undefined,
   actor: string | null,
-): Promise<{ mode: string | null; installed: boolean; email: string | null; role: OrgRole | null }> {
+  journal: string | null = null,
+): Promise<{
+  mode: string | null;
+  installed: boolean;
+  email: string | null;
+  role: OrgRole | null;
+  journal: string | null;
+  courriel: boolean;
+}> {
   return {
     mode: runtime?.mode ?? null,
     installed: await anyMember(store),
     email: actor,
     role: actor ? await roleOf(store, actor) : null,
+    journal: journal?.trim() ? journal.trim() : null,
+    courriel: Boolean(runtime?.mailer),
   };
 }
 
@@ -152,8 +168,18 @@ export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-export function sessionCookie(token: string): string {
-  return `socle_session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${SESSION_MS / 1000}`;
+export function cookieSecure(runtime: AuthRuntime | undefined): boolean {
+  return Boolean(runtime?.publicOrigin?.startsWith("https://"));
+}
+
+export function sessionCookie(token: string, secure = false): string {
+  const flag = secure ? "; Secure" : "";
+  return `socle_session=${token}; HttpOnly; Path=/; SameSite=Lax${flag}; Max-Age=${SESSION_MS / 1000}`;
+}
+
+export function clearSessionCookie(secure = false): string {
+  const flag = secure ? "; Secure" : "";
+  return `socle_session=; HttpOnly; Path=/; SameSite=Lax${flag}; Max-Age=0`;
 }
 
 /** Ancien nom, gardé pour les intégrations existantes. */
@@ -236,7 +262,12 @@ export async function startMagic(
   await store.put("auth", `magic:${hash}`, JSON.stringify({ email: clean, exp }));
   const origin = (runtime.publicOrigin ?? "http://127.0.0.1:8787").replace(/\/$/, "");
   try {
-    await runtime.mailer(clean, `${origin}/v1/auth/lien?token=${encodeURIComponent(raw)}`);
+    const url = `${origin}/v1/auth/lien?token=${encodeURIComponent(raw)}`;
+    await runtime.mailer(
+      clean,
+      "Lien de connexion",
+      `Bonjour,\n\nPour ouvrir l’espace de rédaction, suivez ce lien (il expire dans 15 minutes) :\n\n${url}\n`,
+    );
   } catch {
     await store.delete("auth", `magic:${hash}`);
     throw new AuthError("smtp absent");
@@ -385,6 +416,266 @@ export async function restoreMembers(store: SocleStore, value: unknown): Promise
   }
 }
 
+async function tooManyTries(
+  store: SocleStore,
+  key: string,
+  now: Date,
+  max: number,
+  windowMs: number = TRIES_MS,
+): Promise<boolean> {
+  const tries = JSON.parse((await store.get("auth", key)) ?? "{}") as { n?: number; since?: string };
+  const fresh = Boolean(tries.since && now.getTime() - Date.parse(tries.since) < windowMs);
+  return fresh && (tries.n ?? 0) >= max;
+}
+
+async function bumpTries(
+  store: SocleStore,
+  key: string,
+  now: Date,
+  windowMs: number = TRIES_MS,
+): Promise<void> {
+  const tries = JSON.parse((await store.get("auth", key)) ?? "{}") as { n?: number; since?: string };
+  const fresh = Boolean(tries.since && now.getTime() - Date.parse(tries.since) < windowMs);
+  await store.put("auth", key, JSON.stringify({
+    n: (fresh ? tries.n ?? 0 : 0) + 1,
+    since: fresh ? tries.since : now.toISOString(),
+  }));
+}
+
+export async function revokeSessions(store: SocleStore, email: string, keepHash?: string): Promise<void> {
+  const rows = await store.list("auth");
+  for (const row of rows) {
+    if (!row.key.startsWith("session:")) continue;
+    if (keepHash && row.key === `session:${keepHash}`) continue;
+    let stored = "";
+    try {
+      stored = (JSON.parse(row.value) as { email?: string }).email ?? "";
+    } catch {
+      stored = "";
+    }
+    if (stored === email) await store.delete("auth", row.key);
+  }
+}
+
+async function rewriteSessionEmail(store: SocleStore, from: string, to: string): Promise<void> {
+  const rows = await store.list("auth");
+  for (const row of rows) {
+    if (!row.key.startsWith("session:")) continue;
+    let parsed: { email?: string; exp?: string };
+    try {
+      parsed = JSON.parse(row.value) as { email?: string; exp?: string };
+    } catch {
+      continue;
+    }
+    if (parsed.email === from) {
+      await store.put("auth", row.key, JSON.stringify({ ...parsed, email: to }));
+    }
+  }
+}
+
+export async function startPasswordReset(
+  store: SocleStore,
+  runtime: AuthRuntime | undefined,
+  now: Date,
+  email: unknown,
+  ip?: string | null,
+): Promise<void> {
+  requireMode(runtime, "motdepasse");
+  const clean = normalizeEmail(email);
+  if (!clean) throw new AuthError("demande refusée");
+  if (ip && await tooManyTries(store, `reset-ip:${ip}`, now, RESET_IP_MAX)) throw new AuthError("trop d'essais");
+  if (await tooManyTries(store, `reset-tries:${clean}`, now, RESET_MAX)) throw new AuthError("trop d'essais");
+  await bumpTries(store, `reset-tries:${clean}`, now);
+  if (ip) await bumpTries(store, `reset-ip:${ip}`, now);
+  const known = (await roleOf(store, clean)) !== null;
+  if (!known || !runtime.mailer) return;
+  await forgetExpired(store, now);
+  const raw = newToken(runtime);
+  const hash = hashToken(raw);
+  await store.put("auth", `reset:${hash}`, JSON.stringify({
+    email: clean,
+    exp: new Date(now.getTime() + RESET_MS).toISOString(),
+  }));
+  const origin = (runtime.publicOrigin ?? "http://127.0.0.1:8787").replace(/\/$/, "");
+  const url = `${origin}/redaction/#reinitialiser=${encodeURIComponent(raw)}`;
+  try {
+    await runtime.mailer(
+      clean,
+      "Réinitialiser votre mot de passe",
+      `Bonjour,\n\nPour choisir un nouveau mot de passe pour l’espace de rédaction, suivez ce lien (il expire dans une heure, et ne sert qu’une fois) :\n\n${url}\n\nSi vous n’avez pas demandé ce message, vous pouvez l’ignorer.\n`,
+    );
+  } catch {
+    await store.delete("auth", `reset:${hash}`);
+  }
+}
+
+export async function consumePasswordReset(
+  store: SocleStore,
+  runtime: AuthRuntime | undefined,
+  now: Date,
+  token: unknown,
+  password: unknown,
+): Promise<string> {
+  requireMode(runtime, "motdepasse");
+  if (typeof token !== "string" || !token) throw new AuthError("lien inconnu");
+  const hash = hashToken(token);
+  const row = await store.get("auth", `reset:${hash}`);
+  if (!row) throw new AuthError("lien inconnu");
+  await store.delete("auth", `reset:${hash}`);
+  const parsed = JSON.parse(row) as { email?: string; exp?: string };
+  if (!parsed.email || !parsed.exp || Date.parse(parsed.exp) <= now.getTime()) throw new AuthError("lien expiré");
+  const secret = checkPassword(password);
+  await store.put("auth", `password:${parsed.email}`, hashPassword(secret));
+  await store.delete("auth", `tries:${parsed.email}`);
+  await revokeSessions(store, parsed.email);
+  await forgetExpired(store, now);
+  return createSession(store, runtime, parsed.email, now);
+}
+
+async function loadProfile(store: SocleStore, email: string): Promise<ProfileRecord> {
+  const raw = await store.get("auth", `profil:${email}`);
+  let nom = "";
+  let nomAffiche = "";
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as { nom?: unknown; nomAffiche?: unknown };
+      if (typeof parsed.nom === "string") nom = parsed.nom;
+      if (typeof parsed.nomAffiche === "string") nomAffiche = parsed.nomAffiche;
+    } catch {
+      nom = "";
+    }
+  }
+  return { email, nom, nomAffiche };
+}
+
+function cleanName(value: unknown, label: string): string {
+  if (value === undefined) throw new AuthError("demande refusée");
+  if (typeof value !== "string") throw new AuthError("demande refusée");
+  const name = value.trim().replace(/\s+/g, " ");
+  if (name.length > 120) throw new AuthError(`${label} trop long`);
+  return name;
+}
+
+export async function readProfile(store: SocleStore, actor: string | null): Promise<ProfileRecord> {
+  if (!actor) throw new AuthError("accès refusé");
+  if (!(await roleOf(store, actor))) throw new AuthError("accès refusé");
+  return loadProfile(store, actor);
+}
+
+export async function updateProfile(
+  store: SocleStore,
+  actor: string | null,
+  nom: unknown,
+  nomAffiche: unknown,
+): Promise<ProfileRecord> {
+  if (!actor) throw new AuthError("accès refusé");
+  if (!(await roleOf(store, actor))) throw new AuthError("accès refusé");
+  const profile = {
+    nom: cleanName(nom, "nom"),
+    nomAffiche: cleanName(nomAffiche, "nom d’affichage"),
+  };
+  await store.put("auth", `profil:${actor}`, JSON.stringify(profile));
+  return { email: actor, ...profile };
+}
+
+export async function changeOwnPassword(
+  store: SocleStore,
+  runtime: AuthRuntime | undefined,
+  now: Date,
+  actor: string | null,
+  current: unknown,
+  next: unknown,
+  cookie: string | undefined,
+): Promise<void> {
+  requireMode(runtime, "motdepasse");
+  if (!actor) throw new AuthError("accès refusé");
+  if (!(await roleOf(store, actor))) throw new AuthError("accès refusé");
+  if (typeof current !== "string") throw new AuthError("accès refusé");
+  const secret = checkPassword(next);
+  const matches = verifyPassword(current, (await store.get("auth", `password:${actor}`)) ?? DUMMY_HASH);
+  if (!matches) throw new AuthError("accès refusé");
+  if (current === secret) throw new AuthError("mot de passe inchangé");
+  await store.put("auth", `password:${actor}`, hashPassword(secret));
+  const keep = readCookie(cookie, "socle_session");
+  await revokeSessions(store, actor, keep ? hashToken(keep) : undefined);
+  await store.delete("auth", `tries:${actor}`);
+  await forgetExpired(store, now);
+}
+
+export async function startEmailChange(
+  store: SocleStore,
+  runtime: AuthRuntime | undefined,
+  now: Date,
+  actor: string | null,
+  email: unknown,
+): Promise<void> {
+  if (!actor) throw new AuthError("accès refusé");
+  if (!(await roleOf(store, actor))) throw new AuthError("accès refusé");
+  if (!runtime?.mailer) throw new AuthError("smtp absent");
+  const clean = normalizeEmail(email);
+  if (!clean) throw new AuthError("demande refusée");
+  if (clean === actor) throw new AuthError("courriel inchangé");
+  if ((await roleOf(store, clean)) !== null) throw new AuthError("courriel déjà utilisé");
+  await forgetExpired(store, now);
+  const raw = newToken(runtime);
+  const hash = hashToken(raw);
+  await store.put("auth", `courriel:${hash}`, JSON.stringify({
+    email: actor,
+    nouveau: clean,
+    exp: new Date(now.getTime() + EMAIL_CHANGE_MS).toISOString(),
+  }));
+  const origin = (runtime.publicOrigin ?? "http://127.0.0.1:8787").replace(/\/$/, "");
+  const url = `${origin}/redaction/#courriel=${encodeURIComponent(raw)}`;
+  try {
+    await runtime.mailer(
+      clean,
+      "Confirmer votre nouveau courriel",
+      `Bonjour,\n\nPour confirmer cette adresse comme courriel de l’espace de rédaction, suivez ce lien (il expire dans une heure, et ne sert qu’une fois) :\n\n${url}\n\nSi vous n’avez pas demandé ce changement, ignorez ce message.\n`,
+    );
+  } catch {
+    await store.delete("auth", `courriel:${hash}`);
+    throw new AuthError("smtp absent");
+  }
+}
+
+export async function confirmEmailChange(
+  store: SocleStore,
+  runtime: AuthRuntime | undefined,
+  now: Date,
+  token: unknown,
+  actor: string | null,
+): Promise<string> {
+  if (!actor) throw new AuthError("accès refusé");
+  if (typeof token !== "string" || !token) throw new AuthError("lien inconnu");
+  const hash = hashToken(token);
+  const row = await store.get("auth", `courriel:${hash}`);
+  if (!row) throw new AuthError("lien inconnu");
+  await store.delete("auth", `courriel:${hash}`);
+  const parsed = JSON.parse(row) as { email?: string; nouveau?: string; exp?: string };
+  if (!parsed.email || !parsed.nouveau || !parsed.exp || Date.parse(parsed.exp) <= now.getTime()) {
+    throw new AuthError("lien expiré");
+  }
+  if (parsed.email !== actor) throw new AuthError("lien inconnu");
+  if ((await roleOf(store, parsed.nouveau)) !== null) throw new AuthError("courriel déjà utilisé");
+  const role = await roleOf(store, parsed.email);
+  if (!role) throw new AuthError("accès refusé");
+  const password = await store.get("auth", `password:${parsed.email}`);
+  const scope = await store.get("auth", `scope:${parsed.email}`);
+  const profil = await store.get("auth", `profil:${parsed.email}`);
+  await store.put("auth", `member:${parsed.nouveau}`, role);
+  if (password) await store.put("auth", `password:${parsed.nouveau}`, password);
+  if (scope) await store.put("auth", `scope:${parsed.nouveau}`, scope);
+  if (profil) await store.put("auth", `profil:${parsed.nouveau}`, profil);
+  await store.delete("auth", `member:${parsed.email}`);
+  await store.delete("auth", `password:${parsed.email}`);
+  await store.delete("auth", `scope:${parsed.email}`);
+  await store.delete("auth", `profil:${parsed.email}`);
+  await store.delete("auth", `tries:${parsed.email}`);
+  await rewriteSessionEmail(store, parsed.email, parsed.nouveau);
+  await forgetExpired(store, now);
+  return parsed.nouveau;
+}
+
 /** Sans vérificateur injecté, le jeton Access n'est pas décodé et n'ouvre pas de session. */
 export function rejectAccess(_token: string): Promise<null> {
   return Promise.resolve(null);
@@ -425,7 +716,13 @@ async function createSession(
 async function forgetExpired(store: SocleStore, now: Date): Promise<void> {
   const rows = await store.list("auth");
   for (const row of rows) {
-    if (!row.key.startsWith("magic:") && !row.key.startsWith("state:") && !row.key.startsWith("session:")) continue;
+    if (
+      !row.key.startsWith("magic:")
+      && !row.key.startsWith("state:")
+      && !row.key.startsWith("session:")
+      && !row.key.startsWith("reset:")
+      && !row.key.startsWith("courriel:")
+    ) continue;
     let exp = "";
     try {
       exp = (JSON.parse(row.value) as { exp?: string }).exp ?? "";

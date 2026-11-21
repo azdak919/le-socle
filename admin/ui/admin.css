@@ -69,7 +69,7 @@
 }
 .admin-nav button svg, .admin-nav a svg { @apply hidden md:block size-4 shrink-0; }
 .admin-nav button[aria-current="page"], .admin-nav a[aria-current="page"] { @apply bg-accent text-accent-foreground font-semibold; }
-.admin-sidebar-foot { @apply hidden md:block mt-auto pt-4 px-2 pb-1 text-[0.7rem] text-muted-foreground leading-snug; }
+.admin-sidebar-foot { @apply hidden md:block mt-auto pt-4 px-2 pb-1 text-xs leading-snug; color: oklch(0.32 0.03 340); }
 .admin-sidebar-foot a { @apply text-inherit underline-offset-2 hover:underline; }
 .admin-column { @apply min-w-0 flex flex-col; }
 .admin-header { @apply sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-background/85 backdrop-blur px-4 md:px-8 h-14; }
@@ -82,7 +82,10 @@
 .admin-header-brand small { @apply block text-xs text-muted-foreground leading-tight; }
 .admin-header-brand[data-state="journal-logo"] .admin-brand-logo { @apply h-7 w-auto max-w-32 rounded-none bg-transparent; }
 .admin-header h1 .muted { @apply text-muted-foreground font-normal; }
-.admin-header a.btn { @apply shrink-0; }
+.admin-header a.btn, .admin-header button.btn, .admin-header-actions { @apply shrink-0; }
+.admin-header-actions { @apply flex items-center gap-2; }
+.label-short { @apply md:hidden; }
+.label-long { @apply hidden md:inline; }
 .local-warning { @apply mx-4 md:mx-8 mt-3 flex items-center gap-2 text-xs text-muted-foreground; }
 .local-warning svg { @apply size-3.5 shrink-0; }
 #admin-main { @apply w-full max-w-6xl px-4 md:px-8 py-6 md:py-8; }
@@ -253,6 +256,50 @@
 
 /* Écran de connexion ou d'installation : pas de menu tant qu'on n'est pas entré. */
 body.signed-out .admin-nav { display: none; }
+body.signed-out .admin-sidebar,
+body.signed-out .admin-header,
+body.signed-out .local-warning { display: none; }
+body.signed-out .admin-app {
+  display: block;
+  min-height: 100svh;
+  background: var(--color-background);
+}
+body.signed-out .admin-column {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100svh;
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+body.signed-out #admin-main { max-width: none; padding: 0; }
+.auth-card {
+  @apply rounded-xl border border-border bg-card text-card-foreground p-6 md:p-8 shadow-xs;
+}
+.auth-card-brand { @apply text-center mb-6; }
+.auth-card-brand img { @apply size-12 mx-auto mb-3; }
+.auth-card-brand h1 { @apply m-0 text-xl font-semibold tracking-tight; }
+.auth-card-brand p { @apply m-0 mt-1 text-sm text-muted-foreground; }
+.auth-card h2 { @apply text-center; }
+.auth-card .auth-intro { @apply text-sm mb-4; }
+.auth-card .auth-links { @apply mt-4 mb-0 text-sm text-center; }
+.auth-card-foot { @apply mt-8 mb-0 text-center text-xs; color: oklch(0.32 0.03 340); }
+.auth-card-foot a { @apply text-inherit underline-offset-2 hover:underline; }
+.auth-card-theme { @apply mt-4 mb-0 text-center; }
+.auth-card-theme button { @apply text-sm; }
+html.dark .admin-sidebar-foot,
+html.dark .auth-card-foot { color: oklch(0.93 0.01 340); }
+
+/* Mon profil : blocs plus denses, textes d’aide au même corps, « Propulsé par » à part. */
+.panel-profil { @apply p-4 md:p-5; }
+.panel-profil h3 { @apply mt-4 mb-1.5; }
+.panel-profil .grid { @apply gap-3; }
+.panel-profil .actions { @apply mt-2; }
+.panel-profil .profil-actuel { @apply text-sm mt-0 mb-2; color: oklch(0.32 0.03 340); }
+.panel-profil .aide { @apply text-sm mt-2 mb-0; color: oklch(0.38 0.03 340); }
+html.dark .panel-profil .profil-actuel { color: oklch(0.90 0.01 340); }
+html.dark .panel-profil .aide { color: oklch(0.86 0.01 340); }
 
 /* Réseaux sociaux (assistant et Configuration) : libellé au-dessus, deux colonnes sur grand écran. */
 .social-grid, .assistant-social { @apply grid gap-x-4 gap-y-2 sm:grid-cols-2; }

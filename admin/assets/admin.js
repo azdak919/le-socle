@@ -168,6 +168,47 @@ const onSocle = () => config.mode === 'socle';
 const socleRoot = () => String(config.apiBase || '').replace(/\/$/, '');
 const authOn = () => onSocle() && Boolean(backend?.state?.modules?.auth);
 
+
+const THEME_KEY = 'socle-theme';
+
+function themeChoice() {
+  const value = localStorage.getItem(THEME_KEY);
+  return value === 'clair' || value === 'sombre' ? value : 'systeme';
+}
+
+function themeIsDark(choice = themeChoice()) {
+  return choice === 'sombre' || (choice === 'systeme' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+}
+
+function applyTheme() {
+  document.documentElement.classList.toggle('dark', themeIsDark());
+  const label = themeChoice() === 'sombre' ? 'Thème sombre' : themeChoice() === 'clair' ? 'Thème clair' : 'Thème du système';
+  document.querySelectorAll('[data-theme-toggle]').forEach((button) => {
+    button.innerHTML = `<span class="label-long">${label}</span><span class="label-short">Thème</span>`;
+    button.setAttribute('aria-label', `${label}. Changer le thème.`);
+  });
+}
+
+function cycleTheme() {
+  const next = { systeme: 'sombre', sombre: 'clair', clair: 'systeme' }[themeChoice()];
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme();
+}
+
+function bindThemeToggles(root = document) {
+  root.querySelectorAll('[data-theme-toggle]').forEach((button) => {
+    button.onclick = (event) => {
+      event.preventDefault();
+      cycleTheme();
+    };
+  });
+}
+
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (themeChoice() === 'systeme') applyTheme();
+});
+
+
 async function authCall(method, path, body) {
   const response = await fetch(`${socleRoot()}/v1/auth/${path}`, {
     method, credentials: 'same-origin',
@@ -176,7 +217,7 @@ async function authCall(method, path, body) {
   });
   const text = await response.text();
   if (!response.ok) {
-    const messages = { 'accès refusé': 'Courriel ou mot de passe incorrect.', "trop d'essais": 'Trop d’essais : attendez 15 minutes.', 'mot de passe trop court': 'Le mot de passe doit avoir au moins 10 caractères.', 'déjà installé': 'Ce journal a déjà un administrateur : connectez-vous.', 'réservé à l’administrateur': 'Réservé à l’administrateur du journal.', 'réservé au responsable': 'Réservé à l’administrateur du journal.', 'rôle inconnu': 'Rôle inconnu.', 'demande refusée': 'Demande refusée : vérifiez le courriel (par exemple vous@exemple.ca).' };
+    const messages = { 'accès refusé': 'Courriel ou mot de passe incorrect.', "trop d'essais": 'Trop d’essais : attendez 15 minutes.', 'mot de passe trop court': 'Le mot de passe doit avoir au moins 10 caractères.', 'mot de passe inchangé': 'Choisissez un mot de passe différent de l’actuel.', 'déjà installé': 'Ce journal a déjà un administrateur : connectez-vous.', 'réservé à l’administrateur': 'Réservé à l’administrateur du journal.', 'réservé au responsable': 'Réservé à l’administrateur du journal.', 'rôle inconnu': 'Rôle inconnu.', 'demande refusée': 'Demande refusée : vérifiez le courriel (par exemple vous@exemple.ca).', 'lien inconnu': 'Ce lien n’est plus valable. Demandez-en un nouveau.', 'lien expiré': 'Ce lien a expiré. Demandez-en un nouveau.', 'smtp absent': 'L’envoi de courriel n’est pas réglé. Demandez à l’administrateur.', 'courriel déjà utilisé': 'Cette adresse est déjà utilisée par un autre compte.', 'courriel inchangé': 'C’est déjà votre courriel.', 'nom trop long': 'Le nom est trop long (120 caractères au plus).', 'nom d’affichage trop long': 'Le nom d’affichage est trop long (120 caractères au plus).' };
     throw new Error(messages[text] || text || `Le serveur du journal a refusé la demande (code ${response.status}). Réessayez ; si cela continue, prévenez l’administrateur.`);
   }
   return text ? JSON.parse(text) : null;
@@ -516,36 +557,157 @@ function paintTitle() {
 }
 
 /** Écran de connexion (ou de première installation) quand le socle demande une session. */
+function authHash() {
+  const raw = location.hash.slice(1);
+  if (raw.startsWith('reinitialiser=')) return { screen: 'reinitialiser', token: decodeURIComponent(raw.slice('reinitialiser='.length)) };
+  if (raw.startsWith('courriel=')) return { screen: 'courriel', token: decodeURIComponent(raw.slice('courriel='.length)) };
+  if (raw === 'oubli' || raw.startsWith('oubli')) return { screen: 'oubli' };
+  return { screen: 'connexion' };
+}
+
+/** Ces fragments d’adresse ne sont pas des onglets : setView ne doit pas les effacer. */
+function isAuthRoute(raw = location.hash.slice(1)) {
+  return raw === 'oubli' || raw === 'connexion' || raw.startsWith('reinitialiser=') || raw.startsWith('courriel=');
+}
+
+function authCard({ title, intro, form, links }) {
+  const journal = window.__socleAuth?.journal || 'Le Socle';
+  const logo = document.querySelector('.admin-brand-logo')?.getAttribute('src') || '';
+  const version = (window.KIOSQUE_EDITORIAL && window.KIOSQUE_EDITORIAL.version) || '';
+  return `<section class="auth-card"><div class="auth-card-brand">${logo ? `<img src="${esc(logo)}" alt="" width="48" height="48">` : ''}<h1>${esc(journal)}</h1><p>Espace de rédaction</p></div><h2>${title}</h2>${intro ? `<p class="auth-intro">${intro}</p>` : ''}${form}${links ? `<p class="auth-links">${links}</p>` : ''}<p class="auth-card-foot">Propulsé par <a href="https://azdak919.github.io/le-socle/">Le Socle</a>${version ? ` ${esc(version)}` : ''}</p><p class="auth-card-theme"><button type="button" class="btn" data-variant="outline" data-size="sm" data-theme-toggle>Thème du système</button></p></section>`;
+}
+
+function showAuthError(error, failure) {
+  error.hidden = false;
+  error.textContent = failure.message;
+}
+
 async function loginScreen() {
   // Avant la connexion, le menu de la rédaction ne mène nulle part : on le cache.
   document.body.classList.add('signed-out');
   paintBrand('socle');
   let state = null;
   try { state = await authCall('GET', 'etat'); } catch { state = null; }
+  window.__socleAuth = state || {};
   const mode = state?.mode;
+  const route = authHash();
   if (mode === 'motdepasse') {
     const first = !state.installed;
     if (first) {
       main.innerHTML = assistantForm();
       bindAssistant();
+      bindThemeToggles();
+      applyTheme();
       return;
     }
-    main.innerHTML = `<section class="panel" style="max-width:32rem"><h2>${first ? 'Installer la rédaction' : 'Se connecter'}</h2><p>${first ? 'Ce journal est neuf. Créez le compte administrateur : il pourra ensuite ajouter l’équipe. Faites-le tout de suite après la mise en ligne.' : 'Entrez le courriel et le mot de passe que l’administrateur ou l’administratrice du journal vous a donnés. Mot de passe oublié : demandez-lui-en un nouveau (onglet « Équipe »).'}</p><form id="login-form" class="grid" style="margin-top:1rem"><div class="field full"><label>Courriel<input name="email" type="email" autocomplete="username" required placeholder="vous@exemple.ca"></label></div><div class="field full"><label>Mot de passe${first ? ' (10 caractères ou plus)' : ''}<input name="password" type="password" autocomplete="${first ? 'new-password' : 'current-password'}" minlength="${first ? 10 : 1}" required></label></div><div class="actions full"><button class="primary">${first ? 'Créer le compte et ouvrir la rédaction' : 'Se connecter'}</button></div><p id="login-error" class="notice" role="alert" hidden></p></form></section>`;
+    if (route.screen === 'oubli') {
+      const canMail = Boolean(state.courriel);
+      const intro = canMail
+        ? 'Inscrivez le courriel de votre compte. Si cette adresse fait partie de l’équipe, un lien unique, valable une heure, vous sera envoyé.'
+        : 'L’envoi de courriel n’est pas réglé sur ce journal. Demandez à l’administrateur de vous en donner un nouveau (onglet « Équipe »).';
+      const form = canMail
+        ? `<form id="reset-form" class="grid"><div class="field full"><label>Courriel<input name="email" type="email" autocomplete="username" required placeholder="vous@exemple.ca"></label></div><div class="actions full"><button class="primary">Envoyer le lien</button></div><p id="login-error" class="notice" role="status" hidden></p></form>`
+        : `<p id="login-error" class="notice" role="status">Demandez à l’administrateur.</p>`;
+      main.innerHTML = authCard({
+        title: 'Mot de passe oublié',
+        intro,
+        form,
+        links: '<a href="#connexion">Retour à la connexion</a>',
+      });
+      const formEl = document.getElementById('reset-form');
+      if (formEl) formEl.onsubmit = async (event) => {
+        event.preventDefault();
+        const error = document.getElementById('login-error');
+        try {
+          await authCall('POST', 'reinitialiser', { email: new FormData(formEl).get('email').trim() });
+          main.innerHTML = authCard({
+            title: 'Vérifiez votre courriel',
+            intro: 'Si cette adresse fait partie de l’équipe, un lien vient de partir. Pensez à vérifier les indésirables. S’il n’arrive pas, demandez à l’administrateur.',
+            form: '',
+            links: '<a href="#connexion">Retour à la connexion</a>',
+          });
+          bindThemeToggles();
+          applyTheme();
+        } catch (failure) { showAuthError(error, failure); }
+      };
+      bindThemeToggles();
+      applyTheme();
+      return;
+    }
+    if (route.screen === 'reinitialiser') {
+      main.innerHTML = authCard({
+        title: 'Choisir un nouveau mot de passe',
+        intro: 'Le mot de passe doit avoir au moins 10 caractères. Les autres sessions de ce compte seront fermées.',
+        form: `<form id="reset-confirm-form" class="grid"><input type="hidden" name="token" value="${esc(route.token)}"><div class="field full"><label>Nouveau mot de passe (10 caractères ou plus)<input name="password" type="password" autocomplete="new-password" minlength="10" required></label></div><div class="field full"><label>Confirmer le mot de passe<input name="confirm" type="password" autocomplete="new-password" minlength="10" required></label></div><div class="actions full"><button class="primary">Enregistrer le mot de passe</button></div><p id="login-error" class="notice" role="alert" hidden></p></form>`,
+        links: '<a href="#connexion">Retour à la connexion</a>',
+      });
+      document.getElementById('reset-confirm-form').onsubmit = async (event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        const error = document.getElementById('login-error');
+        if (data.get('password') !== data.get('confirm')) {
+          error.hidden = false;
+          error.textContent = 'Les deux saisies du mot de passe doivent être identiques.';
+          return;
+        }
+        try {
+          await authCall('POST', 'reinitialiser/confirmer', { token: data.get('token'), password: data.get('password') });
+          location.hash = 'dashboard';
+          location.reload();
+        } catch (failure) { showAuthError(error, failure); }
+      };
+      bindThemeToggles();
+      applyTheme();
+      return;
+    }
+    if (route.screen === 'courriel') {
+      main.innerHTML = authCard({
+        title: 'Se connecter',
+        intro: 'Connectez-vous pour confirmer votre nouveau courriel. Le lien reste valable après la connexion.',
+        form: `<form id="login-form" class="grid"><div class="field full"><label>Courriel<input name="email" type="email" autocomplete="username" required placeholder="vous@exemple.ca"></label></div><div class="field full"><label>Mot de passe<input name="password" type="password" autocomplete="current-password" required></label></div><div class="actions full"><button class="primary">Se connecter</button></div><p id="login-error" class="notice" role="alert" hidden></p></form>`,
+        links: '<a href="#oubli">Mot de passe oublié ?</a>',
+      });
+      document.getElementById('login-form').onsubmit = async (event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        const error = document.getElementById('login-error');
+        try { await authCall('POST', 'motdepasse', { email: data.get('email').trim(), password: data.get('password') }); location.reload(); }
+        catch (failure) { showAuthError(error, failure); }
+      };
+      bindThemeToggles();
+      applyTheme();
+      return;
+    }
+    main.innerHTML = authCard({
+      title: 'Se connecter',
+      intro: 'Entrez le courriel et le mot de passe que l’administrateur ou l’administratrice du journal vous a donnés.',
+      form: `<form id="login-form" class="grid"><div class="field full"><label>Courriel<input name="email" type="email" autocomplete="username" required placeholder="vous@exemple.ca"></label></div><div class="field full"><label>Mot de passe<input name="password" type="password" autocomplete="current-password" required></label></div><div class="actions full"><button class="primary">Se connecter</button></div><p id="login-error" class="notice" role="alert" hidden></p></form>`,
+      links: '<a href="#oubli">Mot de passe oublié ?</a>',
+    });
     document.getElementById('login-form').onsubmit = async (event) => {
       event.preventDefault();
       const data = new FormData(event.currentTarget);
       const error = document.getElementById('login-error');
-      try { await authCall('POST', first ? 'installation' : 'motdepasse', { email: data.get('email').trim(), password: data.get('password') }); location.reload(); }
-      catch (failure) { error.hidden = false; error.textContent = failure.message; }
+      try { await authCall('POST', 'motdepasse', { email: data.get('email').trim(), password: data.get('password') }); location.reload(); }
+      catch (failure) { showAuthError(error, failure); }
     };
+    bindThemeToggles();
+    applyTheme();
     return;
   }
   const links = mode === 'github' ? `<a class="button primary" href="${socleRoot()}/v1/auth/github">Se connecter avec GitHub</a>`
     : mode === 'access' ? `<a class="button primary" href="${socleRoot()}/v1/auth/access">Se connecter</a>`
       : mode === 'magic' ? `<form id="magic-form" class="grid"><div class="field full"><label>Courriel<input name="email" type="email" required></label></div><div class="actions full"><button class="primary">Recevoir un lien de connexion</button></div></form>` : '<p>Le mode de connexion du socle n’est pas réglé (SOCLE_AUTH_MODE).</p>';
-  main.innerHTML = `<section class="panel" style="max-width:32rem"><h2>Se connecter</h2>${links}<p id="login-error" class="notice" role="status" hidden></p></section>`;
+  main.innerHTML = authCard({
+    title: 'Se connecter',
+    intro: '',
+    form: `${links}<p id="login-error" class="notice" role="status" hidden></p>`,
+    links: '',
+  });
   const magic = document.getElementById('magic-form');
   if (magic) magic.onsubmit = async (event) => { event.preventDefault(); const status = document.getElementById('login-error'); status.hidden = false; try { await fetch(`${socleRoot()}/v1/auth/lien`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: new FormData(magic).get('email').trim() }) }); status.textContent = 'Si cette adresse fait partie de l’équipe, un lien vient de partir.'; } catch { status.textContent = 'Le serveur du journal ne répond pas : réessayez dans un instant.'; } };
+  bindThemeToggles();
+  applyTheme();
 }
 
 /** Comptes de la rédaction (mode mot de passe), pour l’administrateur. */
@@ -633,9 +795,10 @@ async function refresh() {
   paintBrand(bundle.firstRun ? 'socle' : 'journal');
 }
 
-const VIEWS = ['dashboard', 'articles', 'media', 'authors', 'taxonomies', 'settings', 'exports'];
+const VIEWS = ['dashboard', 'articles', 'media', 'authors', 'taxonomies', 'settings', 'exports', 'profil'];
 
 function setView(next) {
+  if (isAuthRoute()) return;
   view = VIEWS.includes(next) ? next : 'dashboard';
   document.querySelectorAll('.admin-nav [data-view]').forEach((link) => {
     if (link.dataset.view === view) link.setAttribute('aria-current', 'page');
@@ -685,7 +848,7 @@ function applyRoleNav() {
   // Configuration, Sauvegarde et Mise à jour : l'administrateur seulement (le serveur refuse aux autres).
   const admin = !authOn() || isAdminRole();
   document.querySelectorAll('.admin-nav [data-view]').forEach((link) => {
-    link.hidden = (photographer && !['dashboard', 'media'].includes(link.dataset.view)) || (!admin && link.dataset.view === 'settings');
+    link.hidden = (photographer && !['dashboard', 'media', 'profil'].includes(link.dataset.view)) || (!admin && link.dataset.view === 'settings');
   });
   document.querySelectorAll('.admin-nav [data-nav="save"], .admin-nav [data-nav="update"], .admin-nav [data-nav="extensions"]').forEach((link) => { link.hidden = !admin; });
 }
@@ -1633,14 +1796,102 @@ function bindCommon() {
   bindImport(main);
 }
 
+function profileView() {
+  return `<section class="panel panel-profil" style="max-width:36rem">
+    <form id="profile-form" class="grid">
+      <div class="field"><label>Nom<input name="nom" maxlength="120" autocomplete="name"></label></div>
+      <div class="field"><label>Nom d’affichage<input name="nomAffiche" maxlength="120" autocomplete="nickname"></label></div>
+      <div class="actions full"><button class="primary">Enregistrer le profil</button></div>
+    </form>
+    <h3>Mot de passe</h3>
+    <form id="profile-password-form" class="grid">
+      <div class="field full"><label>Mot de passe actuel<input name="actuel" type="password" autocomplete="current-password" required></label></div>
+      <div class="field full"><label>Nouveau mot de passe (10 caractères ou plus)<input name="nouveau" type="password" autocomplete="new-password" minlength="10" required></label></div>
+      <div class="field full"><label>Confirmer le nouveau mot de passe<input name="confirm" type="password" autocomplete="new-password" minlength="10" required></label></div>
+      <div class="actions full"><button class="primary">Changer le mot de passe</button></div>
+    </form>
+    <h3>Courriel</h3>
+    <p id="profile-email" class="profil-actuel"></p>
+    <form id="profile-email-form" class="grid">
+      <div class="field full"><label>Nouveau courriel<input name="courriel" type="email" autocomplete="email" required placeholder="vous@exemple.ca"></label></div>
+      <div class="actions full"><button class="primary">Demander la confirmation</button></div>
+    </form>
+    <p class="aide">Un lien de confirmation part à la nouvelle adresse, s’il est possible d’envoyer un courriel. Sinon, demandez à l’administrateur.</p>
+    <p id="profile-status" class="notice" role="status" hidden></p>
+  </section>`;
+}
+
+function profileStatus(message, ok) {
+  const status = document.getElementById('profile-status');
+  if (!status) return;
+  status.hidden = false;
+  status.textContent = message;
+  status.classList.toggle('notice-ok', Boolean(ok));
+}
+
+async function bindProfile() {
+  const form = document.getElementById('profile-form');
+  if (!form) return;
+  let profile = { nom: '', nomAffiche: '', email: '' };
+  try { profile = await authCall('GET', 'profil'); } catch (error) { profileStatus(error.message); }
+  form.elements.nom.value = profile.nom || '';
+  form.elements.nomAffiche.value = profile.nomAffiche || '';
+  const emailLine = document.getElementById('profile-email');
+  if (emailLine) emailLine.textContent = profile.email ? `Adresse actuelle : ${profile.email}` : '';
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    try {
+      await authCall('POST', 'profil', { nom: form.elements.nom.value, nomAffiche: form.elements.nomAffiche.value });
+      profileStatus('Profil enregistré.', true);
+    } catch (error) { profileStatus(error.message); }
+  };
+  document.getElementById('profile-email-form').onsubmit = async (event) => {
+    event.preventDefault();
+    try {
+      await authCall('POST', 'profil/courriel', { courriel: new FormData(event.currentTarget).get('courriel').trim() });
+      profileStatus('Si l’envoi de courriel est réglé, un lien de confirmation vient de partir à la nouvelle adresse.', true);
+    } catch (error) { profileStatus(error.message); }
+  };
+  document.getElementById('profile-password-form').onsubmit = async (event) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    if (data.get('nouveau') !== data.get('confirm')) {
+      profileStatus('Les deux saisies du mot de passe doivent être identiques.');
+      return;
+    }
+    try {
+      await authCall('POST', 'profil/motdepasse', { actuel: data.get('actuel'), nouveau: data.get('nouveau') });
+      event.currentTarget.reset();
+      profileStatus('Mot de passe mis à jour. Les autres sessions ont été fermées.', true);
+    } catch (error) { profileStatus(error.message); }
+  };
+}
+
+async function confirmEmailFromHash() {
+  const raw = location.hash.slice(1);
+  if (!raw.startsWith('courriel=')) return false;
+  const token = decodeURIComponent(raw.slice('courriel='.length));
+  try {
+    await authCall('POST', 'profil/courriel/confirmer', { token });
+    history.replaceState(null, '', '#profil');
+    notify('Votre courriel a été mis à jour.');
+  } catch (error) {
+    notify(error.message);
+    history.replaceState(null, '', '#profil');
+  }
+  return true;
+}
+
+
 function render() {
   applyRoleNav();
   if (onSocle() && bundle.role === 'photographe' && !['dashboard', 'media'].includes(view)) { view = 'media'; history.replaceState(null, '', '#media'); }
   if (onSocle() && authOn() && bundle.role && !isAdminRole() && view === 'settings') { view = 'dashboard'; history.replaceState(null, '', '#dashboard'); }
-  main.innerHTML = ({ dashboard, articles, media: mediaLibrary, authors, taxonomies, settings, exports: exportsView }[view] || dashboard)();
+  main.innerHTML = ({ dashboard, articles, media: mediaLibrary, authors, taxonomies, settings, exports: exportsView, profil: profileView }[view] || dashboard)();
   paintTitle();
   bindLogout(main);
   if (view === 'authors') fillAccessPanel();
+  if (view === 'profil') bindProfile();
   bindCommon();
   if (view === 'media') bindMediaLibrary();
   if (view === 'dashboard' && !onSocle()) {
@@ -1816,8 +2067,20 @@ document.querySelectorAll('.admin-nav [data-view]').forEach((link) => link.addEv
   setView(link.dataset.view);
   main.focus({ preventScroll: true });
 }));
-window.addEventListener('hashchange', () => setView(location.hash.slice(1)));
+window.addEventListener('hashchange', () => {
+  if (document.body.classList.contains('signed-out')) {
+    loginScreen();
+    return;
+  }
+  if (location.hash.slice(1).startsWith('courriel=')) {
+    confirmEmailFromHash().then(() => setView('profil'));
+    return;
+  }
+  setView(location.hash.slice(1));
+});
 setView(location.hash.slice(1));
+bindThemeToggles();
+applyTheme();
 
 if (onSocle()) siteVivant = await fetch(`${socleRoot()}/kiosque-vivant.json`, { cache: 'no-store' }).then((r) => r.ok).catch(() => false);
 
@@ -1826,8 +2089,12 @@ try {
   backend.subscribe(async () => { await refresh(); if (!main.querySelector('form')) render(); });
   await refresh();
   await loadExtensions();
+  document.body.classList.remove('signed-out');
+  if (await confirmEmailFromHash()) setView('profil');
   if (await finishAssistant()) location.hash = 'dashboard';
   render();
+  bindThemeToggles();
+  applyTheme();
 } catch (error) {
   if (onSocle() && error.status === 401) await loginScreen();
   else {

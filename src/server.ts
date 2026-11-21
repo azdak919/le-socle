@@ -66,7 +66,7 @@ export function createSocleServer(config: SocleConfig, admin?: AdminDeps) {
         : admin && path.startsWith("/v1/redaction/")
         ? await handleRedaction(method, url, config, admin, rawBody, headers, actor, local)
         : admin && path.startsWith("/v1/auth")
-        ? await handleAuth(method, url, config, admin, rawBody, headers)
+        ? await handleAuth(method, url, config, admin, rawBody, headers, { ip: clientIp(request.socket.remoteAddress, headers) })
         : admin && path === "/admin/medias"
         ? await handleMedia(method, url, config, admin)
         : admin && config.modules.review && reviewPath
@@ -94,6 +94,19 @@ export function createSocleServer(config: SocleConfig, admin?: AdminDeps) {
 
 function isLoopback(address: string | undefined): boolean {
   return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
+}
+
+/** Adresse du visiteur, pour limiter les essais. Derrière un mandataire (Cloudflare,
+ *  nginx), seulement si SOCLE_TRUST_PROXY=1 : on lit alors CF-Connecting-IP,
+ *  puis X-Real-IP, puis le premier X-Forwarded-For. */
+function clientIp(remote: string | undefined, headers: Record<string, string | undefined>): string | undefined {
+  const raw = remote?.replace(/^::ffff:/, "") || undefined;
+  if (process.env.SOCLE_TRUST_PROXY === "1") {
+    const forwarded = headers["cf-connecting-ip"] || headers["x-real-ip"] || headers["x-forwarded-for"]?.split(",")[0];
+    const chosen = forwarded?.trim();
+    if (chosen) return chosen.slice(0, 128);
+  }
+  return raw;
 }
 
 function flatHeaders(headers: IncomingHttpHeaders): Record<string, string | undefined> {
@@ -157,8 +170,8 @@ export async function openRunningAdmin(
               ? accessVerifier({ team: process.env.SOCLE_ACCESS_TEAM, aud: process.env.SOCLE_ACCESS_AUD ?? "" })
               : undefined,
             mailer: smtp
-              ? async (to, url) => {
-                  await sendSmtp(smtp, to, "Lien de connexion", url);
+              ? async (to, subject, text) => {
+                  await sendSmtp(smtp, to, subject, text);
                 }
               : undefined,
           }

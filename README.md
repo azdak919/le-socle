@@ -65,7 +65,7 @@ npm start
 
 `npm start` écoute `127.0.0.1:8787` et lit `socle.config.json`. Le site public du journal doit rester lisible si ce serveur est arrêté : seule l’écriture s’interrompt alors.
 
-Les modules (rédaction, photos, identité, relecture, audience, abonnements) s’allument seulement au besoin. Le détail est dans le guide d’adoption. Le plan d’architecture est dans [`docs/plan.md`](docs/plan.md).
+Les modules (rédaction, photos, identité, relecture, audience, abonnements) s’allument seulement au besoin. Le détail est dans le guide d’adoption. La liste de contrôle pour une mise en ligne réelle (HTTPS, SMTP, premier compte administrateur) est dans [`docs/deploiement-production.md`](docs/deploiement-production.md). Le plan d’architecture est dans [`docs/plan.md`](docs/plan.md).
 
 Un journal peut ajouter ses propres outils par des **extensions** déposées dans `extensions/` : elles survivent aux mises à jour et une extension en erreur est mise de côté sans arrêter l’espace de rédaction. Le contrat est dans [`docs/extensions.md`](docs/extensions.md).
 
