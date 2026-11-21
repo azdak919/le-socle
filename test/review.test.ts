@@ -138,8 +138,8 @@ test("la décision, la correction et le rôle restent dans la rédaction", async
     auth: {
       mode: "magic",
       publicOrigin: "http://127.0.0.1:8787",
-      mailer: async (_to, url) => {
-        sent.push(url);
+      mailer: async (_to, _subject, text) => {
+        sent.push(text);
       },
     },
   });
@@ -231,7 +231,7 @@ test("la décision, la correction et le rôle restent dans la rédaction", async
       });
       assert.equal(anon.status, 401, "sans session : connexion requise");
       await handleAuth("POST", "/v1/auth/lien", config, admin, Buffer.from(JSON.stringify({ email: "ada@journal.test" })));
-      const token = new URL(sent.at(-1) ?? "").searchParams.get("token") ?? "";
+      const token = (sent.at(-1) ?? "").match(/token=([^\s]+)/)?.[1] ?? "";
       const login = await fetch(`${base}/v1/auth/lien?token=${encodeURIComponent(token)}`, { redirect: "manual" });
       const cookie = (login.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
       const done = await fetch(`${base}/admin/relecture`, {

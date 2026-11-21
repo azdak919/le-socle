@@ -47,7 +47,7 @@ test("mot de passe : empreinte PBKDF2 vérifiable, jamais en clair", () => {
 test("installation : la première personne devient administrateur, une seule fois", async () => {
   const { call, store } = await setup();
   const before = JSON.parse((await call("GET", "/v1/auth/etat")).body);
-  assert.deepEqual(before, { mode: "motdepasse", installed: false, email: null, role: null });
+  assert.deepEqual(before, { mode: "motdepasse", installed: false, email: null, role: null, journal: null, courriel: false });
   const short = await call("POST", "/v1/auth/installation", { email: "resp@cegep.example", password: "court" });
   assert.equal(short.status, 400);
   assert.equal(short.body, "mot de passe trop court");
@@ -58,7 +58,7 @@ test("installation : la première personne devient administrateur, une seule foi
   const cookie = cookieOf(ok.headers);
   assert.match(cookie, /^socle_session=/);
   const after = JSON.parse((await call("GET", "/v1/auth/etat", undefined, cookie)).body);
-  assert.deepEqual(after, { mode: "motdepasse", installed: true, email: "resp@cegep.example", role: "administrateur" });
+  assert.deepEqual(after, { mode: "motdepasse", installed: true, email: "resp@cegep.example", role: "administrateur", journal: null, courriel: false });
   const again = await call("POST", "/v1/auth/installation", { email: "intrus@example.org", password: "un autre secret" });
   assert.equal(again.status, 409);
   const raw = JSON.stringify(await store.list("auth"));

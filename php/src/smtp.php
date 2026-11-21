@@ -26,7 +26,17 @@ function socle_smtp_send(array $settings, string $to, string $subject, string $t
     try {
         socle_smtp_expect(socle_smtp_read($socket), 220);
         socle_smtp_write($socket, 'EHLO socle');
-        socle_smtp_expect(socle_smtp_read($socket), 250);
+        $ehlo = socle_smtp_read($socket);
+        socle_smtp_expect($ehlo, 250);
+        if (!$settings['secure'] && stripos($ehlo, 'STARTTLS') !== false) {
+            socle_smtp_write($socket, 'STARTTLS');
+            socle_smtp_expect(socle_smtp_read($socket), 220);
+            if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+                throw new RuntimeException('smtp muet');
+            }
+            socle_smtp_write($socket, 'EHLO socle');
+            socle_smtp_expect(socle_smtp_read($socket), 250);
+        }
         if ($settings['user'] !== null) {
             socle_smtp_write($socket, 'AUTH LOGIN');
             socle_smtp_expect(socle_smtp_read($socket), 334);

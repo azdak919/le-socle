@@ -59,6 +59,7 @@ const ICONS = {
   taxonomies: '<path d="M12 2H2v10l9.3 9.3a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z"/><circle cx="7" cy="7" r="1.5"/>',
   settings: '<path d="M20 7h-9M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>',
   exports: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+  profil: '<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/>',
   update: '<path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/>',
 };
 
@@ -70,6 +71,7 @@ const VIEWS = [
   ['taxonomies', 'Sections et catégories'],
   ['settings', 'Configuration'],
   ['exports', 'Exporter'],
+  ['profil', 'Mon profil'],
 ];
 
 function icon(name) {
@@ -96,7 +98,7 @@ export function adminNav(adminBasePath, active, updateHref = `${adminBasePath}/m
 export function adminShell(options) {
   return `<!doctype html>
 <html lang="${esc(options.lang)}">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${esc(options.title)} — ${esc(options.publicationName)}</title>${socleFavicons()}<link rel="stylesheet" href="${options.cssHref}"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${esc(options.title)} — ${esc(options.publicationName)}</title>${socleFavicons()}<link rel="stylesheet" href="${options.cssHref}"><script>(function(){var t=localStorage.getItem('socle-theme');var d=t==='sombre'||((t==='systeme'||!t)&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);})();</script></head>
 <body>
 <a class="admin-skip" href="#admin-main">Aller au contenu</a>
 <div class="admin-app">
@@ -106,7 +108,7 @@ export function adminShell(options) {
     ${adminSidebarFoot(options.version ?? SOCLE_VERSION)}
   </aside>
   <div class="admin-column">
-    <header class="admin-header">${adminBrand('admin-header-brand')}<h1 id="admin-page-title">${esc(options.heading ?? options.title)}</h1><a class="btn" data-variant="outline" data-size="sm" href="${options.publicBasePath}/">Voir le journal ↗</a></header>
+    <header class="admin-header">${adminBrand('admin-header-brand')}<h1 id="admin-page-title">${esc(options.heading ?? options.title)}</h1><div class="admin-header-actions"><button type="button" class="btn" data-variant="outline" data-size="sm" data-theme-toggle>Thème du système</button><a class="btn" data-variant="outline" data-size="sm" href="${options.publicBasePath}/">Voir le journal ↗</a></div></header>
     <div class="local-warning" role="note">${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>'}<span>${options.note}</span></div>
     <main id="admin-main" tabindex="-1">${options.main}</main>
   </div>

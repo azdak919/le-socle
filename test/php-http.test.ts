@@ -436,7 +436,7 @@ test("le lien magique PHP part par SMTP et n'enregistre que le hachage", async (
     assert.match(rows[0]?.value ?? "", /ada@journal\.example/);
     const back = await fetch(php.url + "/v1/auth/lien?token=" + encodeURIComponent(token), { redirect: "manual" });
     assert.equal(back.status, 303);
-    assert.match(back.headers.get("set-cookie") ?? "", /^socle_session=.+; HttpOnly; Path=\/; SameSite=Lax; Max-Age=43200$/);
+    assert.match(back.headers.get("set-cookie") ?? "", /^socle_session=.+; HttpOnly; Path=\/; SameSite=Lax; Secure; Max-Age=43200$/);
     assert.equal((await fetch(php.url + "/v1/auth/lien?token=" + encodeURIComponent(token), { redirect: "manual" })).status, 400);
   } finally {
     await php.stop();
