@@ -544,3 +544,15 @@ test("mât illustré : plusieurs photos de la banque, ordre aléatoire, photos d
   assert.match(php, /function socle_media_used_in_masthead/);
   assert.match(php, /foreach \(\(\$publication\['masthead'\]\['backgrounds'\]\['images'\] \?\? \[\]\) as \$image\)/);
 });
+
+test("tableau de bord : un seul « Voir le journal », celui de l’en-tête", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  const page = readFileSync(join(ROOT, "admin/page.js"), "utf8");
+  const server = readFileSync(join(ROOT, "admin/serveur.html"), "utf8");
+  assert.match(admin, /data-action="new-article">Créer un article<\/button><\/div>/);
+  assert.doesNotMatch(admin, /Créer un article<\/button><a class="button"[^>]*>Voir le journal/);
+  assert.doesNotMatch(admin, /Voir le journal/);
+  assert.match(page, /label-long">Voir le journal ↗<\/span>/);
+  assert.match(page, /admin-header-actions/);
+  assert.match(server, /label-long">Voir le journal ↗<\/span>/);
+});
