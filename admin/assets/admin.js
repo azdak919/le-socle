@@ -323,13 +323,44 @@ function bindRequiredFlags(form) {
   });
 }
 
+/** Même libellés que la page Sauvegarde : le bouton natif du navigateur est en anglais. */
+function fileChooserLabels() {
+  const english = String(document.documentElement.lang || '').toLowerCase().startsWith('en');
+  return english
+    ? { button: 'Choose a file', empty: 'No file chosen' }
+    : { button: 'Choisir un fichier', empty: 'Aucun fichier choisi' };
+}
+
+function fileChooser(attrs, etiquette = '') {
+  const labels = fileChooserLabels();
+  const caption = etiquette ? `<span class="choix-fichier-etiquette">${etiquette}</span>` : '';
+  return `<label class="choix-fichier">${caption}<span class="choix-fichier-bouton"><span class="button">${labels.button}</span><input class="choix-fichier-input" ${attrs}></span><span class="choix-fichier-nom" data-choix-nom>${labels.empty}</span></label>`;
+}
+
+function bindFileChoosers(root) {
+  (root || document).querySelectorAll('.choix-fichier-input').forEach((input) => {
+    if (input.dataset.choixBound) return;
+    input.dataset.choixBound = '1';
+    const name = input.closest('.choix-fichier')?.querySelector('[data-choix-nom]');
+    const empty = name ? name.textContent : '';
+    const show = () => {
+      if (!name) return;
+      const files = input.files;
+      if (!files || !files.length) name.textContent = empty;
+      else if (files.length === 1) name.textContent = files[0].name;
+      else name.textContent = `${files.length} fichiers`;
+    };
+    input.addEventListener('change', show);
+  });
+}
+
 function assistantForm() {
   return `<section class="panel assistant" style="max-width:40rem"><h2>Installer le journal</h2>
 <p>Ce journal est neuf. Remplissez ce formulaire une fois : le site et la rédaction seront prêts. Tout se change ensuite dans « Configuration ».</p>
 <form id="login-form" class="grid" novalidate>
 <fieldset class="field full"><legend>Le journal</legend>
 <p class="muted">Les exemples en gris pâle disparaissent quand vous écrivez ; un champ laissé vide n’enregistre rien. Les champs marqués « obligatoire » doivent être remplis.</p>
-<label>Nom du journal (obligatoire)<input name="nom" required maxlength="80" placeholder="La Vigie"></label>
+<label>Nom du journal (obligatoire)<input name="nom" required maxlength="80" placeholder="Le Quorum"></label>
 <label>Établissement (facultatif)<input name="etablissement" maxlength="120" placeholder="Cégep de Sainte-Foy"></label>
 <label>Année de fondation (facultatif)<input name="fondation" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" data-erreur="Écrivez l’année en quatre chiffres, par exemple 1971." placeholder="1971"></label>
 <label>Organisme responsable du journal (facultatif)<input name="organisme" maxlength="120" placeholder="Association étudiante du Cégep de Sainte-Foy"></label>
@@ -341,7 +372,7 @@ function assistantForm() {
 </fieldset>
 <fieldset class="field full"><legend>Apparence</legend>
 <label>Couleur principale<input name="couleur" type="color" value="#6c2163"></label>
-<label>Logo (facultatif : PNG, JPEG, WebP ou SVG, 500 ko au plus)<input name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label>
+${fileChooser('name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"', 'Logo (facultatif : PNG, JPEG, WebP ou SVG, 500 ko au plus)')}
 <div data-mast-preview class="full"></div>
 </fieldset>
 <details class="field full assistant-social"><summary>Réseaux sociaux (facultatif)</summary>
@@ -365,6 +396,7 @@ ${socialFieldsHtml()}
 
 function bindAssistant() {
   const form = document.getElementById('login-form');
+  bindFileChoosers(form);
   const radio = form.elements.radio;
   const stationLabel = form.querySelector('[data-station]');
   radio.addEventListener('change', () => {
@@ -1539,7 +1571,7 @@ function settings() {
   const missing = missingSettings(publication);
   return `<section class="panel"><div class="toolbar"><p>Le nom, l’apparence et les renseignements du journal.</p>${importButton()}</div>${missing.length ? `<p class="notice" role="status">À remplir avant de publier : ${esc(missing.join(', '))}.</p>` : ''}<form id="settings-form" class="grid" novalidate>
     <p class="media-quality full">Les exemples en gris pâle disparaissent quand vous écrivez ; ils ne sont jamais enregistrés.</p>
-    <div class="field"><label>Nom (obligatoire)<input name="name" required placeholder="La Vigie" value="${esc(publication.name)}"></label></div>
+    <div class="field"><label>Nom (obligatoire)<input name="name" required placeholder="Le Quorum" value="${esc(publication.name)}"></label></div>
     <fieldset class="field full"><legend>Adresse, organisme et contacts</legend>
       <label>Adresse du site public<input name="siteUrl" type="url" placeholder="https://votre-journal.com/" value="${esc(publication.siteUrl || detectedSiteUrl())}"></label><small>${(() => { const detected = detectedSiteUrl(); const current = String(publication.siteUrl || '').replace(/\/+$/, ''); return !onSocle() || !current || current === detected.replace(/\/+$/, '') ? `Détectée automatiquement : ${esc(detected)}` : `L’adresse enregistrée ne correspond plus à l’emplacement actuel du site (${esc(detected)}). Enregistrez pour la mettre à jour, ou corrigez-la.`; })()}</small>
       <label>Nom court du journal, utilisé dans les adresses (obligatoire)<input name="slug" required placeholder="la-vigie" pattern="[a-z0-9]+(-[a-z0-9]+)*" value="${esc(publication.slug === 'mon-journal' ? slugify(publication.name || '') : publication.slug || '')}"></label><small>Lettres minuscules, chiffres et tirets, par exemple la-boussole.</small>
@@ -1561,7 +1593,7 @@ function settings() {
     </fieldset>
     <fieldset class="field"><legend>Outils</legend><label><input name="pomodoro" type="checkbox" ${masthead.tools?.pomodoro !== false ? 'checked' : ''}> Pomodoro LE-RADAR.ca</label><label><input name="solitaire" type="checkbox" ${masthead.tools?.solitaire !== false ? 'checked' : ''}> Solitaire LE-RADAR.ca</label></fieldset>
     <fieldset class="field full"><legend>Radio étudiante</legend><label><input name="radioEnabled" type="checkbox" ${publication.radio?.enabled !== false ? 'checked' : ''}> Afficher la barre radio sous le mât</label><label>Station<select name="station" id="radar-stations"><option value="">Choisir une station</option>${publication.radio?.station ? `<option value="${esc(publication.radio.station)}" selected>${esc(publication.radio.station)}</option>` : ''}</select></label><small>La barre est le module de LE-RADAR : ses stations et son lecteur se mettent à jour chez LE-RADAR, sans toucher au journal. Éteinte, la barre n’existe pas et rien ne part vers le-radar.ca.</small></fieldset>
-    <div class="field full"><label>Logo local (SVG, PNG, WebP ou JPEG)<input id="logo-file" type="file" accept="image/svg+xml,image/png,image/webp,image/jpeg"></label><label>Texte alternatif<input name="logoAlt" placeholder="${esc(publication.name || 'La Vigie')}" value="${esc(publication.logo?.alt || '')}"></label><small>Vide : le nom du journal sert de texte alternatif. Vérifiez vos droits d’utilisation pour chaque image téléversée.</small><div id="logo-preview"></div></div>
+    <div class="field full">${fileChooser('id="logo-file" type="file" accept="image/svg+xml,image/png,image/webp,image/jpeg"', 'Logo local (SVG, PNG, WebP ou JPEG)')}<label>Texte alternatif<input name="logoAlt" placeholder="${esc(publication.name || 'Le Quorum')}" value="${esc(publication.logo?.alt || '')}"></label><small>Vide : le nom du journal sert de texte alternatif. Vérifiez vos droits d’utilisation pour chaque image téléversée.</small><div id="logo-preview"></div></div>
     <div class="actions full"><button class="primary">Enregistrer</button><button type="button" data-action="recommended-theme">Réinitialiser le thème recommandé</button></div></form></section>`;
 }
 
@@ -1736,6 +1768,7 @@ function render() {
     let darkTouched = Boolean(bundle.publication.theme?.accentDark) && bundle.publication.theme.accentDark !== darkVariant(bundle.publication.theme?.accent || '#6c2163');
     form.elements.accentDark.addEventListener('input', () => { darkTouched = true; });
     form.elements.accent.addEventListener('input', () => { if (!darkTouched) form.elements.accentDark.value = darkVariant(form.elements.accent.value); });
+    bindFileChoosers(form);
     const showLogo = bindMastPreview(document.getElementById('logo-preview'), {
       file: document.getElementById('logo-file'),
       current: bundle.publication.logo?.src && !isGeneratedInitialsLogoSrc(bundle.publication.logo.src) ? mediaSrc(bundle.publication.logo) : '',

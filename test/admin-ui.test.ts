@@ -230,7 +230,11 @@ test("assistant : exemples en placeholder, jamais de valeur préremplie, champs 
     assert.match(input, /placeholder="[^"]+"/, `exemple pâle pour ${input}`);
     assert.doesNotMatch(input, /\svalue=/, `aucune valeur préremplie pour ${input}`);
   }
-  for (const example of ["La Vigie", "Cégep de Sainte-Foy", "redaction@exemple.ca"]) assert.ok(form.includes(`placeholder="${example}"`), example);
+  for (const example of ["Le Quorum", "Cégep de Sainte-Foy", "redaction@exemple.ca"]) assert.ok(form.includes(`placeholder="${example}"`), example);
+  assert.match(form, /fileChooser\(/);
+  assert.doesNotMatch(form, /<input name="logo" type="file"/);
+  assert.match(admin, /button: 'Choisir un fichier'/);
+  assert.match(admin, /empty: 'Aucun fichier choisi'/);
   assert.match(form, /novalidate/);
   assert.match(admin, /if \(!flagInvalidFields\(form\)\) return;/);
   assert.match(admin, /'Ce champ est obligatoire\.'/);

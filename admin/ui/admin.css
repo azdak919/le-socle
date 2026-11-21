@@ -21,7 +21,7 @@
   }
   #admin-main button.danger { @apply bg-destructive/10 text-red-800 border-transparent hover:bg-destructive/20; }
 
-  #admin-main input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=range]),
+  #admin-main input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=range]):not(.choix-fichier-input),
   .media-picker input:not([type=checkbox]):not([type=radio]),
   #admin-main select, .media-picker select {
     @apply h-9 w-full min-w-0 rounded-md border border-input bg-background px-2.5 py-1 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium;
@@ -520,3 +520,33 @@ body.signed-out .admin-nav { display: none; }
   gap: 0.35rem;
 }
 .media-picker [data-media-card].is-selected { outline: 3px solid var(--accent, #6c2163); outline-offset: 2px; }
+
+/* Même bouton que la page Sauvegarde : le contrôle natif dit « Choose File ». */
+.choix-fichier {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+.choix-fichier-etiquette { font-weight: 500; }
+.choix-fichier-bouton { position: relative; display: inline-flex; }
+.choix-fichier-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.choix-fichier-input:focus,
+.choix-fichier-input:focus-visible { outline: none; }
+.choix-fichier-bouton:focus-within .button { outline: 3px solid var(--ring, #6c2163); outline-offset: 2px; }
+.choix-fichier-nom {
+  color: var(--color-muted-foreground, #64748b);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
