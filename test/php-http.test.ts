@@ -509,12 +509,18 @@ test("PHP : le nouveau courriel n’est appliqué qu’après un lien unique non
     });
     assert.equal(install.status, 204, await install.text());
     cookie = cookieOf(install);
+    const before = JSON.parse(await (await fetch(php.url + "/v1/auth/profil", { headers: { cookie } })).text());
+    assert.equal(before.courrielEtat, "non-confirmee");
+    assert.equal(before.courrielEnAttente, null);
     const change = await fetch(php.url + "/v1/auth/profil/courriel", {
       method: "POST",
       headers: { ...json, cookie },
       body: JSON.stringify({ courriel: "anne@cegep.example" }),
     });
     assert.equal(change.status, 202, await change.text());
+    const waiting = JSON.parse(await (await fetch(php.url + "/v1/auth/profil", { headers: { cookie } })).text());
+    assert.equal(waiting.courrielEtat, "non-confirmee");
+    assert.equal(waiting.courrielEnAttente, "anne@cegep.example");
     const first = tokenOf();
     const etat = JSON.parse(await (await fetch(php.url + "/v1/auth/etat", { headers: { cookie } })).text());
     assert.equal(etat.email, "ana@cegep.example");
@@ -558,6 +564,10 @@ test("PHP : le nouveau courriel n’est appliqué qu’après un lien unique non
     assert.equal(confirmed.status, 200, confirmedBody);
     assert.deepEqual(JSON.parse(confirmedBody), { email: "anne@cegep.example" });
     assert.equal(JSON.parse(await (await fetch(php.url + "/v1/auth/etat", { headers: { cookie } })).text()).email, "anne@cegep.example");
+    const after = JSON.parse(await (await fetch(php.url + "/v1/auth/profil", { headers: { cookie } })).text());
+    assert.equal(after.courrielEtat, "confirmee");
+    assert.equal(after.email, "anne@cegep.example");
+    assert.equal(after.courrielEnAttente, null);
     const reuse = await fetch(php.url + "/v1/auth/profil/courriel/confirmer", {
       method: "POST",
       headers: { ...json, cookie },

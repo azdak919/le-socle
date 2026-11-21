@@ -297,9 +297,20 @@ html.dark .auth-card-foot { color: oklch(0.93 0.01 340); }
 .panel-profil .grid { @apply gap-3; }
 .panel-profil .actions { @apply mt-2; }
 .panel-profil .profil-actuel { @apply text-sm mt-0 mb-2; color: oklch(0.32 0.03 340); }
+.panel-profil .profil-courriel-etat { @apply text-sm font-medium mt-0 mb-2; }
+.panel-profil .profil-courriel-etat[data-etat="confirmee"] { color: oklch(0.40 0.08 160); }
+.panel-profil .profil-courriel-etat[data-etat="en-attente"] { color: oklch(0.50 0.10 70); }
+.panel-profil .profil-courriel-etat[data-etat="non-confirmee"] { color: oklch(0.38 0.03 340); }
+.panel-profil .profil-courriel-attente { @apply text-sm mt-0 mb-2; color: oklch(0.50 0.10 70); }
+.panel-profil #profile-email-actions { @apply mb-3; }
 .panel-profil .aide { @apply text-sm mt-2 mb-0; color: oklch(0.38 0.03 340); }
 html.dark .panel-profil .profil-actuel { color: oklch(0.90 0.01 340); }
+html.dark .panel-profil .profil-courriel-etat[data-etat="confirmee"] { color: oklch(0.82 0.07 160); }
+html.dark .panel-profil .profil-courriel-etat[data-etat="en-attente"],
+html.dark .panel-profil .profil-courriel-attente { color: oklch(0.86 0.08 80); }
+html.dark .panel-profil .profil-courriel-etat[data-etat="non-confirmee"] { color: oklch(0.86 0.01 340); }
 html.dark .panel-profil .aide { color: oklch(0.86 0.01 340); }
+#smtp-panel .aide { @apply text-sm mt-0 mb-0; }
 
 /* Réseaux sociaux (assistant et Configuration) : libellé au-dessus, deux colonnes sur grand écran. */
 .social-grid, .assistant-social { @apply grid gap-x-4 gap-y-2 sm:grid-cols-2; }
