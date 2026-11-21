@@ -35,7 +35,7 @@ function socle_dispatch(string $method, string $uri, string $path, string $raw):
         } catch (ModuleOff) {
         }
     }
-    $smtp = ($config['modules']['auth'] || $config['modules']['notify']) ? socle_smtp_settings() : null;
+    $smtp = ($config['modules']['auth'] || $config['modules']['notify']) ? socle_smtp_resolve($store) : null;
     $actorDefined = (bool) $config['modules']['auth'];
     $cookie = $_SERVER['HTTP_COOKIE'] ?? null;
     $actor = $actorDefined ? socle_email_from_cookie($store, socle_now(), is_string($cookie) ? $cookie : null) : null;

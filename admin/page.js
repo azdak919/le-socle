@@ -109,7 +109,7 @@ export function adminShell(options) {
   </aside>
   <div class="admin-column">
     <header class="admin-header">${adminBrand('admin-header-brand')}<h1 id="admin-page-title">${esc(options.heading ?? options.title)}</h1><div class="admin-header-actions"><button type="button" class="btn" data-variant="outline" data-size="sm" data-theme-toggle><span class="label-long">Thème du système</span><span class="label-short">Thème</span></button><a class="btn" data-variant="outline" data-size="sm" href="${options.publicBasePath}/"><span class="label-long">Voir le journal ↗</span><span class="label-short">Journal ↗</span></a></div></header>
-    <div class="local-warning" role="note">${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>'}<span>${options.note}</span></div>
+    ${options.note ? `<div class="local-warning" role="note">${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>'}<span>${options.note}</span></div>` : ''}
     <main id="admin-main" tabindex="-1">${options.main}</main>
   </div>
 </div><div id="toast" role="status" aria-live="polite"></div>
@@ -158,9 +158,9 @@ export function adminPage(options) {
     active: 'dashboard',
     updateHref: options.updateHref,
     saveHref: options.saveHref,
-    note: serveur
-      ? 'Rédaction du journal — chaque enregistrement est écrit sur le serveur du journal.'
-      : 'Mode démonstration local — données conservées dans ce navigateur.',
+    // En mode serveur, pas de bandeau : « écrit sur le serveur » n’apprend rien.
+    // En démonstration, le bandeau prévient que rien n’est enregistré hors du navigateur.
+    note: serveur ? '' : 'Mode démonstration local — données conservées dans ce navigateur.',
     main: '<div class="loading"><h2>Ouverture du journal…</h2><p>Un instant, on prépare votre espace de rédaction.</p></div>',
     scripts: `<script>window.KIOSQUE_EDITORIAL=${manifest};</script><script type="module" src="${options.assetsBase}/admin.js"></script>`,
   });

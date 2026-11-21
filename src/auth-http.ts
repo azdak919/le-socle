@@ -5,6 +5,7 @@ import {
   authState,
   changeOwnPassword,
   clearSessionCookie,
+  cancelPendingCourriel,
   confirmEmailChange,
   consumeMagic,
   consumePasswordReset,
@@ -17,15 +18,26 @@ import {
   passwordInstall,
   passwordLogin,
   readProfile,
+  roleOf,
   saveMember,
   sessionCookie,
+  resendPendingCourriel,
   startEmailChange,
   startMagic,
+  startOwnEmailConfirmation,
   startPasswordReset,
   updateProfile,
 } from "./auth.ts";
 import type { SocleConfig } from "./config.ts";
 import { readPublication } from "./editorial.ts";
+import {
+  clearSmtpSettings,
+  readSmtpPublic,
+  resolveSmtp,
+  saveSmtpSettings,
+  sendSmtp,
+  smtpErrorCode,
+} from "./smtp.ts";
 
 type Result = { status: number; body: string; headers: Record<string, string> };
 
@@ -112,13 +124,17 @@ export async function handleAuth(
     }
     if (path === "/v1/auth/membres" && method === "POST") {
       const body = objectBody(rawBody);
-      const allowed = ["email", "password", "role", "sections"];
+      const allowed = ["email", "password", "role", "sections", "prenom", "nom", "nomAffiche"];
       if (!body || Object.keys(body).some((key) => !allowed.includes(key))) throw new AuthError("demande refusée");
       if (body.sections !== undefined && !Array.isArray(body.sections)) throw new AuthError("demande refusée");
       if (typeof body.email !== "string" || typeof body.role !== "string") throw new AuthError("demande refusée");
       if (body.password !== undefined && deps.auth?.mode !== "motdepasse") throw new AuthError("demande refusée");
       const actor = await emailFromCookie(deps.store, deps.now, headers.cookie);
-      await saveMember(deps.store, actor, body.email, body.role, body.password as string | undefined, body.sections);
+      await saveMember(deps.store, actor, body.email, body.role, body.password as string | undefined, body.sections, {
+        prenom: body.prenom,
+        nom: body.nom,
+        nomAffiche: body.nomAffiche,
+      });
       return { status: 204, body: "", headers: {} };
     }
     if (path === "/v1/auth/reinitialiser" && method === "POST") {
@@ -139,14 +155,14 @@ export async function handleAuth(
     }
     if (path === "/v1/auth/profil" && method === "GET") {
       const actor = await emailFromCookie(deps.store, deps.now, headers.cookie);
-      return { status: 200, body: JSON.stringify(await readProfile(deps.store, actor)), headers: JSON_TYPE };
+      return { status: 200, body: JSON.stringify(await readProfile(deps.store, actor, deps.now())), headers: JSON_TYPE };
     }
     if (path === "/v1/auth/profil" && method === "POST") {
       if (!String(headers["content-type"] ?? "").startsWith("application/json")) throw new AuthError("demande refusée");
       const body = objectBody(rawBody);
-      if (!body || Object.keys(body).sort().join(",") !== "nom,nomAffiche") throw new AuthError("demande refusée");
+      if (!body || Object.keys(body).sort().join(",") !== "nom,nomAffiche,prenom") throw new AuthError("demande refusée");
       const actor = await emailFromCookie(deps.store, deps.now, headers.cookie);
-      const profile = await updateProfile(deps.store, actor, body.nom, body.nomAffiche);
+      const profile = await updateProfile(deps.store, actor, body.prenom, body.nom, body.nomAffiche);
       return { status: 200, body: JSON.stringify(profile), headers: JSON_TYPE };
     }
     if (path === "/v1/auth/profil/motdepasse" && method === "POST") {
@@ -175,11 +191,71 @@ export async function handleAuth(
       const email = await confirmEmailChange(deps.store, deps.auth, deps.now(), body.token, actor);
       return { status: 200, body: JSON.stringify({ email }), headers: JSON_TYPE };
     }
+    if (path === "/v1/auth/profil/courriel/confirmer-actuel" && method === "POST") {
+      const actor = await emailFromCookie(deps.store, deps.now, headers.cookie);
+      await startOwnEmailConfirmation(deps.store, deps.auth, deps.now(), actor);
+      return { status: 202, body: "", headers: {} };
+    }
+    if (path === "/v1/auth/profil/courriel/renvoyer" && method === "POST") {
+      const actor = await emailFromCookie(deps.store, deps.now, headers.cookie);
+      await resendPendingCourriel(deps.store, deps.auth, deps.now(), actor);
+      return { status: 202, body: "", headers: {} };
+    }
+    if (path === "/v1/auth/profil/courriel/annuler" && method === "POST") {
+      const actor = await emailFromCookie(deps.store, deps.now, headers.cookie);
+      const profile = await cancelPendingCourriel(deps.store, deps.now(), actor);
+      return { status: 200, body: JSON.stringify(profile), headers: JSON_TYPE };
+    }
+    if (path === "/v1/auth/smtp" && method === "GET") {
+      const actor = await emailFromCookie(deps.store, deps.now, headers.cookie);
+      await requireAdministrateur(deps.store, actor);
+      return { status: 200, body: JSON.stringify(await readSmtpPublic(deps.store)), headers: JSON_TYPE };
+    }
+    if (path === "/v1/auth/smtp" && method === "POST") {
+      if (!String(headers["content-type"] ?? "").startsWith("application/json")) throw new AuthError("demande refusée");
+      const body = objectBody(rawBody);
+      if (!body) throw new AuthError("demande refusée");
+      const actor = await emailFromCookie(deps.store, deps.now, headers.cookie);
+      await requireAdministrateur(deps.store, actor);
+      try {
+        const settings = await saveSmtpSettings(deps.store, body);
+        return { status: 200, body: JSON.stringify(settings), headers: JSON_TYPE };
+      } catch (error) {
+        throw new AuthError(smtpErrorCode(error) === "envoi échoué" ? "demande refusée" : smtpErrorCode(error));
+      }
+    }
+    if (path === "/v1/auth/smtp" && method === "DELETE") {
+      const actor = await emailFromCookie(deps.store, deps.now, headers.cookie);
+      await requireAdministrateur(deps.store, actor);
+      return { status: 200, body: JSON.stringify(await clearSmtpSettings(deps.store)), headers: JSON_TYPE };
+    }
+    if (path === "/v1/auth/smtp/essai" && method === "POST") {
+      const actor = await emailFromCookie(deps.store, deps.now, headers.cookie);
+      await requireAdministrateur(deps.store, actor);
+      const settings = await resolveSmtp(deps.store);
+      if (!settings || !actor) throw new AuthError("smtp absent");
+      try {
+        await sendSmtp(
+          settings,
+          actor,
+          "Courriel d’essai du Socle",
+          "Bonjour,\n\nCeci est un courriel d’essai de l’espace de rédaction. Si vous le lisez, l’envoi est bien réglé.\n",
+        );
+      } catch (error) {
+        throw new AuthError(smtpErrorCode(error) === "envoi échoué" ? "smtp refusé" : smtpErrorCode(error));
+      }
+      return { status: 200, body: JSON.stringify({ ok: true, destinataire: actor }), headers: JSON_TYPE };
+    }
     return { status: 404, body: "", headers: {} };
   } catch (error) {
     if (error instanceof AuthError) return fail(error);
     throw error;
   }
+}
+
+async function requireAdministrateur(store: AdminDeps["store"], actor: string | null): Promise<void> {
+  if (!actor) throw new AuthError("accès refusé");
+  if ((await roleOf(store, actor)) !== "administrateur") throw new AuthError("réservé à l’administrateur");
 }
 
 function requireKnownMode(deps: AdminDeps): void {
@@ -194,8 +270,9 @@ function fail(error: AuthError): Result {
     : message === "trop d'essais" ? 429
     : message === "déjà installé" ? 409
     : message === "github refusé" ? 502
-    : message === "mode inconnu" || message === "smtp absent" || message === "client absent" || message === "réseau absent" ? 409
-    : message === "lien inconnu" || message === "lien expiré" ? 400
+    : message === "mode inconnu" || message === "smtp absent" || message === "client absent" || message === "réseau absent" || message === "réglages incomplets" ? 409
+    : message === "smtp muet" || message === "smtp refusé" ? 502
+    : message === "lien inconnu" || message === "lien expiré" || message === "demande absente" ? 400
     : 400;
   return { status, body: message, headers: TEXT };
 }

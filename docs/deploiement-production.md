@@ -1,6 +1,6 @@
 # Mettre le Socle en production
 
-Cette liste sert au moment où un journal installe **sa** copie pour de vrai, en HTTPS, avec une équipe qui se connecte. Rien n’est déployé depuis ce dépôt : les secrets, le nom de domaine et l’hébergement sont réglés par la personne qui installe (pour le Radar, c’est Charles). N’écrivez jamais les valeurs des secrets dans un fichier du projet, un ticket ou un message.
+Cette liste sert au moment où un journal installe **sa** copie pour de vrai, en HTTPS, avec une équipe qui se connecte. Rien n’est déployé depuis ce dépôt : les secrets, le nom de domaine et l’hébergement sont réglés par la personne qui installe. N’écrivez jamais les valeurs des secrets dans un fichier du projet, un ticket ou un message.
 
 ## 1. Avant d’ouvrir le journal au public
 
@@ -12,9 +12,11 @@ Cette liste sert au moment où un journal installe **sa** copie pour de vrai, en
 
 ## 2. Envoi des courriels (forfait gratuit seulement)
 
-Pour que « Mot de passe oublié » et le changement de courriel fonctionnent vraiment, le journal doit avoir un relais SMTP. C’est le mécanisme déjà utilisé pour le lien magique.
+Pour que « Mot de passe oublié » et le changement de courriel fonctionnent vraiment, le journal doit avoir un relais SMTP. C’est le mécanisme déjà utilisé pour le lien magique. Il n’y a pas de serveur d’envoi intégré au Socle, et l’envoi ne se fait jamais par `mail()` sans authentification.
 
-Variables, à poser dans l’environnement de l’hébergeur, **jamais** dans `socle.config.json` :
+Le plus simple, pour un journal hébergé, est de remplir la section « Envoi de courriel » dans Configuration : « Courriel de mon hébergeur » en premier (boîte fournie avec cPanel, Hostinger, Web Hosting Canada, etc. : hôte, port 465 SSL ou 587 STARTTLS, identifiant = adresse complète), puis Gmail ou Google Workspace (mot de passe d’application), Outlook ou Microsoft 365, ou un serveur universitaire ou personnalisé. Le mot de passe n’est jamais réaffiché. Un bouton envoie un courriel d’essai à l’adresse de la personne connectée.
+
+Les mêmes réglages peuvent aussi être posés dans l’environnement de l’hébergeur, **jamais** dans `socle.config.json`. S’ils sont aussi enregistrés dans l’espace de rédaction, ce sont ces derniers qui l’emportent :
 
 - `SOCLE_SMTP_HOST`
 - `SOCLE_SMTP_FROM` (une adresse du domaine du journal, déjà autorisée à envoyer)
@@ -43,8 +45,9 @@ Sur l’adresse HTTPS réelle, pas seulement en local :
 3. « Mot de passe oublié » : inscrire le courriel d’un vrai compte de test, recevoir le message, suivre le lien (une heure, un seul usage), poser un nouveau mot de passe, constater que l’ancienne session est fermée et que l’on peut se reconnecter.
 4. Recommencer avec une adresse **inconnue** : le message à l’écran est le même, aucun courriel n’indique si le compte existe.
 5. Enchaîner plusieurs demandes trop vite : après cinq essais sur la même adresse en 15 minutes, la page demande d’attendre.
-6. « Mon profil » : changer le nom et le nom d’affichage ; changer le mot de passe en saisissant l’actuel ; demander un changement de courriel et confirmer le lien reçu.
-7. Ouvrir la même page sur un téléphone, en thème clair et en thème sombre.
+6. « Mon profil » : remplir le prénom et le nom, et au besoin le nom d’affichage ; changer le mot de passe en saisissant l’actuel ; voir si le courriel est confirmé ; demander un changement de courriel ou confirmer l’adresse actuelle, puis suivre le lien reçu.
+7. Configuration, « Envoi de courriel » : enregistrer le relais de l’hébergeur (ou un autre fournisseur) et envoyer un courriel d’essai à votre adresse.
+8. Ouvrir la même page sur un téléphone, en thème clair et en thème sombre.
 
 ## 5. Rappel des variables d’environnement
 

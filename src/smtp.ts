@@ -1,6 +1,8 @@
 import { connect, type Socket } from "node:net";
 import { connect as connectTls, type TLSSocket } from "node:tls";
 
+import type { SocleStore } from "./store.ts";
+
 export type SmtpSettings = {
   host: string;
   port: number;
@@ -193,4 +195,179 @@ function upgradeTls(socket: Socket, options: { servername: string; rejectUnautho
     const tlsSocket = connectTls({ socket, ...options }, () => resolve(tlsSocket));
     tlsSocket.once("error", reject);
   });
+}
+
+
+export const SMTP_STORE_KEY = "smtp:settings";
+
+export type SmtpProvider = "hebergeur" | "gmail" | "outlook" | "personnalise";
+
+export type SmtpPublic = {
+  fournisseur: SmtpProvider;
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  from: string;
+  motDePasseEnregistre: boolean;
+  source: "enregistrement" | "environnement" | "absent";
+};
+
+const PROVIDERS: SmtpProvider[] = ["hebergeur", "gmail", "outlook", "personnalise"];
+
+type StoredSmtp = {
+  fournisseur?: string;
+  host?: string;
+  port?: number;
+  secure?: boolean;
+  user?: string;
+  password?: string;
+  from?: string;
+};
+
+export function isSmtpProvider(value: unknown): value is SmtpProvider {
+  return typeof value === "string" && (PROVIDERS as string[]).includes(value);
+}
+
+function parseStored(raw: string | null): StoredSmtp | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as StoredSmtp;
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function completeSettings(row: StoredSmtp | SmtpSettings | null | undefined): SmtpSettings | null {
+  if (!row) return null;
+  const host = String(row.host ?? "").trim();
+  const from = String(row.from ?? "").trim();
+  const port = Number(row.port);
+  if (!host || !from || !Number.isInteger(port) || port < 1 || port > 65535) return null;
+  const user = typeof row.user === "string" ? row.user.trim() : "";
+  const password = typeof row.password === "string" ? row.password : "";
+  return {
+    host,
+    port,
+    secure: Boolean(row.secure),
+    user: user || undefined,
+    password: password || undefined,
+    from,
+  };
+}
+
+export async function smtpFromStore(store: SocleStore): Promise<SmtpSettings | null> {
+  return completeSettings(parseStored(await store.get("auth", SMTP_STORE_KEY)));
+}
+
+/** Réglages enregistrés dans l’espace de rédaction, sinon ceux de l’environnement. */
+export async function resolveSmtp(
+  store: SocleStore,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<SmtpSettings | null> {
+  return (await smtpFromStore(store)) ?? smtpFromEnv(env);
+}
+
+export async function readSmtpPublic(
+  store: SocleStore,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<SmtpPublic> {
+  const stored = parseStored(await store.get("auth", SMTP_STORE_KEY));
+  if (stored && completeSettings(stored)) {
+    return {
+      fournisseur: isSmtpProvider(stored.fournisseur) ? stored.fournisseur : "personnalise",
+      host: String(stored.host ?? "").trim(),
+      port: Number(stored.port),
+      secure: Boolean(stored.secure),
+      user: String(stored.user ?? "").trim(),
+      from: String(stored.from ?? "").trim(),
+      motDePasseEnregistre: Boolean(stored.password),
+      source: "enregistrement",
+    };
+  }
+  const envSettings = smtpFromEnv(env);
+  if (envSettings) {
+    return {
+      fournisseur: "personnalise",
+      host: envSettings.host,
+      port: envSettings.port,
+      secure: Boolean(envSettings.secure),
+      user: envSettings.user ?? "",
+      from: envSettings.from,
+      motDePasseEnregistre: Boolean(envSettings.password),
+      source: "environnement",
+    };
+  }
+  return {
+    fournisseur: "hebergeur",
+    host: "",
+    port: 465,
+    secure: true,
+    user: "",
+    from: "",
+    motDePasseEnregistre: false,
+    source: "absent",
+  };
+}
+
+export async function saveSmtpSettings(
+  store: SocleStore,
+  body: Record<string, unknown>,
+): Promise<SmtpPublic> {
+  if (!isSmtpProvider(body.fournisseur)) throw new Error("demande refusée");
+  const host = typeof body.host === "string" ? body.host.trim() : "";
+  const from = typeof body.from === "string" ? body.from.trim() : "";
+  const user = typeof body.user === "string" ? body.user.trim() : "";
+  const port = Number(body.port);
+  const secure = body.secure === true || body.secure === "1";
+  const incomingPassword = typeof body.password === "string" ? body.password : "";
+  if (!host || !from || !user || !Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error("réglages incomplets");
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(from) || from.length > 200) throw new Error("demande refusée");
+  const previous = parseStored(await store.get("auth", SMTP_STORE_KEY));
+  const password = incomingPassword || previous?.password || "";
+  if (!password) throw new Error("réglages incomplets");
+  const stored: StoredSmtp = {
+    fournisseur: body.fournisseur,
+    host,
+    port,
+    secure,
+    user,
+    password,
+    from,
+  };
+  await store.put("auth", SMTP_STORE_KEY, JSON.stringify(stored));
+  return readSmtpPublic(store);
+}
+
+export async function clearSmtpSettings(store: SocleStore): Promise<SmtpPublic> {
+  await store.delete("auth", SMTP_STORE_KEY);
+  return readSmtpPublic(store);
+}
+
+/** Message d’erreur en français, sans secret ni détail technique brut. */
+export function smtpErrorMessage(error: unknown): string {
+  const raw = error instanceof Error ? error.message : "";
+  if (raw === "smtp muet") {
+    return "Impossible de joindre le serveur d’envoi. Vérifiez l’hôte et le port.";
+  }
+  if (raw === "smtp refusé") {
+    return "Le serveur d’envoi a refusé la connexion. Vérifiez l’identifiant, le mot de passe et le chiffrement (465 SSL ou 587 STARTTLS).";
+  }
+  if (raw === "smtp absent" || raw === "réglages incomplets") {
+    return "L’envoi de courriel n’est pas réglé. Indiquez l’hôte, l’expéditeur, l’identifiant et le mot de passe.";
+  }
+  if (raw === "demande refusée") return "demande refusée";
+  return "L’envoi a échoué. Vérifiez les réglages. Le mot de passe n’a pas été modifié à l’écran.";
+}
+
+export function smtpErrorCode(error: unknown): "smtp muet" | "smtp refusé" | "smtp absent" | "réglages incomplets" | "demande refusée" | "envoi échoué" {
+  const raw = error instanceof Error ? error.message : "";
+  if (raw === "smtp muet" || raw === "smtp refusé" || raw === "smtp absent" || raw === "réglages incomplets" || raw === "demande refusée") {
+    return raw;
+  }
+  return "envoi échoué";
 }

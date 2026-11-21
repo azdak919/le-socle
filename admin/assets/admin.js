@@ -217,7 +217,7 @@ async function authCall(method, path, body) {
   });
   const text = await response.text();
   if (!response.ok) {
-    const messages = { 'accès refusé': 'Courriel ou mot de passe incorrect.', "trop d'essais": 'Trop d’essais : attendez 15 minutes.', 'mot de passe trop court': 'Le mot de passe doit avoir au moins 10 caractères.', 'mot de passe inchangé': 'Choisissez un mot de passe différent de l’actuel.', 'déjà installé': 'Ce journal a déjà un administrateur : connectez-vous.', 'réservé à l’administrateur': 'Réservé à l’administrateur du journal.', 'réservé au responsable': 'Réservé à l’administrateur du journal.', 'rôle inconnu': 'Rôle inconnu.', 'demande refusée': 'Demande refusée : vérifiez le courriel (par exemple vous@exemple.ca).', 'lien inconnu': 'Ce lien n’est plus valable. Demandez-en un nouveau.', 'lien expiré': 'Ce lien a expiré. Demandez-en un nouveau.', 'smtp absent': 'L’envoi de courriel n’est pas réglé. Demandez à l’administrateur.', 'courriel déjà utilisé': 'Cette adresse est déjà utilisée par un autre compte.', 'courriel inchangé': 'C’est déjà votre courriel.', 'nom trop long': 'Le nom est trop long (120 caractères au plus).', 'nom d’affichage trop long': 'Le nom d’affichage est trop long (120 caractères au plus).' };
+    const messages = { 'accès refusé': 'Courriel ou mot de passe incorrect.', "trop d'essais": 'Trop d’essais : attendez 15 minutes.', 'mot de passe trop court': 'Le mot de passe doit avoir au moins 10 caractères.', 'mot de passe inchangé': 'Choisissez un mot de passe différent de l’actuel.', 'déjà installé': 'Ce journal a déjà un administrateur : connectez-vous.', 'réservé à l’administrateur': 'Réservé à l’administrateur du journal.', 'réservé au responsable': 'Réservé à l’administrateur du journal.', 'rôle inconnu': 'Rôle inconnu.', 'demande refusée': 'Demande refusée : vérifiez le courriel (par exemple vous@exemple.ca).', 'lien inconnu': 'Ce lien n’est plus valable. Demandez-en un nouveau.', 'lien expiré': 'Ce lien a expiré. Demandez-en un nouveau.', 'smtp absent': 'L’envoi de courriel n’est pas réglé. Demandez à l’administrateur.', 'courriel déjà utilisé': 'Cette adresse est déjà utilisée par un autre compte.', 'courriel inchangé': 'C’est déjà votre courriel.', 'nom trop long': 'Le nom est trop long (120 caractères au plus).', 'nom d’affichage trop long': 'Le nom d’affichage est trop long (120 caractères au plus).', 'demande absente': 'Aucune demande de confirmation n’est en cours.', 'réglages incomplets': 'Indiquez l’hôte, l’expéditeur, l’identifiant et le mot de passe.', 'smtp muet': 'Impossible de joindre le serveur d’envoi. Vérifiez l’hôte et le port.', 'smtp refusé': 'Le serveur d’envoi a refusé la connexion. Vérifiez l’identifiant, le mot de passe et le chiffrement (465 SSL ou 587 STARTTLS).', 'envoi échoué': 'L’envoi a échoué. Vérifiez les réglages.' };
     throw new Error(messages[text] || text || `Le serveur du journal a refusé la demande (code ${response.status}). Réessayez ; si cela continue, prévenez l’administrateur.`);
   }
   return text ? JSON.parse(text) : null;
@@ -727,10 +727,14 @@ async function fillAccessPanel() {
   const memberLine = (member) => {
     const scope = (member.sections || []).map(sectionName);
     const where = SCOPED_ROLES.includes(member.role) ? (scope.length ? `Rubriques : ${scope.join(', ')}` : 'Toutes les rubriques') : '';
-    return `<li><div><strong>${esc(member.email)}</strong><small>${esc([ACCOUNT_LABELS[member.role] || member.role, where].filter(Boolean).join(' · '))}</small></div><div><button type="button" data-edit-member="${esc(member.email)}">Modifier</button></div></li>`;
+    const shown = (member.affichage || '').trim();
+    return `<li><div><strong>${esc(shown || member.email)}</strong><small>${esc([shown ? member.email : '', ACCOUNT_LABELS[member.role] || member.role, where].filter(Boolean).join(' · '))}</small></div><div><button type="button" data-edit-member="${esc(member.email)}">Modifier</button></div></li>`;
   };
   panel.innerHTML = `<div class="toolbar"><h2>Comptes et rôles</h2>${logout}</div><p class="notice">Ces comptes ouvrent la rédaction. Le rôle dit ce que chacun peut faire ; le serveur l’applique. Les signatures, plus bas, sont ce que le public voit.</p><ul class="entity-list" id="member-list">${members.map(memberLine).join('')}</ul>
   <form id="member-form" class="grid"><h3 class="full" id="member-form-title">Ajouter une personne</h3>
+  <div class="field"><label>Prénom<input name="prenom" maxlength="120" autocomplete="off"></label></div>
+  <div class="field"><label>Nom<input name="nom" maxlength="120" autocomplete="off"></label></div>
+  <div class="field full"><label>Nom d’affichage (facultatif)<input name="nomAffiche" maxlength="120" autocomplete="off"></label><small>S’il est vide, l’affichage et les signatures utilisent le prénom et le nom.</small></div>
   <div class="field"><label>Courriel<input name="email" type="email" required autocomplete="off"></label></div>
   <div class="field"><label>Rôle<select name="role">${roleOptions}</select></label><small id="member-role-help"></small></div>
   <fieldset class="field full" id="member-sections"><legend>Rubriques permises</legend><small>Rien de coché : toutes les rubriques.</small><div class="chips">${sections.length ? sections.map((item) => `<label><input type="checkbox" name="sections" value="${esc(item.slug)}"> ${esc(item.name)}</label>`).join(' ') : '<em>Aucune section pour l’instant (Sections et catégories).</em>'}</div></fieldset>
@@ -749,6 +753,9 @@ async function fillAccessPanel() {
   panel.querySelectorAll('[data-edit-member]').forEach((button) => button.onclick = () => {
     const member = members.find((item) => item.email === button.dataset.editMember);
     if (!member) return;
+    form.elements.prenom.value = member.prenom || '';
+    form.elements.nom.value = member.nom || '';
+    form.elements.nomAffiche.value = member.nomAffiche || '';
     form.elements.email.value = member.email;
     form.elements.role.value = member.role === 'responsable' ? 'administrateur' : member.role;
     form.querySelectorAll('input[name="sections"]').forEach((box) => { box.checked = (member.sections || []).includes(box.value); });
@@ -760,7 +767,13 @@ async function fillAccessPanel() {
   form.onsubmit = async (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const body = { email: data.get('email').trim(), role: data.get('role') };
+    const body = {
+      email: data.get('email').trim(),
+      role: data.get('role'),
+      prenom: (data.get('prenom') || '').trim(),
+      nom: (data.get('nom') || '').trim(),
+      nomAffiche: (data.get('nomAffiche') || '').trim(),
+    };
     if (SCOPED_ROLES.includes(body.role)) body.sections = data.getAll('sections');
     if (data.get('password')) body.password = data.get('password');
     try { await authCall('POST', 'membres', body); notify('Compte enregistré.'); fillAccessPanel(); } catch (error) { notify(error.message, 5000); }
@@ -1757,8 +1770,154 @@ function settings() {
     <fieldset class="field"><legend>Outils</legend><label><input name="pomodoro" type="checkbox" ${masthead.tools?.pomodoro !== false ? 'checked' : ''}> Pomodoro LE-RADAR.ca</label><label><input name="solitaire" type="checkbox" ${masthead.tools?.solitaire !== false ? 'checked' : ''}> Solitaire LE-RADAR.ca</label></fieldset>
     <fieldset class="field full"><legend>Radio étudiante</legend><label><input name="radioEnabled" type="checkbox" ${publication.radio?.enabled !== false ? 'checked' : ''}> Afficher la barre radio sous le mât</label><label>Station<select name="station" id="radar-stations"><option value="">Choisir une station</option>${publication.radio?.station ? `<option value="${esc(publication.radio.station)}" selected>${esc(publication.radio.station)}</option>` : ''}</select></label><small>La barre est le module de LE-RADAR : ses stations et son lecteur se mettent à jour chez LE-RADAR, sans toucher au journal. Éteinte, la barre n’existe pas et rien ne part vers le-radar.ca.</small></fieldset>
     <div class="field full">${fileChooser('id="logo-file" type="file" accept="image/svg+xml,image/png,image/webp,image/jpeg"', 'Logo local (SVG, PNG, WebP ou JPEG)')}<label>Texte alternatif<input name="logoAlt" placeholder="${esc(publication.name || 'Le Quorum')}" value="${esc(publication.logo?.alt || '')}"></label><small>Vide : le nom du journal sert de texte alternatif. Vérifiez vos droits d’utilisation pour chaque image téléversée.</small><div id="logo-preview"></div></div>
-    <div class="actions full"><button class="primary">Enregistrer</button><button type="button" data-action="recommended-theme">Réinitialiser le thème recommandé</button></div></form></section>`;
+    <div class="actions full"><button class="primary">Enregistrer</button><button type="button" data-action="recommended-theme">Réinitialiser le thème recommandé</button></div></form></section>${onSocle() && isAdminRole() ? smtpSettingsPanel() : ''}`;
 }
+
+const SMTP_AIDES = {
+  hebergeur: 'Boîte fournie avec l’hébergement (cPanel, Hostinger, Web Hosting Canada, etc.). L’identifiant est l’adresse complète. Port 465 avec SSL, ou 587 avec STARTTLS ; l’hôte est souvent mail.votre-domaine.ca.',
+  gmail: 'Pour Gmail ou Google Workspace, il faut un mot de passe d’application, pas le mot de passe du compte. L’hôte est smtp.gmail.com, en général au port 465 avec SSL.',
+  outlook: 'Pour Outlook ou Microsoft 365, l’hôte est smtp.office365.com, au port 587 avec STARTTLS. L’identifiant est l’adresse complète.',
+  personnalise: 'Serveur universitaire ou autre relais. Indiquez l’hôte, le port (465 avec SSL ou 587 avec STARTTLS), l’identifiant et le mot de passe fournis par l’établissement.',
+};
+
+const SMTP_PRESETS = {
+  hebergeur: { host: '', port: 465, secure: true, hostPlaceholder: 'mail.votre-domaine.ca' },
+  gmail: { host: 'smtp.gmail.com', port: 465, secure: true, hostPlaceholder: 'smtp.gmail.com' },
+  outlook: { host: 'smtp.office365.com', port: 587, secure: false, hostPlaceholder: 'smtp.office365.com' },
+  personnalise: { host: '', port: 587, secure: false, hostPlaceholder: 'smtp.exemple.ca' },
+};
+
+function smtpSettingsPanel() {
+  return `<section class="panel" id="smtp-panel">
+    <h3>Envoi de courriel</h3>
+    <p class="aide">Les courriels de confirmation et de réinitialisation partent par le compte courriel du journal.</p>
+    <form id="smtp-form" class="grid smtp-form" autocomplete="off">
+      <div class="field full"><label>Fournisseur<select name="fournisseur">
+        <option value="hebergeur">Courriel de mon hébergeur</option>
+        <option value="gmail">Gmail ou Google Workspace</option>
+        <option value="outlook">Outlook ou Microsoft 365</option>
+        <option value="personnalise">Serveur universitaire ou personnalisé</option>
+      </select></label></div>
+      <p class="aide full" data-smtp-aide></p>
+      <div class="field full"><label>Hôte<input name="host" required autocomplete="off" placeholder="mail.votre-domaine.ca"></label></div>
+      <div class="smtp-ports full">
+      <div class="field"><label>Chiffrement<select name="chiffrement">
+        <option value="ssl">SSL (port 465)</option>
+        <option value="starttls">STARTTLS (port 587)</option>
+      </select></label></div>
+      <div class="field"><label>Port<input name="port" type="number" min="1" max="65535" required></label></div>
+      </div>
+      <div class="field full"><label>Identifiant (adresse complète)<input name="user" required autocomplete="off" placeholder="redaction@votre-domaine.ca"></label></div>
+      <div class="field full"><label>Mot de passe<input name="password" type="password" autocomplete="new-password"></label><small data-smtp-password-hint></small></div>
+      <div class="field full"><label>Expéditeur<input name="from" type="email" required placeholder="redaction@votre-domaine.ca"></label></div>
+      <p class="aide full" data-smtp-source hidden></p>
+      <div class="actions full">
+        <button class="primary" type="submit">Enregistrer l’envoi de courriel</button>
+        <button type="button" data-smtp-essai>Envoyer un courriel d’essai</button>
+        <button type="button" data-smtp-retirer hidden>Retirer les réglages enregistrés</button>
+      </div>
+    </form>
+    <p id="smtp-status" class="notice" role="status" hidden></p>
+  </section>`;
+}
+
+function smtpStatus(message, ok) {
+  const status = document.getElementById('smtp-status');
+  if (!status) return;
+  status.hidden = false;
+  status.textContent = message;
+  status.classList.toggle('notice-ok', Boolean(ok));
+}
+
+function applySmtpPreset(form, fournisseur, keepHost) {
+  const preset = SMTP_PRESETS[fournisseur] || SMTP_PRESETS.hebergeur;
+  form.chiffrement.value = preset.secure ? 'ssl' : 'starttls';
+  form.port.value = String(preset.port);
+  form.host.placeholder = preset.hostPlaceholder;
+  if (!keepHost || !form.host.value) {
+    if (preset.host) form.host.value = preset.host;
+  }
+  const aide = form.querySelector('[data-smtp-aide]');
+  if (aide) aide.textContent = SMTP_AIDES[fournisseur] || SMTP_AIDES.hebergeur;
+}
+
+async function bindSmtpSettings() {
+  const form = document.getElementById('smtp-form');
+  if (!form) return;
+  let current = { fournisseur: 'hebergeur', host: '', port: 465, secure: true, user: '', from: '', motDePasseEnregistre: false, source: 'absent' };
+  try { current = await authCall('GET', 'smtp'); } catch (error) { smtpStatus(error.message); }
+  form.fournisseur.value = current.fournisseur || 'hebergeur';
+  applySmtpPreset(form, form.fournisseur.value, true);
+  form.host.value = current.host || form.host.value;
+  form.port.value = String(current.port || form.port.value);
+  form.chiffrement.value = current.secure ? 'ssl' : 'starttls';
+  form.user.value = current.user || '';
+  form.from.value = current.from || '';
+  form.password.value = '';
+  const hint = form.querySelector('[data-smtp-password-hint]');
+  if (hint) hint.textContent = current.motDePasseEnregistre
+    ? 'Un mot de passe est déjà enregistré. Laissez ce champ vide pour le conserver. Il n’est jamais réaffiché.'
+    : 'Le mot de passe n’est jamais réaffiché une fois enregistré.';
+  const source = form.querySelector('[data-smtp-source]');
+  if (source) {
+    source.hidden = current.source === 'absent';
+    source.textContent = current.source === 'environnement'
+      ? 'Ces réglages viennent actuellement de l’environnement du serveur. Enregistrer ici les remplace pour l’espace de rédaction. Retirer les réglages enregistrés revient à l’environnement, s’il est défini.'
+      : (current.source === 'enregistrement' ? 'Ces réglages sont enregistrés sur le serveur du journal, pas dans un fichier de configuration public.' : '');
+  }
+  const retirer = form.querySelector('[data-smtp-retirer]');
+  if (retirer) retirer.hidden = current.source !== 'enregistrement';
+  form.fournisseur.onchange = () => {
+    applySmtpPreset(form, form.fournisseur.value, false);
+  };
+  form.chiffrement.onchange = () => {
+    if (form.chiffrement.value === 'ssl') { form.port.value = '465'; }
+    else { form.port.value = '587'; }
+  };
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    try {
+      const data = new FormData(form);
+      const body = {
+        fournisseur: data.get('fournisseur'),
+        host: String(data.get('host') || '').trim(),
+        port: Number(data.get('port')),
+        secure: data.get('chiffrement') === 'ssl',
+        user: String(data.get('user') || '').trim(),
+        from: String(data.get('from') || '').trim(),
+      };
+      const password = String(data.get('password') || '');
+      if (password) body.password = password;
+      const saved = await authCall('POST', 'smtp', body);
+      form.password.value = '';
+      current = saved;
+      const nextHint = form.querySelector('[data-smtp-password-hint]');
+      if (nextHint) nextHint.textContent = 'Un mot de passe est déjà enregistré. Laissez ce champ vide pour le conserver. Il n’est jamais réaffiché.';
+      if (retirer) retirer.hidden = saved.source !== 'enregistrement';
+      if (source) {
+        source.hidden = false;
+        source.textContent = 'Ces réglages sont enregistrés sur le serveur du journal, pas dans un fichier de configuration public.';
+      }
+      smtpStatus('Réglages d’envoi enregistrés.', true);
+    } catch (error) { smtpStatus(error.message); }
+  };
+  form.querySelector('[data-smtp-essai]').onclick = async () => {
+    try {
+      const result = await authCall('POST', 'smtp/essai');
+      smtpStatus(`Un courriel d’essai vient d’être envoyé à ${result.destinataire}.`, true);
+    } catch (error) { smtpStatus(error.message); }
+  };
+  retirer?.addEventListener('click', async () => {
+    try {
+      const cleared = await authCall('DELETE', 'smtp');
+      await bindSmtpSettings();
+      smtpStatus(cleared.source === 'environnement'
+        ? 'Les réglages enregistrés ont été retirés. L’envoi reprend ceux de l’environnement du serveur.'
+        : 'Les réglages enregistrés ont été retirés. L’envoi n’est plus réglé.', true);
+    } catch (error) { smtpStatus(error.message); }
+  });
+}
+
 
 async function readLogo(file, alt) {
   const allowed = ['image/svg+xml', 'image/png', 'image/webp', 'image/jpeg'];
@@ -1799,8 +1958,9 @@ function bindCommon() {
 function profileView() {
   return `<section class="panel panel-profil" style="max-width:36rem">
     <form id="profile-form" class="grid">
-      <div class="field"><label>Nom<input name="nom" maxlength="120" autocomplete="name"></label></div>
-      <div class="field"><label>Nom d’affichage<input name="nomAffiche" maxlength="120" autocomplete="nickname"></label></div>
+      <div class="field"><label>Prénom<input name="prenom" maxlength="120" autocomplete="given-name"></label></div>
+      <div class="field"><label>Nom<input name="nom" maxlength="120" autocomplete="family-name"></label></div>
+      <div class="field full"><label>Nom d’affichage (facultatif)<input name="nomAffiche" maxlength="120" autocomplete="nickname"></label><small>S’il est vide, l’affichage et les signatures utilisent le prénom et le nom.</small></div>
       <div class="actions full"><button class="primary">Enregistrer le profil</button></div>
     </form>
     <h3>Mot de passe</h3>
@@ -1811,12 +1971,17 @@ function profileView() {
       <div class="actions full"><button class="primary">Changer le mot de passe</button></div>
     </form>
     <h3>Courriel</h3>
-    <p id="profile-email" class="profil-actuel"></p>
+    <p class="profil-courriel-ligne">
+      <span id="profile-email" class="profil-actuel"></span>
+      <span id="profile-email-etat" class="profil-courriel-etat" hidden></span>
+    </p>
+    <div id="profile-email-attente" class="profil-courriel-attente" hidden></div>
+    <div id="profile-email-actions" class="actions" hidden></div>
     <form id="profile-email-form" class="grid">
       <div class="field full"><label>Nouveau courriel<input name="courriel" type="email" autocomplete="email" required placeholder="vous@exemple.ca"></label></div>
       <div class="actions full"><button class="primary">Demander la confirmation</button></div>
     </form>
-    <p class="aide">Un lien de confirmation part à la nouvelle adresse, s’il est possible d’envoyer un courriel. Sinon, demandez à l’administrateur.</p>
+    <p id="profile-email-aide" class="aide">Un lien de confirmation part à la nouvelle adresse, s’il est possible d’envoyer un courriel. Sinon, demandez à l’administrateur.</p>
     <p id="profile-status" class="notice" role="status" hidden></p>
   </section>`;
 }
@@ -1829,19 +1994,90 @@ function profileStatus(message, ok) {
   status.classList.toggle('notice-ok', Boolean(ok));
 }
 
+function courrielEtatLibelle(etat) {
+  if (etat === 'confirmee') return 'Confirmée';
+  if (etat === 'en-attente') return 'En attente de confirmation';
+  return 'Non confirmée';
+}
+
+function paintEmailStatus(profile) {
+  const etat = document.getElementById('profile-email-etat');
+  const pending = document.getElementById('profile-email-attente');
+  const actions = document.getElementById('profile-email-actions');
+  if (!etat || !pending || !actions) return;
+  const status = profile.courrielEtat || 'non-confirmee';
+  etat.hidden = false;
+  etat.textContent = `État : ${courrielEtatLibelle(status)}`;
+  etat.dataset.etat = status;
+  pending.hidden = !profile.courrielEnAttente;
+  pending.textContent = profile.courrielEnAttente
+    ? `Nouvelle adresse en attente : ${profile.courrielEnAttente}`
+    : '';
+  const demandeEnCours = status === 'en-attente' || Boolean(profile.courrielEnAttente);
+  const form = document.getElementById('profile-email-form');
+  const aide = document.getElementById('profile-email-aide');
+  if (form) form.hidden = demandeEnCours;
+  if (aide) {
+    aide.textContent = demandeEnCours
+      ? 'Annulez la demande pour indiquer une autre adresse.'
+      : 'Un lien de confirmation part à la nouvelle adresse, s’il est possible d’envoyer un courriel. Sinon, demandez à l’administrateur.';
+  }
+  const buttons = [];
+  if (status === 'non-confirmee' && !profile.courrielEnAttente) {
+    buttons.push(['Confirmer mon adresse', 'confirmer-actuel']);
+  }
+  if (demandeEnCours) {
+    buttons.push(['Renvoyer le lien', 'renvoyer']);
+    buttons.push(['Annuler la demande', 'annuler']);
+  }
+  actions.hidden = buttons.length === 0;
+  actions.innerHTML = buttons.map(([label, action], index) =>
+    `<button type="button" class="${index === 0 ? 'primary' : ''}" data-courriel-action="${action}">${label}</button>`
+  ).join('');
+  actions.querySelectorAll('[data-courriel-action]').forEach((button) => {
+    button.onclick = async () => {
+      try {
+        const action = button.dataset.courrielAction;
+        if (action === 'confirmer-actuel') {
+          await authCall('POST', 'profil/courriel/confirmer-actuel');
+          const next = await authCall('GET', 'profil');
+          const emailLine = document.getElementById('profile-email');
+          if (emailLine && next.email) emailLine.textContent = `Adresse actuelle : ${next.email}`;
+          paintEmailStatus(next);
+          profileStatus('Si l’envoi de courriel est réglé, un lien de confirmation vient de partir à votre adresse.', true);
+        } else if (action === 'renvoyer') {
+          await authCall('POST', 'profil/courriel/renvoyer');
+          const next = await authCall('GET', 'profil');
+          paintEmailStatus(next);
+          profileStatus('Un nouveau lien de confirmation vient d’être demandé.', true);
+        } else if (action === 'annuler') {
+          const next = await authCall('POST', 'profil/courriel/annuler');
+          const emailLine = document.getElementById('profile-email');
+          if (emailLine && next.email) emailLine.textContent = `Adresse actuelle : ${next.email}`;
+          paintEmailStatus(next);
+          profileStatus('La demande de confirmation a été annulée.', true);
+        }
+      } catch (error) { profileStatus(error.message); }
+    };
+  });
+}
+
 async function bindProfile() {
+
   const form = document.getElementById('profile-form');
   if (!form) return;
-  let profile = { nom: '', nomAffiche: '', email: '' };
+  let profile = { prenom: '', nom: '', nomAffiche: '', email: '' };
   try { profile = await authCall('GET', 'profil'); } catch (error) { profileStatus(error.message); }
+  form.elements.prenom.value = profile.prenom || '';
   form.elements.nom.value = profile.nom || '';
   form.elements.nomAffiche.value = profile.nomAffiche || '';
   const emailLine = document.getElementById('profile-email');
   if (emailLine) emailLine.textContent = profile.email ? `Adresse actuelle : ${profile.email}` : '';
+  paintEmailStatus(profile);
   form.onsubmit = async (event) => {
     event.preventDefault();
     try {
-      await authCall('POST', 'profil', { nom: form.elements.nom.value, nomAffiche: form.elements.nomAffiche.value });
+      await authCall('POST', 'profil', { prenom: form.elements.prenom.value, nom: form.elements.nom.value, nomAffiche: form.elements.nomAffiche.value });
       profileStatus('Profil enregistré.', true);
     } catch (error) { profileStatus(error.message); }
   };
@@ -1849,6 +2085,9 @@ async function bindProfile() {
     event.preventDefault();
     try {
       await authCall('POST', 'profil/courriel', { courriel: new FormData(event.currentTarget).get('courriel').trim() });
+      event.currentTarget.reset();
+      const next = await authCall('GET', 'profil');
+      paintEmailStatus(next);
       profileStatus('Si l’envoi de courriel est réglé, un lien de confirmation vient de partir à la nouvelle adresse.', true);
     } catch (error) { profileStatus(error.message); }
   };
@@ -1955,6 +2194,7 @@ function render() {
   }
   if (view === 'media') bindMediaFilters(main);
   if (view === 'settings') {
+    bindSmtpSettings();
     // Liste des stations : lue chez LE-RADAR, seulement si la radio est
     // allumée (éteinte, rien ne part vers le-radar.ca). Sans réponse, le
     // champ reste un texte libre.

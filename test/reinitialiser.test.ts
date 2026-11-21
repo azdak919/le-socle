@@ -6,7 +6,7 @@ import test from "node:test";
 
 import type { AdminDeps } from "../src/admin.ts";
 import { handleAuth } from "../src/auth-http.ts";
-import { hashToken } from "../src/auth.ts";
+import { hashToken, membersForArchive, nomPourAffichage, parseStoredProfile, restoreMembers } from "../src/auth.ts";
 import { defaultConfig } from "../src/config.ts";
 import { openSqliteMemory } from "../src/sqlite.ts";
 
@@ -157,9 +157,9 @@ test("profil : nom, mot de passe actuel exigé, courriel confirmé", async () =>
   const other = cookieOf((await call("POST", "/v1/auth/motdepasse", { email: "ana@cegep.example", password: "mot de passe d’Ana" })).headers);
   assert.equal((await call("GET", "/v1/auth/profil")).status, 401);
   const empty = JSON.parse((await call("GET", "/v1/auth/profil", undefined, cookie)).body);
-  assert.deepEqual(empty, { email: "ana@cegep.example", nom: "", nomAffiche: "" });
-  const saved = JSON.parse((await call("POST", "/v1/auth/profil", { nom: "  Anne  Marie  ", nomAffiche: "Anne" }, cookie)).body);
-  assert.deepEqual(saved, { email: "ana@cegep.example", nom: "Anne Marie", nomAffiche: "Anne" });
+  assert.deepEqual(empty, { email: "ana@cegep.example", prenom: "", nom: "", nomAffiche: "", affichage: "", courrielEtat: "non-confirmee", courrielEnAttente: null });
+  const saved = JSON.parse((await call("POST", "/v1/auth/profil", { prenom: "  Anne  ", nom: "  Marie  ", nomAffiche: "Anne" }, cookie)).body);
+  assert.deepEqual(saved, { email: "ana@cegep.example", prenom: "Anne", nom: "Marie", nomAffiche: "Anne", affichage: "Anne", courrielEtat: "non-confirmee", courrielEnAttente: null });
   assert.equal((await call("POST", "/v1/auth/profil/motdepasse", { actuel: "mauvais mot de passe", nouveau: "un secret neuf" }, cookie)).status, 401);
   assert.equal((await call("POST", "/v1/auth/profil/motdepasse", { actuel: "mot de passe d’Ana", nouveau: "court" }, cookie)).status, 400);
   assert.equal((await call("POST", "/v1/auth/profil/motdepasse", { actuel: "mot de passe d’Ana", nouveau: "un secret neuf" }, cookie)).status, 204);
@@ -176,10 +176,71 @@ test("profil : nom, mot de passe actuel exigé, courriel confirmé", async () =>
   const me = JSON.parse((await call("GET", "/v1/auth/etat", undefined, cookie)).body);
   assert.equal(me.email, "anne@cegep.example");
   const profile = JSON.parse((await call("GET", "/v1/auth/profil", undefined, cookie)).body);
-  assert.equal(profile.nom, "Anne Marie");
+  assert.equal(profile.prenom, "Anne");
+  assert.equal(profile.nom, "Marie");
+  assert.equal(profile.nomAffiche, "Anne");
+  assert.equal(profile.affichage, "Anne");
   assert.equal(profile.email, "anne@cegep.example");
+  assert.equal(profile.courrielEtat, "confirmee");
+  assert.equal(profile.courrielEnAttente, null);
 });
 
+test("profil : un ancien nom complet devient le nom d’affichage, sans être découpé", async () => {
+  assert.deepEqual(parseStoredProfile(JSON.stringify({ nom: "Anne Marie" })), { prenom: "", nom: "", nomAffiche: "Anne Marie" });
+  assert.deepEqual(parseStoredProfile(JSON.stringify({ nom: "Anne Marie", nomAffiche: "Anne" })), { prenom: "", nom: "", nomAffiche: "Anne" });
+  assert.deepEqual(parseStoredProfile(JSON.stringify({ prenom: "", nom: "", nomAffiche: "Anne Marie" })), { prenom: "", nom: "", nomAffiche: "Anne Marie" });
+  assert.deepEqual(parseStoredProfile(JSON.stringify({ prenom: "Anne", nom: "Marie", nomAffiche: "" })), { prenom: "Anne", nom: "Marie", nomAffiche: "" });
+  assert.equal(nomPourAffichage({ prenom: "Anne", nom: "Marie", nomAffiche: "" }), "Anne Marie");
+  assert.equal(nomPourAffichage({ prenom: "Anne", nom: "Marie", nomAffiche: "Anne" }), "Anne");
+  const compose = parseStoredProfile(JSON.stringify({ nom: "Jean-Philippe Tremblay" }));
+  assert.deepEqual(compose, { prenom: "", nom: "", nomAffiche: "Jean-Philippe Tremblay" });
+
+  const { call, store } = await setup();
+  const install = await call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" });
+  const cookie = cookieOf(install.headers);
+  await store.put("auth", "profil:ana@cegep.example", JSON.stringify({ nom: "Anne Marie" }));
+  const got = JSON.parse((await call("GET", "/v1/auth/profil", undefined, cookie)).body);
+  assert.deepEqual(
+    { prenom: got.prenom, nom: got.nom, nomAffiche: got.nomAffiche, affichage: got.affichage },
+    { prenom: "", nom: "", nomAffiche: "Anne Marie", affichage: "Anne Marie" },
+  );
+});
+
+test("membres : prénom et nom, archive compatible, un envoi sans nom ne les efface pas", async () => {
+  const { call, store } = await setup();
+  const install = await call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" });
+  const cookie = cookieOf(install.headers);
+  assert.equal((await call("POST", "/v1/auth/membres", {
+    email: "lea@cegep.example",
+    role: "auteur",
+    password: "mot de passe de Léa",
+    prenom: "  Léa  ",
+    nom: "  Côté  ",
+  }, cookie)).status, 204);
+  const team = JSON.parse((await call("GET", "/v1/auth/membres", undefined, cookie)).body) as Array<Record<string, unknown>>;
+  const lea = team.find((item) => item.email === "lea@cegep.example");
+  assert.deepEqual(lea, { email: "lea@cegep.example", role: "auteur", prenom: "Léa", nom: "Côté", nomAffiche: "", affichage: "Léa Côté" });
+  assert.equal((await call("POST", "/v1/auth/membres", { email: "lea@cegep.example", role: "editeur" }, cookie)).status, 204);
+  const still = JSON.parse((await call("GET", "/v1/auth/membres", undefined, cookie)).body) as Array<Record<string, unknown>>;
+  assert.deepEqual(still.find((item) => item.email === "lea@cegep.example"), {
+    email: "lea@cegep.example", role: "editeur", prenom: "Léa", nom: "Côté", nomAffiche: "", affichage: "Léa Côté",
+  });
+  const archived = await membersForArchive(store);
+  assert.deepEqual(archived.find((item) => item.email === "lea@cegep.example"), {
+    email: "lea@cegep.example", role: "editeur", prenom: "Léa", nom: "Côté", nomAffiche: "",
+  });
+  assert.deepEqual(archived.find((item) => item.email === "ana@cegep.example"), {
+    email: "ana@cegep.example", role: "administrateur",
+  });
+  const other = openSqliteMemory();
+  await other.migrate(["auth"]);
+  await restoreMembers(other, [{ email: "old@cegep.example", role: "auteur" }]);
+  assert.equal(await other.get("auth", "member:old@cegep.example"), "auteur");
+  assert.equal(await other.get("auth", "profil:old@cegep.example"), null);
+  await restoreMembers(other, [{ email: "lea@cegep.example", role: "auteur", prenom: "Léa", nom: "Côté", nomAffiche: "" }]);
+  assert.deepEqual(JSON.parse((await other.get("auth", "profil:lea@cegep.example")) ?? "{}"), { prenom: "Léa", nom: "Côté", nomAffiche: "" });
+  await other.close();
+});
 
 test("profil : le nouveau courriel n’est appliqué qu’après un lien unique non expiré", async () => {
   const sent: Array<{ to: string; text: string }> = [];
@@ -268,4 +329,145 @@ test("profil : le nouveau courriel n’est appliqué qu’après un lien unique 
   assert.equal((await call("POST", "/v1/auth/motdepasse", { email: "ana@cegep.example", password: "mot de passe d’Ana" })).status, 401);
   assert.equal((await call("POST", "/v1/auth/motdepasse", { email: "anne@cegep.example", password: "mot de passe d’Ana" })).status, 204);
   assert.equal((await call("POST", "/v1/auth/profil/courriel/confirmer", { token }, cookie)).body, "lien inconnu");
+});
+
+
+test("profil : un compte existant reste non confirmé jusqu’à un vrai lien, avec renvoi et annulation", async () => {
+  const sent: Array<{ to: string; subject: string; text: string }> = [];
+  const { call, issued } = await setup({
+    mailer: async (to, subject, text) => {
+      sent.push({ to, subject, text });
+    },
+    origin: "https://journal.example",
+  });
+  const cookie = cookieOf((await call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" })).headers);
+  const debut = JSON.parse((await call("GET", "/v1/auth/profil", undefined, cookie)).body);
+  assert.equal(debut.courrielEtat, "non-confirmee");
+  assert.equal(debut.courrielEnAttente, null);
+
+  assert.equal((await call("POST", "/v1/auth/profil/courriel/renvoyer", undefined, cookie)).body, "demande absente");
+  assert.equal((await call("POST", "/v1/auth/profil/courriel/annuler", undefined, cookie)).body, "demande absente");
+
+  const confirm = await call("POST", "/v1/auth/profil/courriel/confirmer-actuel", undefined, cookie);
+  assert.equal(confirm.status, 202);
+  assert.equal(sent.at(-1)?.to, "ana@cegep.example");
+  assert.equal(sent.at(-1)?.subject, "Confirmer votre courriel");
+  const attente = JSON.parse((await call("GET", "/v1/auth/profil", undefined, cookie)).body);
+  assert.equal(attente.courrielEtat, "en-attente");
+  assert.equal(attente.courrielEnAttente, null);
+
+  const resend = await call("POST", "/v1/auth/profil/courriel/renvoyer", undefined, cookie);
+  assert.equal(resend.status, 202);
+  assert.equal(sent.at(-1)?.to, "ana@cegep.example");
+  const token = issued.at(-1) ?? "";
+  const done = await call("POST", "/v1/auth/profil/courriel/confirmer", { token }, cookie);
+  assert.equal(done.status, 200);
+  const ok = JSON.parse((await call("GET", "/v1/auth/profil", undefined, cookie)).body);
+  assert.equal(ok.courrielEtat, "confirmee");
+  assert.equal(ok.email, "ana@cegep.example");
+
+  const change = await call("POST", "/v1/auth/profil/courriel", { courriel: "anne@cegep.example" }, cookie);
+  assert.equal(change.status, 202);
+  const pending = JSON.parse((await call("GET", "/v1/auth/profil", undefined, cookie)).body);
+  assert.equal(pending.courrielEtat, "confirmee");
+  assert.equal(pending.courrielEnAttente, "anne@cegep.example");
+  const cancelled = JSON.parse((await call("POST", "/v1/auth/profil/courriel/annuler", undefined, cookie)).body);
+  assert.equal(cancelled.courrielEtat, "confirmee");
+  assert.equal(cancelled.courrielEnAttente, null);
+  assert.equal(cancelled.email, "ana@cegep.example");
+});
+
+test("smtp : réglages enregistrés, mot de passe jamais renvoyé, essai vers la personne connectée", async () => {
+  const { handleAuth } = await import("../src/auth-http.ts");
+  const { openSqliteMemory } = await import("../src/sqlite.ts");
+  const { defaultConfig } = await import("../src/config.ts");
+  const { createServer } = await import("node:net");
+  const { mkdtempSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const store = openSqliteMemory();
+  await store.migrate(["auth"]);
+  const received: string[] = [];
+  const server = createServer((socket) => {
+    socket.write("220 ready\r\n");
+    let buffer = "";
+    socket.on("data", (chunk) => {
+      buffer += chunk.toString();
+      received.push(chunk.toString());
+      const lines = buffer.split("\r\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (line.startsWith("EHLO")) socket.write("250-AUTH LOGIN\r\n250 ok\r\n");
+        else if (line === "AUTH LOGIN") socket.write("334 VXNlcm5hbWU6\r\n");
+        else if (line === Buffer.from("redaction@journal.example").toString("base64")) socket.write("334 UGFzc3dvcmQ6\r\n");
+        else if (line === Buffer.from("secret-smtp").toString("base64")) socket.write("235 ok\r\n");
+        else if (line.startsWith("MAIL FROM")) socket.write("250 ok\r\n");
+        else if (line.startsWith("RCPT TO")) socket.write("250 ok\r\n");
+        else if (line === "DATA") socket.write("354 go\r\n");
+        else if (line === ".") socket.write("250 queued\r\n");
+        else if (line === "QUIT") socket.end("221 bye\r\n");
+      }
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address !== "object") throw new Error("smtp local muet");
+  const config = defaultConfig();
+  config.modules.auth = true;
+  const deps = {
+    store,
+    now: () => new Date("2026-11-21T20:00:00.000Z"),
+    backupDir: mkdtempSync(join(tmpdir(), "socle-smtp-ui-")),
+    release: () => null,
+    version: () => "0.0.0",
+    setVersion: async () => {},
+    auth: { mode: "motdepasse" as const, publicOrigin: "https://journal.example" },
+  };
+  const call = (method: string, path: string, body?: unknown, cookie?: string) => handleAuth(
+    method,
+    path,
+    config,
+    deps,
+    new TextEncoder().encode(body === undefined ? "" : JSON.stringify(body)),
+    { "content-type": "application/json", cookie },
+  );
+  try {
+    const install = await call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" });
+    const cookie = String(install.headers["set-cookie"] ?? "").split(";")[0];
+    assert.equal((await call("GET", "/v1/auth/smtp")).status, 401);
+    const empty = JSON.parse((await call("GET", "/v1/auth/smtp", undefined, cookie)).body);
+    assert.equal(empty.source, "absent");
+    assert.equal(empty.fournisseur, "hebergeur");
+    assert.equal(empty.motDePasseEnregistre, false);
+    const saved = await call("POST", "/v1/auth/smtp", {
+      fournisseur: "hebergeur",
+      host: "127.0.0.1",
+      port: address.port,
+      secure: false,
+      user: "redaction@journal.example",
+      password: "secret-smtp",
+      from: "redaction@journal.example",
+    }, cookie);
+    assert.equal(saved.status, 200, saved.body);
+    const publicSettings = JSON.parse(saved.body);
+    assert.equal(publicSettings.source, "enregistrement");
+    assert.equal(publicSettings.motDePasseEnregistre, true);
+    assert.equal(publicSettings.host, "127.0.0.1");
+    assert.equal("password" in publicSettings, false);
+    assert.doesNotMatch(saved.body, /secret-smtp/);
+    const etat = JSON.parse((await call("GET", "/v1/auth/etat", undefined, cookie)).body);
+    assert.equal(etat.courriel, true);
+    const essai = await call("POST", "/v1/auth/smtp/essai", undefined, cookie);
+    assert.equal(essai.status, 200, essai.body);
+    assert.deepEqual(JSON.parse(essai.body), { ok: true, destinataire: "ana@cegep.example" });
+    const transcript = received.join("");
+    assert.match(transcript, /RCPT TO:<ana@cegep.example>/);
+    assert.match(transcript, /Courriel d’essai du Socle/);
+    assert.doesNotMatch(transcript, /secret-smtp/);
+    const again = JSON.parse((await call("GET", "/v1/auth/smtp", undefined, cookie)).body);
+    assert.equal("password" in again, false);
+    assert.equal(again.motDePasseEnregistre, true);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
 });

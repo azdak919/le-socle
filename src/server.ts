@@ -19,7 +19,7 @@ import { handleRedaction } from "./redaction-http.ts";
 import { serveRedactionPage } from "./redaction-page.ts";
 import { handleReview } from "./review-http.ts";
 import { serveStatic } from "./static.ts";
-import { sendSmtp, smtpFromEnv } from "./smtp.ts";
+import { resolveSmtp, sendSmtp } from "./smtp.ts";
 import { openSqliteFile } from "./sqlite.ts";
 import { ModuleOffError } from "./store.ts";
 import { VERSION } from "./version.ts";
@@ -144,7 +144,11 @@ export async function openRunningAdmin(
     }
   }
   let version = existsSync(versionFile) ? readFileSync(versionFile, "utf8").trim() : VERSION;
-  const smtp = config.modules.auth || config.modules.notify ? smtpFromEnv() : null;
+  const sendWithResolved = async (to: string, subject: string, text: string) => {
+    const settings = await resolveSmtp(store);
+    if (!settings) throw new Error("smtp absent");
+    await sendSmtp(settings, to, subject, text);
+  };
   return {
     config,
     admin: {
@@ -169,11 +173,10 @@ export async function openRunningAdmin(
             verifyAccess: process.env.SOCLE_ACCESS_TEAM
               ? accessVerifier({ team: process.env.SOCLE_ACCESS_TEAM, aud: process.env.SOCLE_ACCESS_AUD ?? "" })
               : undefined,
-            mailer: smtp
-              ? async (to, subject, text) => {
-                  await sendSmtp(smtp, to, subject, text);
-                }
-              : undefined,
+            mailer: async (to, subject, text) => {
+              await sendWithResolved(to, subject, text);
+            },
+            smtpConfigured: async () => Boolean(await resolveSmtp(store)),
           }
         : undefined,
       notify: config.modules.notify
@@ -182,11 +185,9 @@ export async function openRunningAdmin(
             publicKey: process.env.SOCLE_VAPID_PUBLIC,
             privateKey: process.env.SOCLE_VAPID_PRIVATE,
             subject: process.env.SOCLE_SMTP_FROM ? `mailto:${process.env.SOCLE_SMTP_FROM}` : undefined,
-            mailer: smtp
-              ? async (to, text) => {
-                  await sendSmtp(smtp, to, "Abonnement", text);
-                }
-              : undefined,
+            mailer: async (to, text) => {
+              await sendWithResolved(to, "Abonnement", text);
+            },
           }
         : undefined,
     },
