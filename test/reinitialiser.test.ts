@@ -179,3 +179,93 @@ test("profil : nom, mot de passe actuel exigé, courriel confirmé", async () =>
   assert.equal(profile.nom, "Anne Marie");
   assert.equal(profile.email, "anne@cegep.example");
 });
+
+
+test("profil : le nouveau courriel n’est appliqué qu’après un lien unique non expiré", async () => {
+  const sent: Array<{ to: string; text: string }> = [];
+  const { call, at, issued, store } = await setup({
+    mailer: async (to, _subject, text) => {
+      sent.push({ to, text });
+    },
+  });
+  const install = await call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" });
+  const cookie = cookieOf(install.headers);
+  await call("POST", "/v1/auth/membres", { email: "lea@cegep.example", role: "auteur", password: "mot de passe de Léa" }, cookie);
+
+  const withoutMail = await setup();
+  const bare = cookieOf((await withoutMail.call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" })).headers);
+  assert.equal((await withoutMail.call("POST", "/v1/auth/profil/courriel", { courriel: "anne@cegep.example" }, bare)).status, 409);
+  assert.equal((await withoutMail.call("POST", "/v1/auth/profil/courriel", { courriel: "anne@cegep.example" }, bare)).body, "smtp absent");
+  assert.equal(JSON.parse((await withoutMail.call("GET", "/v1/auth/etat", undefined, bare)).body).email, "ana@cegep.example");
+
+  assert.equal((await call("POST", "/v1/auth/profil/courriel", { courriel: "pas-un-courriel" }, cookie)).status, 400);
+  assert.equal((await call("POST", "/v1/auth/profil/courriel", { courriel: "ana@cegep.example" }, cookie)).body, "courriel inchangé");
+  assert.equal((await call("POST", "/v1/auth/profil/courriel", { courriel: "lea@cegep.example" }, cookie)).body, "courriel déjà utilisé");
+
+  const asking = await call("POST", "/v1/auth/profil/courriel", { courriel: "anne@cegep.example" }, cookie);
+  assert.equal(asking.status, 202);
+  const token = issued.at(-1) ?? "";
+  assert.equal(sent.at(-1)?.to, "anne@cegep.example");
+  assert.match(sent.at(-1)?.text ?? "", /#courriel=/);
+  assert.equal(JSON.stringify(sent.at(-1)).includes(token), true);
+  const rows = await store.list("auth");
+  const pending = rows.filter((row) => row.key.startsWith("courriel:"));
+  assert.equal(pending.length, 1);
+  assert.equal(pending[0]?.key, "courriel:" + hashToken(token));
+  assert.equal(pending[0]?.value.includes(token), false);
+  assert.match(pending[0]?.value ?? "", /ana@cegep\.example/);
+  assert.match(pending[0]?.value ?? "", /anne@cegep\.example/);
+  assert.equal(JSON.parse((await call("GET", "/v1/auth/etat", undefined, cookie)).body).email, "ana@cegep.example");
+  assert.equal(JSON.parse((await call("GET", "/v1/auth/profil", undefined, cookie)).body).email, "ana@cegep.example");
+  assert.equal((await call("POST", "/v1/auth/motdepasse", { email: "anne@cegep.example", password: "mot de passe d’Ana" })).status, 401);
+
+  assert.equal((await call("POST", "/v1/auth/profil/courriel/confirmer", { token })).status, 401);
+  assert.equal(JSON.parse((await call("GET", "/v1/auth/etat", undefined, cookie)).body).email, "ana@cegep.example");
+
+  const foreign = await setup({
+    mailer: async (to, _subject, text) => {
+      sent.push({ to, text });
+    },
+  });
+  const foreignAdmin = cookieOf((await foreign.call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" })).headers);
+  await foreign.call("POST", "/v1/auth/membres", { email: "lea@cegep.example", role: "auteur", password: "mot de passe de Léa" }, foreignAdmin);
+  const foreignLea = cookieOf((await foreign.call("POST", "/v1/auth/motdepasse", { email: "lea@cegep.example", password: "mot de passe de Léa" })).headers);
+  assert.equal((await foreign.call("POST", "/v1/auth/profil/courriel", { courriel: "anne@cegep.example" }, foreignAdmin)).status, 202);
+  const foreignToken = foreign.issued.at(-1) ?? "";
+  assert.equal((await foreign.call("POST", "/v1/auth/profil/courriel/confirmer", { token: foreignToken }, foreignLea)).body, "lien inconnu");
+  assert.equal(JSON.parse((await foreign.call("GET", "/v1/auth/etat", undefined, foreignAdmin)).body).email, "ana@cegep.example");
+  assert.equal((await foreign.call("POST", "/v1/auth/profil/courriel/confirmer", { token: foreignToken }, foreignAdmin)).body, "lien inconnu");
+
+  const expired = await setup({
+    mailer: async (to, _subject, text) => {
+      sent.push({ to, text });
+    },
+  });
+  const expCookie = cookieOf((await expired.call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" })).headers);
+  assert.equal((await expired.call("POST", "/v1/auth/profil/courriel", { courriel: "anne@cegep.example" }, expCookie)).status, 202);
+  const expToken = expired.issued.at(-1) ?? "";
+  expired.at.current = new Date("2026-11-21T21:00:01.000Z");
+  assert.equal((await expired.call("POST", "/v1/auth/profil/courriel/confirmer", { token: expToken }, expCookie)).body, "lien expiré");
+  assert.equal(JSON.parse((await expired.call("GET", "/v1/auth/etat", undefined, expCookie)).body).email, "ana@cegep.example");
+  assert.equal((await expired.call("POST", "/v1/auth/profil/courriel/confirmer", { token: expToken }, expCookie)).body, "lien inconnu");
+
+  const broken = await setup({
+    mailer: async () => {
+      throw new Error("relais muet");
+    },
+  });
+  const brokenCookie = cookieOf((await broken.call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" })).headers);
+  assert.equal((await broken.call("POST", "/v1/auth/profil/courriel", { courriel: "anne@cegep.example" }, brokenCookie)).body, "smtp absent");
+  assert.equal(JSON.parse((await broken.call("GET", "/v1/auth/etat", undefined, brokenCookie)).body).email, "ana@cegep.example");
+  const leftover = (await broken.store.list("auth")).filter((row) => row.key.startsWith("courriel:"));
+  assert.equal(leftover.length, 0);
+  assert.equal((await broken.call("POST", "/v1/auth/profil/courriel/confirmer", { token: broken.issued.at(-1) }, brokenCookie)).body, "lien inconnu");
+
+  const confirmed = await call("POST", "/v1/auth/profil/courriel/confirmer", { token }, cookie);
+  assert.equal(confirmed.status, 200);
+  assert.deepEqual(JSON.parse(confirmed.body), { email: "anne@cegep.example" });
+  assert.equal(JSON.parse((await call("GET", "/v1/auth/etat", undefined, cookie)).body).email, "anne@cegep.example");
+  assert.equal((await call("POST", "/v1/auth/motdepasse", { email: "ana@cegep.example", password: "mot de passe d’Ana" })).status, 401);
+  assert.equal((await call("POST", "/v1/auth/motdepasse", { email: "anne@cegep.example", password: "mot de passe d’Ana" })).status, 204);
+  assert.equal((await call("POST", "/v1/auth/profil/courriel/confirmer", { token }, cookie)).body, "lien inconnu");
+});

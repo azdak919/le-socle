@@ -286,6 +286,26 @@ test("rédaction pour néophytes : mots simples, états vides, erreurs lisibles"
   assert.match(php, /'\/admin\/mise-a-jour\/paquet\/revenir'\) && \$method === 'GET'\)/);
 });
 
+test("Mon profil : mot de passe plus tôt, textes d’aide au même corps, « Propulsé par » contrasté", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  const start = admin.indexOf("function profileView()");
+  const end = admin.indexOf("function profileStatus(");
+  assert.ok(start !== -1 && end > start);
+  const profile = admin.slice(start, end);
+  assert.match(profile, /panel-profil/);
+  assert.match(profile, /<p id="profile-email" class="profil-actuel">/);
+  assert.match(profile, /<p class="aide">Un lien de confirmation/);
+  assert.doesNotMatch(profile, /auth-intro/);
+  assert.ok(profile.indexOf("<h3>Mot de passe</h3>") < profile.indexOf("<h3>Courriel</h3>"));
+  const css = readFileSync(join(ROOT, "admin/ui/admin.css"), "utf8");
+  assert.match(css, /\.admin-sidebar-foot \{[^}]*color: oklch\(0\.32 0\.03 340\);/);
+  assert.match(css, /\.auth-card-foot \{[^}]*color: oklch\(0\.32 0\.03 340\);/);
+  assert.doesNotMatch(css, /text-foreground\/80/);
+  assert.match(css, /html\.dark \.admin-sidebar-foot,\s*html\.dark \.auth-card-foot \{ color: oklch\(0\.93 0\.01 340\); \}/);
+  assert.match(css, /\.panel-profil \.profil-actuel/);
+  assert.match(css, /\.panel-profil \.aide/);
+});
+
 test("les liens de réinitialisation et de confirmation de courriel survivent au chargement", () => {
   const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
   assert.match(admin, /function isAuthRoute\(/);

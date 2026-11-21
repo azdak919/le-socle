@@ -1797,19 +1797,12 @@ function bindCommon() {
 }
 
 function profileView() {
-  return `<section class="panel" style="max-width:36rem">
+  return `<section class="panel panel-profil" style="max-width:36rem">
     <form id="profile-form" class="grid">
-      <div class="field full"><label>Nom<input name="nom" maxlength="120" autocomplete="name"></label></div>
-      <div class="field full"><label>Nom d’affichage<input name="nomAffiche" maxlength="120" autocomplete="nickname"></label></div>
+      <div class="field"><label>Nom<input name="nom" maxlength="120" autocomplete="name"></label></div>
+      <div class="field"><label>Nom d’affichage<input name="nomAffiche" maxlength="120" autocomplete="nickname"></label></div>
       <div class="actions full"><button class="primary">Enregistrer le profil</button></div>
     </form>
-    <h3>Courriel</h3>
-    <p id="profile-email" class="auth-intro"></p>
-    <form id="profile-email-form" class="grid">
-      <div class="field full"><label>Nouveau courriel<input name="courriel" type="email" autocomplete="email" required placeholder="vous@exemple.ca"></label></div>
-      <div class="actions full"><button class="primary">Demander la confirmation</button></div>
-    </form>
-    <p class="auth-intro">Un lien de confirmation part à la nouvelle adresse, s’il est possible d’envoyer un courriel. Sinon, demandez à l’administrateur.</p>
     <h3>Mot de passe</h3>
     <form id="profile-password-form" class="grid">
       <div class="field full"><label>Mot de passe actuel<input name="actuel" type="password" autocomplete="current-password" required></label></div>
@@ -1817,6 +1810,13 @@ function profileView() {
       <div class="field full"><label>Confirmer le nouveau mot de passe<input name="confirm" type="password" autocomplete="new-password" minlength="10" required></label></div>
       <div class="actions full"><button class="primary">Changer le mot de passe</button></div>
     </form>
+    <h3>Courriel</h3>
+    <p id="profile-email" class="profil-actuel"></p>
+    <form id="profile-email-form" class="grid">
+      <div class="field full"><label>Nouveau courriel<input name="courriel" type="email" autocomplete="email" required placeholder="vous@exemple.ca"></label></div>
+      <div class="actions full"><button class="primary">Demander la confirmation</button></div>
+    </form>
+    <p class="aide">Un lien de confirmation part à la nouvelle adresse, s’il est possible d’envoyer un courriel. Sinon, demandez à l’administrateur.</p>
     <p id="profile-status" class="notice" role="status" hidden></p>
   </section>`;
 }
