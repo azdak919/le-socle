@@ -456,10 +456,12 @@ test("PHP : le nouveau courriel n’est appliqué qu’après un lien unique non
   await prepared.close();
   const mails: string[] = [];
   const smtp = createNet();
+  smtp.on("error", () => {});
   await new Promise<void>((resolve) => smtp.listen(0, "127.0.0.1", resolve));
   const address = smtp.address();
   assert.ok(address && typeof address === "object");
   smtp.on("connection", (socket) => {
+    socket.on("error", () => {});
     let buffer = "";
     socket.write("220 ready\r\n");
     socket.on("data", (chunk) => {
