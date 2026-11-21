@@ -56,8 +56,8 @@ function clocked(store: SocleStore, patch: Partial<AdminDeps> = {}): {
         issued.push(Buffer.from(bytes).toString("base64url"));
         return bytes;
       },
-      mailer: async (to, url) => {
-        sent.push({ to, url });
+      mailer: async (to, _subject, text) => {
+        sent.push({ to, url: text });
       },
       ...authPatch,
     },
@@ -308,7 +308,7 @@ test("le bouton de mise à jour est au responsable seulement quand l'identité e
     assert.equal(await store.get("auth", "member:ben@journal.test"), "auteur");
 
     await handleAuth("POST", "/v1/auth/lien", config, deps, Buffer.from(JSON.stringify({ email: "ben@journal.test" })));
-    const benToken = new URL(sent.at(-1)?.url ?? "").searchParams.get("token") ?? "";
+    const benToken = (sent.at(-1)?.url ?? "").match(/token=([^\s]+)/)?.[1] ?? "";
     const ben = await handleAuth("GET", `/v1/auth/lien?token=${encodeURIComponent(benToken)}`, config, deps, new Uint8Array());
     const benCookie = (ben.headers["set-cookie"] ?? "").split(";")[0] ?? "";
     const refusedMember = await handleAuth("POST", "/v1/auth/membres", config, deps, Buffer.from(JSON.stringify({

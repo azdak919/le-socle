@@ -19,7 +19,7 @@ import { handleRedaction } from "./redaction-http.ts";
 import { serveRedactionPage } from "./redaction-page.ts";
 import { handleReview } from "./review-http.ts";
 import { serveStatic } from "./static.ts";
-import { sendSmtp, smtpFromEnv } from "./smtp.ts";
+import { resolveSmtp, sendSmtp } from "./smtp.ts";
 import { openSqliteFile } from "./sqlite.ts";
 import { ModuleOffError } from "./store.ts";
 import { VERSION } from "./version.ts";
@@ -66,7 +66,7 @@ export function createSocleServer(config: SocleConfig, admin?: AdminDeps) {
         : admin && path.startsWith("/v1/redaction/")
         ? await handleRedaction(method, url, config, admin, rawBody, headers, actor, local)
         : admin && path.startsWith("/v1/auth")
-        ? await handleAuth(method, url, config, admin, rawBody, headers)
+        ? await handleAuth(method, url, config, admin, rawBody, headers, { ip: clientIp(request.socket.remoteAddress, headers) })
         : admin && path === "/admin/medias"
         ? await handleMedia(method, url, config, admin)
         : admin && config.modules.review && reviewPath
@@ -94,6 +94,19 @@ export function createSocleServer(config: SocleConfig, admin?: AdminDeps) {
 
 function isLoopback(address: string | undefined): boolean {
   return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
+}
+
+/** Adresse du visiteur, pour limiter les essais. Derrière un mandataire (Cloudflare,
+ *  nginx), seulement si SOCLE_TRUST_PROXY=1 : on lit alors CF-Connecting-IP,
+ *  puis X-Real-IP, puis le premier X-Forwarded-For. */
+function clientIp(remote: string | undefined, headers: Record<string, string | undefined>): string | undefined {
+  const raw = remote?.replace(/^::ffff:/, "") || undefined;
+  if (process.env.SOCLE_TRUST_PROXY === "1") {
+    const forwarded = headers["cf-connecting-ip"] || headers["x-real-ip"] || headers["x-forwarded-for"]?.split(",")[0];
+    const chosen = forwarded?.trim();
+    if (chosen) return chosen.slice(0, 128);
+  }
+  return raw;
 }
 
 function flatHeaders(headers: IncomingHttpHeaders): Record<string, string | undefined> {
@@ -131,7 +144,11 @@ export async function openRunningAdmin(
     }
   }
   let version = existsSync(versionFile) ? readFileSync(versionFile, "utf8").trim() : VERSION;
-  const smtp = config.modules.auth || config.modules.notify ? smtpFromEnv() : null;
+  const sendWithResolved = async (to: string, subject: string, text: string) => {
+    const settings = await resolveSmtp(store);
+    if (!settings) throw new Error("smtp absent");
+    await sendSmtp(settings, to, subject, text);
+  };
   return {
     config,
     admin: {
@@ -156,11 +173,10 @@ export async function openRunningAdmin(
             verifyAccess: process.env.SOCLE_ACCESS_TEAM
               ? accessVerifier({ team: process.env.SOCLE_ACCESS_TEAM, aud: process.env.SOCLE_ACCESS_AUD ?? "" })
               : undefined,
-            mailer: smtp
-              ? async (to, url) => {
-                  await sendSmtp(smtp, to, "Lien de connexion", url);
-                }
-              : undefined,
+            mailer: async (to, subject, text) => {
+              await sendWithResolved(to, subject, text);
+            },
+            smtpConfigured: async () => Boolean(await resolveSmtp(store)),
           }
         : undefined,
       notify: config.modules.notify
@@ -169,11 +185,9 @@ export async function openRunningAdmin(
             publicKey: process.env.SOCLE_VAPID_PUBLIC,
             privateKey: process.env.SOCLE_VAPID_PRIVATE,
             subject: process.env.SOCLE_SMTP_FROM ? `mailto:${process.env.SOCLE_SMTP_FROM}` : undefined,
-            mailer: smtp
-              ? async (to, text) => {
-                  await sendSmtp(smtp, to, "Abonnement", text);
-                }
-              : undefined,
+            mailer: async (to, text) => {
+              await sendWithResolved(to, "Abonnement", text);
+            },
           }
         : undefined,
     },

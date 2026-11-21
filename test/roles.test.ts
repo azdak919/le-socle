@@ -112,9 +112,9 @@ test("l'administrateur donne rôles et rubriques ; les rubriques ne collent qu'�
   assert.equal((await call("POST", "/v1/auth/membres", { email: "x@vigie.test", role: "pirate" }, cookie)).status, 400);
   const team = JSON.parse(String((await call("GET", "/v1/auth/membres", undefined, cookie)).body));
   assert.deepEqual(team, [
-    { email: "admin@vigie.test", role: "administrateur" },
-    { email: "chef@vigie.test", role: "chef-pupitre", sections: ["sports"] },
-    { email: "photo@vigie.test", role: "photographe" },
+    { email: "admin@vigie.test", role: "administrateur", prenom: "", nom: "", nomAffiche: "", affichage: "" },
+    { email: "chef@vigie.test", role: "chef-pupitre", sections: ["sports"], prenom: "", nom: "", nomAffiche: "", affichage: "" },
+    { email: "photo@vigie.test", role: "photographe", prenom: "", nom: "", nomAffiche: "", affichage: "" },
   ]);
   // Repasser en éditeur efface les rubriques.
   assert.equal((await call("POST", "/v1/auth/membres", { email: "chef@vigie.test", role: "editeur" }, cookie)).status, 204);

@@ -17,7 +17,7 @@ Publiez quand :
 - un correctif touche les journaux installés (erreur, perte de données,
   sécurité) : **le jour même** ;
 - des changements visibles s'accumulent depuis plus d'une semaine, ou un
-  ensemble cohérent est prêt (par exemple une demande de Charles terminée) ;
+  ensemble cohérent est prêt (par exemple une demande terminée) ;
 - le Kiosque a besoin d'épingler ce socle pour sa propre version.
 
 Pas besoin de publier pour des changements internes seulement (tests,

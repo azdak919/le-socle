@@ -35,7 +35,7 @@ function socle_dispatch(string $method, string $uri, string $path, string $raw):
         } catch (ModuleOff) {
         }
     }
-    $smtp = ($config['modules']['auth'] || $config['modules']['notify']) ? socle_smtp_settings() : null;
+    $smtp = ($config['modules']['auth'] || $config['modules']['notify']) ? socle_smtp_resolve($store) : null;
     $actorDefined = (bool) $config['modules']['auth'];
     $cookie = $_SERVER['HTTP_COOKIE'] ?? null;
     $actor = $actorDefined ? socle_email_from_cookie($store, socle_now(), is_string($cookie) ? $cookie : null) : null;
@@ -64,7 +64,7 @@ function socle_dispatch(string $method, string $uri, string $path, string $raw):
     if ($path === '/v1/taches') return socle_ext_handle_taches($method, $store);
     if (str_starts_with($path, '/v1/redaction/')) return socle_handle_redaction($method, $uri, $config, $store, $raw, $actor, $actorDefined);
     if (str_starts_with($path, '/v1/auth')) {
-        return socle_handle_auth($method, $uri, $config, $store, $raw, is_string($cookie) ? $cookie : null, is_string($access) ? $access : null, $smtp);
+        return socle_handle_auth($method, $uri, $config, $store, $raw, is_string($cookie) ? $cookie : null, is_string($access) ? $access : null, $smtp, socle_client_ip());
     }
     if ($path === '/admin/medias') return socle_handle_media($method, $uri, $config, $store);
     $reviewPath = str_starts_with($path, '/admin/relecture') || str_starts_with($path, '/v1/review');
@@ -174,4 +174,16 @@ function socle_write_bytes(string $path, string $bytes): void {
         fwrite(STDERR, "sauvegarde non écrite\n");
         exit(1);
     }
+}
+
+function socle_client_ip(): ?string {
+    $raw = $_SERVER['REMOTE_ADDR'] ?? null;
+    if (socle_env('SOCLE_TRUST_PROXY') === '1') {
+        $forwarded = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_REAL_IP'] ?? null;
+        if ($forwarded === null && isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            $forwarded = trim(explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
+        }
+        if (is_string($forwarded) && $forwarded !== '') return substr(trim($forwarded), 0, 128);
+    }
+    return is_string($raw) && $raw !== '' ? $raw : null;
 }

@@ -86,7 +86,7 @@ return true;
     assert.equal((await call(`${base}/v1/redaction/etat`)).status, 401);
     assert.equal((await call(`${base}/donnees/socle.sqlite`)).status, 404, "la base n’est jamais servie");
     const state = JSON.parse((await call(`${base}/v1/auth/etat`)).text);
-    assert.deepEqual(state, { mode: "motdepasse", installed: false, email: null, role: null });
+    assert.deepEqual(state, { mode: "motdepasse", installed: false, email: null, role: null, journal: null, courriel: false });
     const json = { "content-type": "application/json" };
     const install = await call(`${base}/v1/auth/installation`, { method: "POST", headers: json, body: JSON.stringify({ email: "resp@cegep.example", password: "un long secret" }) });
     assert.equal(install.status, 204, install.text);
@@ -105,7 +105,7 @@ return true;
     const ana = await call(`${base}/v1/auth/motdepasse`, { method: "POST", headers: json, body: JSON.stringify({ email: "ana@cegep.example", password: "mot de passe d’Ana" }) });
     assert.equal(ana.status, 204);
     const team = JSON.parse((await call(`${base}/v1/auth/membres`, { headers: { cookie } })).text);
-    assert.deepEqual(team, [{ email: "ana@cegep.example", role: "auteur" }, { email: "resp@cegep.example", role: "administrateur" }]);
+    assert.deepEqual(team, [{ email: "ana@cegep.example", role: "auteur", prenom: "", nom: "", nomAffiche: "", affichage: "" }, { email: "resp@cegep.example", role: "administrateur", prenom: "", nom: "", nomAffiche: "", affichage: "" }]);
     // L'ancien nom « responsable » est encore accepté, enregistré sous « administrateur ».
     const legacy = await call(`${base}/v1/auth/membres`, { method: "POST", headers: { ...json, cookie }, body: JSON.stringify({ email: "zoe@cegep.example", role: "responsable", password: "mot de passe de Zoé" }) });
     assert.equal(legacy.status, 204, legacy.text);
@@ -136,7 +136,7 @@ return true;
     assert.equal((await post("/v1/auth/membres", { email: "chef@cegep.example", role: "chef-pupitre", sections: ["sports"], password: "mot de passe du chef" }, cookie)).status, 204);
     assert.equal((await post("/v1/auth/membres", { email: "photo@cegep.example", role: "photographe", password: "mot de passe photo" }, cookie)).status, 204);
     const roster = JSON.parse((await call(`${base}/v1/auth/membres`, { headers: { cookie } })).text) as Array<{ email: string; role: string; sections?: string[] }>;
-    assert.deepEqual(roster.find((m) => m.email === "chef@cegep.example"), { email: "chef@cegep.example", role: "chef-pupitre", sections: ["sports"] });
+    assert.deepEqual(roster.find((m) => m.email === "chef@cegep.example"), { email: "chef@cegep.example", role: "chef-pupitre", sections: ["sports"], prenom: "", nom: "", nomAffiche: "", affichage: "" });
     const publication = { id: "11111111-1111-4111-8111-111111111111", slug: "la-vigie", name: "La Vigie", institution: "Cégep", institutionType: "cegep", lang: "fr-CA", siteUrl: "https://vigie.exemple", timeZone: "America/Toronto", theme: { accent: "#8a1538" }, governance: { owner: "Asso", contact: "r@vigie.exemple" } };
     assert.equal((await post("/v1/redaction/publication", { publication }, cookie)).status, 200);
     for (const [id, slug] of [["s-sports", "sports"], ["s-campus", "campus"]]) {

@@ -117,6 +117,21 @@ test("admin/serveur.html est à jour (npm run ui)", () => {
   assert.match(html, /Propulsé par <a href="https:\/\/azdak919\.github\.io\/le-socle\/">Le Socle<\/a> 1\.\d/);
   assert.ok(html.includes(`"version":"${SOCLE_VERSION}"`));
   assert.doesNotMatch(html, /admin-brand[\s\S]*Le Kiosque/);
+  assert.doesNotMatch(html, /chaque enregistrement est écrit sur le serveur/);
+  assert.doesNotMatch(html, /class="local-warning"/);
+});
+
+test("bandeau d’information : seulement l’avertissement utile du mode démonstration", () => {
+  const serveur = serverPage();
+  assert.doesNotMatch(serveur, /local-warning/);
+  assert.doesNotMatch(serveur, /chaque enregistrement/);
+  const demo = adminPage({
+    publicationName: "Le Quorum", lang: "fr-CA", publicBasePath: "/demo", adminBasePath: "/demo/admin",
+    assetsBase: "/demo/assets/editorial", seedUrl: "/demo/assets/editorial/seed.json", publicationSlug: "le-quorum", databaseKey: "demo",
+  });
+  assert.match(demo, /class="local-warning"/);
+  assert.match(demo, /Mode démonstration local — données conservées dans ce navigateur\./);
+  assert.doesNotMatch(demo, /chaque enregistrement est écrit sur le serveur/);
 });
 
 test("la version affichée dans la barre suit le paquet", () => {
@@ -159,7 +174,7 @@ test("le serveur ne sert l'admin que si editorial est allumé", async () => {
     try {
       const response = await fetch(`http://127.0.0.1:${address.port}/redaction/`);
       assert.equal(response.status, expected);
-      if (on) assert.match(await response.text(), /Rédaction/);
+      if (on) assert.match(await response.text(), /Espace de rédaction/);
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
@@ -284,6 +299,93 @@ test("rédaction pour néophytes : mots simples, états vides, erreurs lisibles"
   assert.match(restauration, /form\.archive\.addEventListener\("change", montrerFichier\)/);
   assert.match(restauration, /form\.addEventListener\("reset"/);
   assert.match(php, /'\/admin\/mise-a-jour\/paquet\/revenir'\) && \$method === 'GET'\)/);
+});
+
+test("Mon profil : mot de passe plus tôt, textes d’aide au même corps, « Propulsé par » contrasté", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  const start = admin.indexOf("function profileView()");
+  const end = admin.indexOf("function profileStatus(");
+  assert.ok(start !== -1 && end > start);
+  const profile = admin.slice(start, end);
+  assert.match(profile, /panel-profil/);
+  assert.match(profile, /<label>Prénom<input name="prenom"/);
+  assert.match(profile, /<label>Nom<input name="nom"/);
+  assert.match(profile, /Nom d’affichage \(facultatif\)/);
+  assert.match(profile, /utilisent le prénom et le nom/);
+  assert.ok(profile.indexOf("<label>Prénom") < profile.indexOf("<label>Nom<input"));
+  assert.match(profile, /profil-courriel-ligne/);
+  assert.match(profile, /<span id="profile-email" class="profil-actuel">/);
+  assert.match(profile, /<span id="profile-email-etat" class="profil-courriel-etat" hidden>/);
+  assert.match(profile, /<div id="profile-email-attente" class="profil-courriel-attente" hidden>/);
+  assert.match(profile, /<div id="profile-email-actions" class="actions" hidden>/);
+  assert.match(profile, /<p id="profile-email-aide" class="aide">Un lien de confirmation/);
+  assert.match(admin, /function paintEmailStatus\(profile\)/);
+  assert.match(admin, /form\.hidden = demandeEnCours/);
+  assert.match(admin, /Nouvelle adresse en attente : \$\{profile\.courrielEnAttente\}/);
+  assert.doesNotMatch(admin, /— En attente de confirmation/);
+  assert.match(admin, /data-courriel-action/);
+  assert.match(admin, /Confirmer mon adresse/);
+  assert.match(admin, /Renvoyer le lien/);
+  assert.match(admin, /Annuler la demande/);
+  assert.doesNotMatch(profile, /auth-intro/);
+  assert.ok(profile.indexOf("<h3>Mot de passe</h3>") < profile.indexOf("<h3>Courriel</h3>"));
+  const css = readFileSync(join(ROOT, "admin/ui/admin.css"), "utf8");
+  assert.match(css, /\.admin-sidebar-foot \{[^}]*color: oklch\(0\.32 0\.03 340\);/);
+  assert.match(css, /\.auth-card-foot \{[^}]*color: oklch\(0\.32 0\.03 340\);/);
+  assert.doesNotMatch(css, /text-foreground\/80/);
+  assert.match(css, /html\.dark \.admin-sidebar-foot,\s*html\.dark \.auth-card-foot \{ color: oklch\(0\.93 0\.01 340\); \}/);
+  assert.match(css, /\.panel-profil \.profil-courriel-ligne/);
+  assert.match(css, /\.panel-profil \.profil-actuel/);
+  assert.match(css, /\.panel-profil \.profil-courriel-etat/);
+  assert.match(css, /\.panel-profil \.aide/);
+  assert.match(css, /#smtp-panel h3/);
+  assert.match(css, /#smtp-panel > \.aide/);
+});
+
+test("Comptes et rôles : prénom et nom à l’ajout d’un membre", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  const start = admin.indexOf("async function fillAccessPanel()");
+  const end = admin.indexOf("function bindLogout(");
+  assert.ok(start !== -1 && end > start);
+  const panel = admin.slice(start, end);
+  assert.match(panel, /<label>Prénom<input name="prenom"/);
+  assert.match(panel, /<label>Nom<input name="nom"/);
+  assert.match(panel, /Nom d’affichage \(facultatif\)/);
+  assert.match(panel, /utilisent le prénom et le nom/);
+  assert.match(panel, /prenom: \(data\.get\('prenom'\)/);
+  assert.ok(panel.indexOf("<label>Prénom") < panel.indexOf("<label>Nom<input"));
+});
+
+test("Configuration : réglages SMTP, hébergeur en premier, sans envoi par mail()", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  const start = admin.indexOf("function smtpSettingsPanel()");
+  const end = admin.indexOf("function smtpStatus(");
+  assert.ok(start !== -1 && end > start);
+  const panel = admin.slice(start, end);
+  assert.match(panel, /<h3>Envoi de courriel<\/h3>/);
+  assert.match(panel, /partent par le compte courriel du journal/);
+  assert.doesNotMatch(panel, /serveur d’envoi intégré/);
+  assert.doesNotMatch(panel, /sans identifiant ni mot de passe/);
+  assert.match(panel, /smtp-ports/);
+  const order = [
+    panel.indexOf("Courriel de mon hébergeur"),
+    panel.indexOf("Gmail ou Google Workspace"),
+    panel.indexOf("Outlook ou Microsoft 365"),
+    panel.indexOf("Serveur universitaire ou personnalisé"),
+  ];
+  assert.ok(order[0] !== -1 && order[0] < order[1] && order[1] < order[2] && order[2] < order[3]);
+  assert.match(panel, /Envoyer un courriel d’essai/);
+  assert.match(admin, /Un mot de passe est déjà enregistré/);
+  assert.doesNotMatch(admin, /mail\(\)/);
+  assert.match(admin, /smtpSettingsPanel\(\)/);
+});
+
+test("les liens de réinitialisation et de confirmation de courriel survivent au chargement", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  assert.match(admin, /function isAuthRoute\(/);
+  assert.match(admin, /if \(isAuthRoute\(\)\) return;/);
+  assert.match(admin, /raw\.startsWith\('courriel='\)/);
+  assert.match(admin, /Connectez-vous pour confirmer votre nouveau courriel/);
 });
 
 test("fondation et droits sur les articles ; Configuration et Mise à jour à l'administrateur", () => {

@@ -26,7 +26,17 @@ function socle_smtp_send(array $settings, string $to, string $subject, string $t
     try {
         socle_smtp_expect(socle_smtp_read($socket), 220);
         socle_smtp_write($socket, 'EHLO socle');
-        socle_smtp_expect(socle_smtp_read($socket), 250);
+        $ehlo = socle_smtp_read($socket);
+        socle_smtp_expect($ehlo, 250);
+        if (!$settings['secure'] && stripos($ehlo, 'STARTTLS') !== false) {
+            socle_smtp_write($socket, 'STARTTLS');
+            socle_smtp_expect(socle_smtp_read($socket), 220);
+            if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+                throw new RuntimeException('smtp muet');
+            }
+            socle_smtp_write($socket, 'EHLO socle');
+            socle_smtp_expect(socle_smtp_read($socket), 250);
+        }
         if ($settings['user'] !== null) {
             socle_smtp_write($socket, 'AUTH LOGIN');
             socle_smtp_expect(socle_smtp_read($socket), 334);
@@ -96,4 +106,126 @@ function socle_smtp_expect(string $reply, int $code): void {
     $lines = explode("\n", $reply);
     $last = $lines[count($lines) - 1] ?? '';
     if (!str_starts_with($last, (string) $code)) throw new RuntimeException('smtp refusé');
+}
+
+const SOCLE_SMTP_STORE_KEY = 'smtp:settings';
+const SOCLE_SMTP_PROVIDERS = ['hebergeur', 'gmail', 'outlook', 'personnalise'];
+
+function socle_smtp_stored(SocleStore $store): ?array {
+    $raw = $store->get('auth', SOCLE_SMTP_STORE_KEY);
+    if ($raw === null) return null;
+    $parsed = json_decode($raw, true);
+    return is_array($parsed) ? $parsed : null;
+}
+
+function socle_smtp_complete(?array $row): ?array {
+    if ($row === null) return null;
+    $host = trim((string) ($row['host'] ?? ''));
+    $from = trim((string) ($row['from'] ?? ''));
+    $port = (int) ($row['port'] ?? 0);
+    if ($host === '' || $from === '' || $port < 1 || $port > 65535) return null;
+    $user = trim((string) ($row['user'] ?? ''));
+    $password = (string) ($row['password'] ?? '');
+    return [
+        'host' => $host,
+        'port' => $port,
+        'secure' => (bool) ($row['secure'] ?? false),
+        'user' => $user !== '' ? $user : null,
+        'password' => $password !== '' ? $password : null,
+        'from' => $from,
+    ];
+}
+
+function socle_smtp_from_store(SocleStore $store): ?array {
+    return socle_smtp_complete(socle_smtp_stored($store));
+}
+
+function socle_smtp_resolve(SocleStore $store): ?array {
+    return socle_smtp_from_store($store) ?? socle_smtp_settings();
+}
+
+function socle_smtp_public(SocleStore $store): array {
+    $stored = socle_smtp_stored($store);
+    $complete = socle_smtp_complete($stored);
+    if ($stored !== null && $complete !== null) {
+        $fournisseur = in_array($stored['fournisseur'] ?? null, SOCLE_SMTP_PROVIDERS, true)
+            ? $stored['fournisseur']
+            : 'personnalise';
+        return [
+            'fournisseur' => $fournisseur,
+            'host' => $complete['host'],
+            'port' => $complete['port'],
+            'secure' => $complete['secure'],
+            'user' => (string) ($complete['user'] ?? ''),
+            'from' => $complete['from'],
+            'motDePasseEnregistre' => ($complete['password'] ?? null) !== null,
+            'source' => 'enregistrement',
+        ];
+    }
+    $env = socle_smtp_settings();
+    if ($env !== null) {
+        return [
+            'fournisseur' => 'personnalise',
+            'host' => $env['host'],
+            'port' => $env['port'],
+            'secure' => (bool) $env['secure'],
+            'user' => (string) ($env['user'] ?? ''),
+            'from' => $env['from'],
+            'motDePasseEnregistre' => ($env['password'] ?? null) !== null && $env['password'] !== '',
+            'source' => 'environnement',
+        ];
+    }
+    return [
+        'fournisseur' => 'hebergeur',
+        'host' => '',
+        'port' => 465,
+        'secure' => true,
+        'user' => '',
+        'from' => '',
+        'motDePasseEnregistre' => false,
+        'source' => 'absent',
+    ];
+}
+
+function socle_smtp_save(SocleStore $store, array $body): array {
+    $fournisseur = $body['fournisseur'] ?? null;
+    if (!in_array($fournisseur, SOCLE_SMTP_PROVIDERS, true)) throw new SocleHttp('demande refusée');
+    $host = is_string($body['host'] ?? null) ? trim($body['host']) : '';
+    $from = is_string($body['from'] ?? null) ? trim($body['from']) : '';
+    $user = is_string($body['user'] ?? null) ? trim($body['user']) : '';
+    $port = (int) ($body['port'] ?? 0);
+    $secure = ($body['secure'] ?? false) === true || ($body['secure'] ?? null) === '1';
+    $incoming = is_string($body['password'] ?? null) ? $body['password'] : '';
+    if ($host === '' || $from === '' || $user === '' || $port < 1 || $port > 65535) {
+        throw new SocleHttp('réglages incomplets', 409);
+    }
+    if (strlen($from) > 200 || preg_match('/^[^\s@]+@[^\s@]+\.[^\s@]+$/', $from) !== 1) {
+        throw new SocleHttp('demande refusée');
+    }
+    $previous = socle_smtp_stored($store);
+    $password = $incoming !== '' ? $incoming : (is_string($previous['password'] ?? null) ? $previous['password'] : '');
+    if ($password === '') throw new SocleHttp('réglages incomplets', 409);
+    $store->put('auth', SOCLE_SMTP_STORE_KEY, socle_json([
+        'fournisseur' => $fournisseur,
+        'host' => $host,
+        'port' => $port,
+        'secure' => $secure,
+        'user' => $user,
+        'password' => $password,
+        'from' => $from,
+    ]));
+    return socle_smtp_public($store);
+}
+
+function socle_smtp_clear(SocleStore $store): array {
+    $store->delete('auth', SOCLE_SMTP_STORE_KEY);
+    return socle_smtp_public($store);
+}
+
+function socle_smtp_error_code(Throwable $error): string {
+    $raw = $error->getMessage();
+    if (in_array($raw, ['smtp muet', 'smtp refusé', 'smtp absent', 'réglages incomplets', 'demande refusée'], true)) {
+        return $raw;
+    }
+    return 'smtp refusé';
 }
