@@ -308,12 +308,16 @@ test("Mon profil : mot de passe plus tôt, textes d’aide au même corps, « Pr
   assert.ok(start !== -1 && end > start);
   const profile = admin.slice(start, end);
   assert.match(profile, /panel-profil/);
-  assert.match(profile, /<p id="profile-email" class="profil-actuel">/);
-  assert.match(profile, /<p id="profile-email-etat" class="profil-courriel-etat">/);
+  assert.match(profile, /profil-courriel-ligne/);
+  assert.match(profile, /<span id="profile-email" class="profil-actuel">/);
+  assert.match(profile, /<span id="profile-email-etat" class="profil-courriel-etat" hidden>/);
   assert.match(profile, /<div id="profile-email-attente" class="profil-courriel-attente" hidden>/);
   assert.match(profile, /<div id="profile-email-actions" class="actions" hidden>/);
-  assert.match(profile, /<p class="aide">Un lien de confirmation/);
+  assert.match(profile, /<p id="profile-email-aide" class="aide">Un lien de confirmation/);
   assert.match(admin, /function paintEmailStatus\(profile\)/);
+  assert.match(admin, /form\.hidden = demandeEnCours/);
+  assert.match(admin, /Nouvelle adresse en attente : \$\{profile\.courrielEnAttente\}/);
+  assert.doesNotMatch(admin, /— En attente de confirmation/);
   assert.match(admin, /data-courriel-action/);
   assert.match(admin, /Confirmer mon adresse/);
   assert.match(admin, /Renvoyer le lien/);
@@ -325,20 +329,25 @@ test("Mon profil : mot de passe plus tôt, textes d’aide au même corps, « Pr
   assert.match(css, /\.auth-card-foot \{[^}]*color: oklch\(0\.32 0\.03 340\);/);
   assert.doesNotMatch(css, /text-foreground\/80/);
   assert.match(css, /html\.dark \.admin-sidebar-foot,\s*html\.dark \.auth-card-foot \{ color: oklch\(0\.93 0\.01 340\); \}/);
+  assert.match(css, /\.panel-profil \.profil-courriel-ligne/);
   assert.match(css, /\.panel-profil \.profil-actuel/);
   assert.match(css, /\.panel-profil \.profil-courriel-etat/);
   assert.match(css, /\.panel-profil \.aide/);
+  assert.match(css, /#smtp-panel h3/);
+  assert.match(css, /#smtp-panel > \.aide/);
 });
 
-test("Configuration : réglages SMTP, hébergeur en premier, sans serveur d’envoi intégré", () => {
+test("Configuration : réglages SMTP, hébergeur en premier, sans envoi par mail()", () => {
   const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
   const start = admin.indexOf("function smtpSettingsPanel()");
   const end = admin.indexOf("function smtpStatus(");
   assert.ok(start !== -1 && end > start);
   const panel = admin.slice(start, end);
   assert.match(panel, /<h3>Envoi de courriel<\/h3>/);
-  assert.match(panel, /pas de serveur d’envoi intégré/);
-  assert.match(panel, /sans identifiant ni mot de passe/);
+  assert.match(panel, /partent par le compte courriel du journal/);
+  assert.doesNotMatch(panel, /serveur d’envoi intégré/);
+  assert.doesNotMatch(panel, /sans identifiant ni mot de passe/);
+  assert.match(panel, /smtp-ports/);
   const order = [
     panel.indexOf("Courriel de mon hébergeur"),
     panel.indexOf("Gmail ou Google Workspace"),

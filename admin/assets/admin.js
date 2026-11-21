@@ -1761,7 +1761,7 @@ function settings() {
 }
 
 const SMTP_AIDES = {
-  hebergeur: 'Utilisez la boîte courriel fournie avec l’hébergement (cPanel, Hostinger, Web Hosting Canada, etc.). L’identifiant est l’adresse complète. Choisissez le port 465 avec SSL, ou le 587 avec STARTTLS. Demandez l’hôte exact à votre hébergeur, souvent mail.votre-domaine.ca.',
+  hebergeur: 'Boîte fournie avec l’hébergement (cPanel, Hostinger, Web Hosting Canada, etc.). L’identifiant est l’adresse complète. Port 465 avec SSL, ou 587 avec STARTTLS ; l’hôte est souvent mail.votre-domaine.ca.',
   gmail: 'Pour Gmail ou Google Workspace, il faut un mot de passe d’application, pas le mot de passe du compte. L’hôte est smtp.gmail.com, en général au port 465 avec SSL.',
   outlook: 'Pour Outlook ou Microsoft 365, l’hôte est smtp.office365.com, au port 587 avec STARTTLS. L’identifiant est l’adresse complète.',
   personnalise: 'Serveur universitaire ou autre relais. Indiquez l’hôte, le port (465 avec SSL ou 587 avec STARTTLS), l’identifiant et le mot de passe fournis par l’établissement.',
@@ -1777,8 +1777,8 @@ const SMTP_PRESETS = {
 function smtpSettingsPanel() {
   return `<section class="panel" id="smtp-panel">
     <h3>Envoi de courriel</h3>
-    <p>Les courriels de réinitialisation et de confirmation partent par le serveur d’envoi de votre hébergeur ou d’un fournisseur. Il n’y a pas de serveur d’envoi intégré au Socle, et l’envoi n’est jamais fait sans identifiant ni mot de passe.</p>
-    <form id="smtp-form" class="grid" autocomplete="off">
+    <p class="aide">Les courriels de confirmation et de réinitialisation partent par le compte courriel du journal.</p>
+    <form id="smtp-form" class="grid smtp-form" autocomplete="off">
       <div class="field full"><label>Fournisseur<select name="fournisseur">
         <option value="hebergeur">Courriel de mon hébergeur</option>
         <option value="gmail">Gmail ou Google Workspace</option>
@@ -1787,11 +1787,13 @@ function smtpSettingsPanel() {
       </select></label></div>
       <p class="aide full" data-smtp-aide></p>
       <div class="field full"><label>Hôte<input name="host" required autocomplete="off" placeholder="mail.votre-domaine.ca"></label></div>
+      <div class="smtp-ports full">
       <div class="field"><label>Chiffrement<select name="chiffrement">
         <option value="ssl">SSL (port 465)</option>
         <option value="starttls">STARTTLS (port 587)</option>
       </select></label></div>
       <div class="field"><label>Port<input name="port" type="number" min="1" max="65535" required></label></div>
+      </div>
       <div class="field full"><label>Identifiant (adresse complète)<input name="user" required autocomplete="off" placeholder="redaction@votre-domaine.ca"></label></div>
       <div class="field full"><label>Mot de passe<input name="password" type="password" autocomplete="new-password"></label><small data-smtp-password-hint></small></div>
       <div class="field full"><label>Expéditeur<input name="from" type="email" required placeholder="redaction@votre-domaine.ca"></label></div>
@@ -1955,15 +1957,17 @@ function profileView() {
       <div class="actions full"><button class="primary">Changer le mot de passe</button></div>
     </form>
     <h3>Courriel</h3>
-    <p id="profile-email" class="profil-actuel"></p>
-    <p id="profile-email-etat" class="profil-courriel-etat"></p>
+    <p class="profil-courriel-ligne">
+      <span id="profile-email" class="profil-actuel"></span>
+      <span id="profile-email-etat" class="profil-courriel-etat" hidden></span>
+    </p>
     <div id="profile-email-attente" class="profil-courriel-attente" hidden></div>
     <div id="profile-email-actions" class="actions" hidden></div>
     <form id="profile-email-form" class="grid">
       <div class="field full"><label>Nouveau courriel<input name="courriel" type="email" autocomplete="email" required placeholder="vous@exemple.ca"></label></div>
       <div class="actions full"><button class="primary">Demander la confirmation</button></div>
     </form>
-    <p class="aide">Un lien de confirmation part à la nouvelle adresse, s’il est possible d’envoyer un courriel. Sinon, demandez à l’administrateur.</p>
+    <p id="profile-email-aide" class="aide">Un lien de confirmation part à la nouvelle adresse, s’il est possible d’envoyer un courriel. Sinon, demandez à l’administrateur.</p>
     <p id="profile-status" class="notice" role="status" hidden></p>
   </section>`;
 }
@@ -1988,17 +1992,27 @@ function paintEmailStatus(profile) {
   const actions = document.getElementById('profile-email-actions');
   if (!etat || !pending || !actions) return;
   const status = profile.courrielEtat || 'non-confirmee';
+  etat.hidden = false;
   etat.textContent = `État : ${courrielEtatLibelle(status)}`;
   etat.dataset.etat = status;
   pending.hidden = !profile.courrielEnAttente;
   pending.textContent = profile.courrielEnAttente
-    ? `Nouvelle adresse en attente : ${profile.courrielEnAttente} — En attente de confirmation.`
+    ? `Nouvelle adresse en attente : ${profile.courrielEnAttente}`
     : '';
+  const demandeEnCours = status === 'en-attente' || Boolean(profile.courrielEnAttente);
+  const form = document.getElementById('profile-email-form');
+  const aide = document.getElementById('profile-email-aide');
+  if (form) form.hidden = demandeEnCours;
+  if (aide) {
+    aide.textContent = demandeEnCours
+      ? 'Annulez la demande pour indiquer une autre adresse.'
+      : 'Un lien de confirmation part à la nouvelle adresse, s’il est possible d’envoyer un courriel. Sinon, demandez à l’administrateur.';
+  }
   const buttons = [];
   if (status === 'non-confirmee' && !profile.courrielEnAttente) {
     buttons.push(['Confirmer mon adresse', 'confirmer-actuel']);
   }
-  if (status === 'en-attente' || profile.courrielEnAttente) {
+  if (demandeEnCours) {
     buttons.push(['Renvoyer le lien', 'renvoyer']);
     buttons.push(['Annuler la demande', 'annuler']);
   }
