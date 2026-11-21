@@ -383,10 +383,12 @@ test("le lien magique PHP part par SMTP et n'enregistre que le hachage", async (
   await prepared.close();
   const mails: string[] = [];
   const smtp = createNet();
+  smtp.on("error", () => {});
   await new Promise<void>((resolve) => smtp.listen(0, "127.0.0.1", resolve));
   const address = smtp.address();
   assert.ok(address && typeof address === "object");
   smtp.on("connection", (socket) => {
+    socket.on("error", () => {});
     let buffer = "";
     socket.write("220 ready\r\n");
     socket.on("data", (chunk) => {
@@ -454,10 +456,12 @@ test("PHP : le nouveau courriel n’est appliqué qu’après un lien unique non
   await prepared.close();
   const mails: string[] = [];
   const smtp = createNet();
+  smtp.on("error", () => {});
   await new Promise<void>((resolve) => smtp.listen(0, "127.0.0.1", resolve));
   const address = smtp.address();
   assert.ok(address && typeof address === "object");
   smtp.on("connection", (socket) => {
+    socket.on("error", () => {});
     let buffer = "";
     socket.write("220 ready\r\n");
     socket.on("data", (chunk) => {
@@ -517,12 +521,13 @@ test("PHP : le nouveau courriel n’est appliqué qu’après un lien unique non
     const saved = openSqliteFile(db);
     await saved.resume();
     const pending = (await saved.list("auth")).filter((row) => row.key.startsWith("courriel:"));
-    await saved.close();
     assert.equal(pending.length, 1);
     assert.equal(pending[0]?.key, "courriel:" + createHash("sha256").update(first).digest("hex"));
     assert.equal(pending[0]?.value.includes(first), false);
-    await php.stop();
-    php = await startPhp(work, envAt("2026-11-21T21:00:01.000Z"));
+    const parsed = JSON.parse(pending[0]?.value ?? "{}") as { email?: string; nouveau?: string; exp?: string };
+    parsed.exp = "2026-11-21T19:59:59.000Z";
+    await saved.put("auth", pending[0]!.key, JSON.stringify(parsed));
+    await saved.close();
     const expired = await fetch(php.url + "/v1/auth/profil/courriel/confirmer", {
       method: "POST",
       headers: { ...json, cookie },
