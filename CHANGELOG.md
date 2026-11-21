@@ -1,6 +1,7 @@
 # Journal
 
 ## Non publié
+- Ordre des réseaux sociaux (Configuration et assistant) : Instagram, Facebook, TikTok, LinkedIn, Threads, X, puis Bluesky, Mastodon et YouTube (pas de chiffre comparable dans le Tableau 1 de NETendances 2026 pour ces trois-là ; YouTube y est mesuré à part, comme consommation vidéo), et le courriel en dernier. Source : Académie de la transformation numérique, Université Laval, NETendances 2026, « Réseaux sociaux et divertissement en ligne », Tableau 1, 18–24 ans (Instagram 73 %, Facebook 64 %, TikTok 53 %, LinkedIn 24 %, Threads 8 %, X 7 %) — https://transformation-numerique.ulaval.ca/wp-content/uploads/2026/09/netendances-2026-reseaux-sociaux-et-divertissement-en-ligne.pdf. Buy Me a Coffee reste propre à LE-RADAR et n’est pas ajouté au journal.
 - Configuration, mât illustré : les photos choisies montrent leur vignette (la même adresse que la banque et les aperçus), le crédit, et les boutons Cadrer, Monter, Descendre et Retirer dans une liste compacte. « Ordre aléatoire » reste à côté de cette liste, activé par défaut. Une photo du mât ne se retire toujours pas de la banque.
 - Configuration, météo : le champ des localités montre les noms de lieux. Enregistrer conserve les coordonnées et le slug MétéoMédia quand le nom n’a pas changé.
 - Sauvegarde : le choix du fichier ZIP est en français (« Choisir un fichier », « Aucun fichier choisi »), au style de la page. En anglais, « Choose a file » et « No file chosen ».

@@ -273,16 +273,17 @@ function flagInvalidFields(form) {
  * page du site Web (le Kiosque), un réseau vide n’apparaît pas.
  * `pattern` suit l’attribut HTML (adresse entière) ; même liste dans le Kiosque.
  */
+/* Ordre aligné sur le Kiosque et NETendances 2026, Tableau 1, 18–24 ans : Instagram, Facebook, TikTok, LinkedIn, Threads, X, puis Bluesky, Mastodon, YouTube (sans chiffre comparable), courriel en dernier. Buy Me a Coffee n’est pas un champ du journal. */
 const SOCIAL_FIELDS = [
-  ['facebook', 'Facebook', 'https://www.facebook.com/lavigie', String.raw`https?://(www\.|m\.|web\.)?(facebook|fb)\.com/\S+`],
   ['instagram', 'Instagram', 'https://www.instagram.com/lavigie', String.raw`https?://(www\.)?instagram\.com/\S+`],
+  ['facebook', 'Facebook', 'https://www.facebook.com/lavigie', String.raw`https?://(www\.|m\.|web\.)?(facebook|fb)\.com/\S+`],
+  ['tiktok', 'TikTok', 'https://www.tiktok.com/@lavigie', String.raw`https?://(www\.)?tiktok\.com/@\S+`],
+  ['linkedin', 'LinkedIn', 'https://www.linkedin.com/company/lavigie', String.raw`https?://([a-z]{2,3}\.)?linkedin\.com/(company|in|school|showcase)/\S+`],
+  ['threads', 'Threads', 'https://www.threads.net/@lavigie', String.raw`https?://(www\.)?threads\.(net|com)/@\S+`],
   ['x', 'X', 'https://x.com/lavigie', String.raw`https?://(www\.)?(x|twitter)\.com/\S+`],
   ['bluesky', 'Bluesky', 'https://bsky.app/profile/lavigie.bsky.social', String.raw`https?://bsky\.app/profile/\S+`],
   ['mastodon', 'Mastodon', 'https://piaille.fr/@lavigie', String.raw`https?://\S+\.\S+/@\S+`],
-  ['tiktok', 'TikTok', 'https://www.tiktok.com/@lavigie', String.raw`https?://(www\.)?tiktok\.com/@\S+`],
   ['youtube', 'YouTube', 'https://www.youtube.com/@lavigie', String.raw`https?://(www\.|m\.)?youtube\.com/\S+`],
-  ['linkedin', 'LinkedIn', 'https://www.linkedin.com/company/lavigie', String.raw`https?://([a-z]{2,3}\.)?linkedin\.com/(company|in|school|showcase)/\S+`],
-  ['threads', 'Threads', 'https://www.threads.net/@lavigie', String.raw`https?://(www\.)?threads\.(net|com)/@\S+`],
   ['email', 'Courriel', 'redaction@exemple.ca', ''],
 ];
 

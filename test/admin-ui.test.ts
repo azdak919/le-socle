@@ -304,7 +304,7 @@ test("réseaux sociaux : un champ par réseau, exemple pâle et adresse vérifi�
   const block = /const SOCIAL_FIELDS = (\[[\s\S]*?\n\]);/.exec(admin)?.[1];
   assert.ok(block, "liste SOCIAL_FIELDS");
   const fields = new Function(`return ${block}`)() as Array<[string, string, string, string]>;
-  assert.deepEqual(fields.map(([id]) => id), ["facebook", "instagram", "x", "bluesky", "mastodon", "tiktok", "youtube", "linkedin", "threads", "email"]);
+  assert.deepEqual(fields.map(([id]) => id), ["instagram", "facebook", "tiktok", "linkedin", "threads", "x", "bluesky", "mastodon", "youtube", "email"]);
   for (const [id, , example, pattern] of fields) {
     assert.ok(example, `${id} : exemple pâle`);
     if (!pattern) continue;
@@ -313,7 +313,8 @@ test("réseaux sociaux : un champ par réseau, exemple pâle et adresse vérifi�
     assert.ok(re.test(example), `${id} : l'exemple passe`);
     assert.equal(re.test("lavigie"), false, `${id} : un simple nom est refusé`);
   }
-  assert.equal(new RegExp(`^(?:${fields[2][3]})$`, "v").test("https://facebook.com/oups"), false, "X refuse une adresse Facebook");
+  const xPattern = fields.find(([id]) => id === "x")?.[3];
+  assert.equal(new RegExp(`^(?:${xPattern})$`, "v").test("https://facebook.com/oups"), false, "X refuse une adresse Facebook");
   assert.match(admin, /<details class="field full assistant-social"><summary>Réseaux sociaux \(facultatif\)<\/summary>/);
   assert.match(admin, /reseaux: readSocial\(data\)/);
   assert.match(admin, /<legend>Réseaux sociaux<\/legend>[^]*socialFieldsHtml\(publication\.social \|\| \{\}\)/);
