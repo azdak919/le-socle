@@ -575,7 +575,7 @@ function authCard({ title, intro, form, links }) {
   const journal = window.__socleAuth?.journal || 'Le Socle';
   const logo = document.querySelector('.admin-brand-logo')?.getAttribute('src') || '';
   const version = (window.KIOSQUE_EDITORIAL && window.KIOSQUE_EDITORIAL.version) || '';
-  return `<section class="auth-card"><div class="auth-card-brand">${logo ? `<img src="${esc(logo)}" alt="" width="48" height="48">` : ''}<h1>${esc(journal)}</h1><p>Espace de rédaction</p></div><h2>${title}</h2>${intro ? `<p class="auth-intro">${intro}</p>` : ''}${form}${links ? `<p class="auth-links">${links}</p>` : ''}<p class="auth-card-foot">Propulsé par <a href="https://azdak919.github.io/le-socle/">Le Socle</a>${version ? ` ${esc(version)}` : ''}</p><p class="auth-card-theme"><button type="button" class="btn" data-variant="outline" data-size="sm" data-theme-toggle>Thème du système</button></p></section>`;
+  return `<section class="auth-card"><div class="auth-card-brand">${logo ? `<img src="${esc(logo)}" alt="" width="48" height="48">` : ''}<h1>${esc(journal)}</h1><p>Espace de rédaction</p></div><h2>${title}</h2>${intro ? `<p class="auth-intro">${intro}</p>` : ''}${form}${links ? `<p class="auth-links">${links}</p>` : ''}<p class="auth-card-foot">Propulsé par <a href="https://socle.le-radar.ca/">Le Socle</a>${version ? ` ${esc(version)}` : ''}</p><p class="auth-card-theme"><button type="button" class="btn" data-variant="outline" data-size="sm" data-theme-toggle>Thème du système</button></p></section>`;
 }
 
 function showAuthError(error, failure) {

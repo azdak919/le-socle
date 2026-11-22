@@ -580,7 +580,7 @@ function socle_admin_document(string $lang, string $title, string $body): array 
 ' . $body . '
 </div>
 </main>
-<p class="powered noprint">' . $copy['powered'] . ' <a href="https://azdak919.github.io/le-socle/">Le Socle</a> ' . htmlspecialchars(socle_package_version(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</p>
+<p class="powered noprint">' . $copy['powered'] . ' <a href="https://socle.le-radar.ca/">Le Socle</a> ' . htmlspecialchars(socle_package_version(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</p>
 </body>
 </html>';
     return socle_result(200, $html, ['content-type' => 'text/html; charset=utf-8']);

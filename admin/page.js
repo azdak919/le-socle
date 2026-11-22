@@ -21,7 +21,7 @@ export const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character
 
 /** Même numéro que package.json et src/version.ts, lu ici pour la coquille HTML. */
 export const SOCLE_VERSION = createRequire(import.meta.url)('../package.json').version;
-export const SOCLE_SITE = 'https://azdak919.github.io/le-socle/';
+export const SOCLE_SITE = 'https://socle.le-radar.ca/';
 
 /** En-tête de la barre : le logo et le nom du Socle tant que le journal n’est pas configuré. */
 export function adminBrand(className = 'admin-brand') {
