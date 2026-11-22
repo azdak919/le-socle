@@ -26,11 +26,28 @@ jobs:
     runs-on: ubuntu-24.04
     environment:
       name: github-pages
-      url: ${{ steps.pages.outputs.page_url }}
+      url: ${{ steps.pages.outputs.page_url || steps.pages2.outputs.page_url || steps.pages3.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site
+      # L'API Pages ne voit parfois pas encore l'artefact (« Found 0 artifact(s) »)
+      # juste après l'envoi. Deux nouveaux essais, avec une pause. Chaque run
+      # publie son propre SHA ; la concurrence annule un run plus ancien.
       - id: pages
+        uses: actions/deploy-pages@v5
+        continue-on-error: true
+      - name: Pause avant un nouvel essai
+        if: steps.pages.outcome == 'failure'
+        run: sleep 30
+      - id: pages2
+        if: steps.pages.outcome == 'failure'
+        uses: actions/deploy-pages@v5
+        continue-on-error: true
+      - name: Pause avant le dernier essai
+        if: steps.pages2.outcome == 'failure'
+        run: sleep 30
+      - id: pages3
+        if: steps.pages2.outcome == 'failure'
         uses: actions/deploy-pages@v5
