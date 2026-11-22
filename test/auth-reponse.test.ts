@@ -13,13 +13,15 @@ type AuthHelpers = {
   AUTH_ERROR_MESSAGES: Record<string, string>;
   MESSAGE_REPONSE_ILLISIBLE: string;
   MESSAGE_DEMO_COURRIEL: string;
+  DEMO_COURRIEL: string;
+  libelleAdresseActuelle: (email: unknown) => string;
 };
 
 function loadHelpers(): AuthHelpers {
   const start = ADMIN.indexOf("const AUTH_ERROR_MESSAGES");
   const end = ADMIN.indexOf("function readDemoProfile(");
   assert.ok(start !== -1 && end > start, "les aides d’erreur d’auth sont présentes");
-  return new Function(`${ADMIN.slice(start, end)}; return { messageErreurAuth, reponseAuthIllisible, AUTH_ERROR_MESSAGES, MESSAGE_REPONSE_ILLISIBLE, MESSAGE_DEMO_COURRIEL };`)() as AuthHelpers;
+  return new Function(`${ADMIN.slice(start, end)}; return { messageErreurAuth, reponseAuthIllisible, AUTH_ERROR_MESSAGES, MESSAGE_REPONSE_ILLISIBLE, MESSAGE_DEMO_COURRIEL, DEMO_COURRIEL, libelleAdresseActuelle };`)() as AuthHelpers;
 }
 
 const HOMEPAGE = `<!doctype html>
@@ -93,4 +95,22 @@ test("en démonstration, le courriel se traite localement, sans appel au serveur
   assert.match(aide, /masquerAideSiStatut\(\)/);
   assert.match(statut, /masquerAideSiStatut\(\)/);
   assert.ok(!MESSAGE_DEMO_COURRIEL.includes("aucun lien"), "le statut ne répète pas l’aide");
+});
+
+test("l’adresse actuelle s’affiche, ou « aucune », sans pastille ni vide", () => {
+  const { libelleAdresseActuelle, DEMO_COURRIEL } = loadHelpers();
+  assert.equal(DEMO_COURRIEL, "redaction@exemple.ca");
+  assert.equal(libelleAdresseActuelle("redaction@exemple.ca"), "Adresse actuelle : redaction@exemple.ca");
+  assert.equal(libelleAdresseActuelle("  lea@exemple.ca  "), "Adresse actuelle : lea@exemple.ca");
+  assert.equal(libelleAdresseActuelle(""), "Adresse actuelle : aucune");
+  assert.equal(libelleAdresseActuelle("   "), "Adresse actuelle : aucune");
+  assert.equal(libelleAdresseActuelle(undefined), "Adresse actuelle : aucune");
+  assert.match(ADMIN, /email: email \|\| DEMO_COURRIEL/);
+  assert.match(ADMIN, /email: DEMO_COURRIEL/);
+  const paint = ADMIN.slice(ADMIN.indexOf("function paintEmailStatus("), ADMIN.indexOf("async function bindProfile()"));
+  assert.match(paint, /paintAdresseActuelle\(email\)/);
+  assert.match(paint, /etat\.hidden = !email/);
+  assert.doesNotMatch(paint, /etat\.hidden = false/);
+  const css = readFileSync(join(ROOT, "admin", "assets", "admin.css"), "utf8");
+  assert.match(css, /\.profil-actuel:empty/);
 });

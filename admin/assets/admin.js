@@ -216,6 +216,17 @@ const MESSAGE_DEMO_COURRIEL_ACTION = 'Dans cette démonstration, aucun courriel 
 const MESSAGE_DEMO_PROFIL = 'Dans cette démonstration, le profil est enregistré uniquement dans votre navigateur.';
 const MESSAGE_DEMO_MOTDEPASSE = 'Dans cette démonstration, le mot de passe n’est pas modifié sur un serveur. Les données restent dans votre navigateur.';
 const DEMO_PROFIL_KEY = 'socle-demo-profil';
+const DEMO_COURRIEL = 'redaction@exemple.ca';
+
+function libelleAdresseActuelle(email) {
+  const clean = typeof email === 'string' ? email.trim() : '';
+  return clean ? `Adresse actuelle : ${clean}` : 'Adresse actuelle : aucune';
+}
+
+function paintAdresseActuelle(email) {
+  const emailLine = document.getElementById('profile-email');
+  if (emailLine) emailLine.textContent = libelleAdresseActuelle(email);
+}
 
 /** Réponse d’un hébergement statique (page d’accueil, 404 ou 405 en HTML) ou tout corps qui n’est pas un code d’erreur court. */
 function reponseAuthIllisible(text, contentType) {
@@ -251,16 +262,17 @@ function messageErreurAuth(text, status, contentType) {
 }
 
 function readDemoProfile() {
-  const empty = { prenom: '', nom: '', nomAffiche: '', email: '', courrielEtat: 'non-confirmee', courrielEnAttente: null };
+  const empty = { prenom: '', nom: '', nomAffiche: '', email: DEMO_COURRIEL, courrielEtat: 'non-confirmee', courrielEnAttente: null };
   try {
     const raw = localStorage.getItem(DEMO_PROFIL_KEY);
     if (!raw) return empty;
     const parsed = JSON.parse(raw);
+    const email = typeof parsed.email === 'string' ? parsed.email.trim() : '';
     return {
       prenom: typeof parsed.prenom === 'string' ? parsed.prenom : '',
       nom: typeof parsed.nom === 'string' ? parsed.nom : '',
       nomAffiche: typeof parsed.nomAffiche === 'string' ? parsed.nomAffiche : '',
-      email: typeof parsed.email === 'string' ? parsed.email : '',
+      email: email || DEMO_COURRIEL,
       courrielEtat: parsed.courrielEtat === 'confirmee' || parsed.courrielEtat === 'en-attente' ? parsed.courrielEtat : 'non-confirmee',
       courrielEnAttente: typeof parsed.courrielEnAttente === 'string' ? parsed.courrielEnAttente : null,
     };
@@ -2088,9 +2100,17 @@ function paintEmailStatus(profile) {
   const actions = document.getElementById('profile-email-actions');
   if (!etat || !pending || !actions) return;
   const status = profile.courrielEtat || 'non-confirmee';
-  etat.hidden = false;
-  etat.textContent = `État : ${courrielEtatLibelle(status)}`;
-  etat.dataset.etat = status;
+  const email = typeof profile.email === 'string' ? profile.email.trim() : '';
+  paintAdresseActuelle(email);
+  // Sans adresse, une pastille « Non confirmée » n’a pas de sens et un span vide décale la pastille.
+  etat.hidden = !email;
+  if (email) {
+    etat.textContent = `État : ${courrielEtatLibelle(status)}`;
+    etat.dataset.etat = status;
+  } else {
+    etat.textContent = '';
+    etat.removeAttribute('data-etat');
+  }
   pending.hidden = !profile.courrielEnAttente;
   pending.textContent = profile.courrielEnAttente
     ? `Nouvelle adresse en attente : ${profile.courrielEnAttente}`
@@ -2130,8 +2150,6 @@ function paintEmailStatus(profile) {
         if (action === 'confirmer-actuel') {
           await authCall('POST', 'profil/courriel/confirmer-actuel');
           const next = await authCall('GET', 'profil');
-          const emailLine = document.getElementById('profile-email');
-          if (emailLine && next.email) emailLine.textContent = `Adresse actuelle : ${next.email}`;
           paintEmailStatus(next);
           profileStatus('Si l’envoi de courriel est réglé, un lien de confirmation vient de partir à votre adresse.', true);
         } else if (action === 'renvoyer') {
@@ -2141,8 +2159,6 @@ function paintEmailStatus(profile) {
           profileStatus('Un nouveau lien de confirmation vient d’être demandé.', true);
         } else if (action === 'annuler') {
           const next = await authCall('POST', 'profil/courriel/annuler');
-          const emailLine = document.getElementById('profile-email');
-          if (emailLine && next.email) emailLine.textContent = `Adresse actuelle : ${next.email}`;
           paintEmailStatus(next);
           profileStatus('La demande de confirmation a été annulée.', true);
         }
@@ -2163,8 +2179,6 @@ async function bindProfile() {
   form.elements.prenom.value = profile.prenom || '';
   form.elements.nom.value = profile.nom || '';
   form.elements.nomAffiche.value = profile.nomAffiche || '';
-  const emailLine = document.getElementById('profile-email');
-  if (emailLine) emailLine.textContent = profile.email ? `Adresse actuelle : ${profile.email}` : '';
   paintEmailStatus(profile);
   form.onsubmit = async (event) => {
     event.preventDefault();
@@ -2191,7 +2205,6 @@ async function bindProfile() {
         }
         const next = writeDemoProfile({ ...current, email: courriel, courrielEtat: 'non-confirmee', courrielEnAttente: null });
         event.currentTarget.reset();
-        if (emailLine) emailLine.textContent = next.email ? `Adresse actuelle : ${next.email}` : '';
         paintEmailStatus(next);
         profileStatus(MESSAGE_DEMO_COURRIEL, true);
         return;
@@ -2199,7 +2212,6 @@ async function bindProfile() {
       await authCall('POST', 'profil/courriel', { courriel });
       event.currentTarget.reset();
       const next = await authCall('GET', 'profil');
-      if (emailLine && next.email) emailLine.textContent = `Adresse actuelle : ${next.email}`;
       paintEmailStatus(next);
       profileStatus('Si l’envoi de courriel est réglé, un lien de confirmation vient de partir à la nouvelle adresse.', true);
     } catch (error) { profileStatus(error.message); }

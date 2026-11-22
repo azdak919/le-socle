@@ -1,6 +1,7 @@
 # Journal
 
 ## Non publié
+- « Mon profil » : en démonstration, l’adresse fictive redaction@exemple.ca s’affiche dès l’ouverture (« Adresse actuelle : … »). S’il n’y a vraiment aucune adresse, le texte est « Adresse actuelle : aucune » et la pastille d’état est masquée, pour ne pas laisser un vide qui la décale.
 - « Mon profil » : un seul texte à la fois. En démonstration, l’aide sous le bouton reste courte (« aucun lien n’est envoyé »). Dès qu’un message de statut s’affiche (courriel, profil ou mot de passe), cette aide disparaît, pour ne pas répéter la même idée.
 - « Mon profil », en démonstration (vitrine Le Quorum et mode navigateur) : le changement de courriel, le profil et le mot de passe restent locaux, sans appel à un serveur d’envoi. Un message clair l’explique. Sur un hébergement statique, une page d’accueil ou une erreur HTML (404 ou 405) n’est plus affichée telle quelle sous le bouton : le texte devient « Le serveur du journal n’a pas renvoyé une réponse lisible. »
 
