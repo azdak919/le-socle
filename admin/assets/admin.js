@@ -209,18 +209,103 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
 });
 
 
-async function authCall(method, path, body) {
-  const response = await fetch(`${socleRoot()}/v1/auth/${path}`, {
-    method, credentials: 'same-origin',
-    headers: body === undefined ? { accept: 'application/json' } : { accept: 'application/json', 'content-type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const text = await response.text();
-  if (!response.ok) {
-    const messages = { 'accès refusé': 'Courriel ou mot de passe incorrect.', "trop d'essais": 'Trop d’essais : attendez 15 minutes.', 'mot de passe trop court': 'Le mot de passe doit avoir au moins 10 caractères.', 'mot de passe inchangé': 'Choisissez un mot de passe différent de l’actuel.', 'déjà installé': 'Ce journal a déjà un administrateur : connectez-vous.', 'réservé à l’administrateur': 'Réservé à l’administrateur du journal.', 'réservé au responsable': 'Réservé à l’administrateur du journal.', 'rôle inconnu': 'Rôle inconnu.', 'demande refusée': 'Demande refusée : vérifiez le courriel (par exemple vous@exemple.ca).', 'lien inconnu': 'Ce lien n’est plus valable. Demandez-en un nouveau.', 'lien expiré': 'Ce lien a expiré. Demandez-en un nouveau.', 'smtp absent': 'L’envoi de courriel n’est pas réglé. Demandez à l’administrateur.', 'courriel déjà utilisé': 'Cette adresse est déjà utilisée par un autre compte.', 'courriel inchangé': 'C’est déjà votre courriel.', 'nom trop long': 'Le nom est trop long (120 caractères au plus).', 'nom d’affichage trop long': 'Le nom d’affichage est trop long (120 caractères au plus).', 'demande absente': 'Aucune demande de confirmation n’est en cours.', 'réglages incomplets': 'Indiquez l’hôte, l’expéditeur, l’identifiant et le mot de passe.', 'smtp muet': 'Impossible de joindre le serveur d’envoi. Vérifiez l’hôte et le port.', 'smtp refusé': 'Le serveur d’envoi a refusé la connexion. Vérifiez l’identifiant, le mot de passe et le chiffrement (465 SSL ou 587 STARTTLS).', 'envoi échoué': 'L’envoi a échoué. Vérifiez les réglages.' };
-    throw new Error(messages[text] || text || `Le serveur du journal a refusé la demande (code ${response.status}). Réessayez ; si cela continue, prévenez l’administrateur.`);
+const AUTH_ERROR_MESSAGES = { 'accès refusé': 'Courriel ou mot de passe incorrect.', "trop d'essais": 'Trop d’essais : attendez 15 minutes.', 'mot de passe trop court': 'Le mot de passe doit avoir au moins 10 caractères.', 'mot de passe inchangé': 'Choisissez un mot de passe différent de l’actuel.', 'déjà installé': 'Ce journal a déjà un administrateur : connectez-vous.', 'réservé à l’administrateur': 'Réservé à l’administrateur du journal.', 'réservé au responsable': 'Réservé à l’administrateur du journal.', 'rôle inconnu': 'Rôle inconnu.', 'demande refusée': 'Demande refusée : vérifiez le courriel (par exemple vous@exemple.ca).', 'lien inconnu': 'Ce lien n’est plus valable. Demandez-en un nouveau.', 'lien expiré': 'Ce lien a expiré. Demandez-en un nouveau.', 'smtp absent': 'L’envoi de courriel n’est pas réglé. Demandez à l’administrateur.', 'courriel déjà utilisé': 'Cette adresse est déjà utilisée par un autre compte.', 'courriel inchangé': 'C’est déjà votre courriel.', 'nom trop long': 'Le nom est trop long (120 caractères au plus).', 'nom d’affichage trop long': 'Le nom d’affichage est trop long (120 caractères au plus).', 'demande absente': 'Aucune demande de confirmation n’est en cours.', 'réglages incomplets': 'Indiquez l’hôte, l’expéditeur, l’identifiant et le mot de passe.', 'smtp muet': 'Impossible de joindre le serveur d’envoi. Vérifiez l’hôte et le port.', 'smtp refusé': 'Le serveur d’envoi a refusé la connexion. Vérifiez l’identifiant, le mot de passe et le chiffrement (465 SSL ou 587 STARTTLS).', 'envoi échoué': 'L’envoi a échoué. Vérifiez les réglages.' };
+const MESSAGE_REPONSE_ILLISIBLE = 'Le serveur du journal n’a pas renvoyé une réponse lisible. Réessayez ; si cela continue, prévenez l’administrateur.';
+const MESSAGE_DEMO_COURRIEL = 'Le courriel a été mis à jour uniquement dans votre navigateur.';
+const MESSAGE_DEMO_COURRIEL_ACTION = 'Dans cette démonstration, aucun courriel de confirmation n’est envoyé : il n’y a pas de serveur d’envoi. Les données restent dans votre navigateur.';
+const MESSAGE_DEMO_PROFIL = 'Dans cette démonstration, le profil est enregistré uniquement dans votre navigateur.';
+const MESSAGE_DEMO_MOTDEPASSE = 'Dans cette démonstration, le mot de passe n’est pas modifié sur un serveur. Les données restent dans votre navigateur.';
+const DEMO_PROFIL_KEY = 'socle-demo-profil';
+const DEMO_COURRIEL = 'redaction@exemple.ca';
+
+function libelleAdresseActuelle(email) {
+  const clean = typeof email === 'string' ? email.trim() : '';
+  return clean ? `Adresse actuelle : ${clean}` : 'Adresse actuelle : aucune';
+}
+
+function paintAdresseActuelle(email) {
+  const emailLine = document.getElementById('profile-email');
+  if (emailLine) emailLine.textContent = libelleAdresseActuelle(email);
+}
+
+/** Réponse d’un hébergement statique (page d’accueil, 404 ou 405 en HTML) ou tout corps qui n’est pas un code d’erreur court. */
+function reponseAuthIllisible(text, contentType) {
+  const trimmed = String(text ?? '').trim();
+  const type = String(contentType ?? '').toLowerCase();
+  if (type.includes('text/html') || type.includes('application/xhtml')) return true;
+  if (/<[!]?(?:doctype|html|head|body|meta|title|div|p)\b/i.test(trimmed) || /^\s*</.test(trimmed)) return true;
+  if (trimmed.includes('\n') || trimmed.includes('\r') || trimmed.length > 120) return true;
+  return false;
+}
+
+function codeErreurAuth(text) {
+  const trimmed = String(text ?? '').trim();
+  if (Object.hasOwn(AUTH_ERROR_MESSAGES, trimmed)) return trimmed;
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      const data = JSON.parse(trimmed);
+      const code = typeof data?.error === 'string' ? data.error.trim()
+        : typeof data?.message === 'string' ? data.message.trim() : '';
+      if (Object.hasOwn(AUTH_ERROR_MESSAGES, code)) return code;
+    } catch { /* corps JSON illisible : traité plus bas */ }
   }
-  return text ? JSON.parse(text) : null;
+  return '';
+}
+
+function messageErreurAuth(text, status, contentType) {
+  const code = codeErreurAuth(text);
+  if (code) return AUTH_ERROR_MESSAGES[code];
+  const trimmed = String(text ?? '').trim();
+  if (!trimmed) return `Le serveur du journal a refusé la demande (code ${status}). Réessayez ; si cela continue, prévenez l’administrateur.`;
+  if (reponseAuthIllisible(trimmed, contentType)) return MESSAGE_REPONSE_ILLISIBLE;
+  return MESSAGE_REPONSE_ILLISIBLE;
+}
+
+function readDemoProfile() {
+  const empty = { prenom: '', nom: '', nomAffiche: '', email: DEMO_COURRIEL, courrielEtat: 'non-confirmee', courrielEnAttente: null };
+  try {
+    const raw = localStorage.getItem(DEMO_PROFIL_KEY);
+    if (!raw) return empty;
+    const parsed = JSON.parse(raw);
+    const email = typeof parsed.email === 'string' ? parsed.email.trim() : '';
+    return {
+      prenom: typeof parsed.prenom === 'string' ? parsed.prenom : '',
+      nom: typeof parsed.nom === 'string' ? parsed.nom : '',
+      nomAffiche: typeof parsed.nomAffiche === 'string' ? parsed.nomAffiche : '',
+      email: email || DEMO_COURRIEL,
+      courrielEtat: parsed.courrielEtat === 'confirmee' || parsed.courrielEtat === 'en-attente' ? parsed.courrielEtat : 'non-confirmee',
+      courrielEnAttente: typeof parsed.courrielEnAttente === 'string' ? parsed.courrielEnAttente : null,
+    };
+  } catch {
+    return empty;
+  }
+}
+
+function writeDemoProfile(profile) {
+  localStorage.setItem(DEMO_PROFIL_KEY, JSON.stringify(profile));
+  return profile;
+}
+
+async function authCall(method, path, body) {
+  let response;
+  try {
+    response = await fetch(`${socleRoot()}/v1/auth/${path}`, {
+      method, credentials: 'same-origin',
+      headers: body === undefined ? { accept: 'application/json' } : { accept: 'application/json', 'content-type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    throw new Error('Le serveur du journal ne répond pas. Réessayez dans un instant.');
+  }
+  const text = await response.text();
+  const type = response.headers.get('content-type');
+  if (!response.ok) throw new Error(messageErreurAuth(text, response.status, type));
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(messageErreurAuth(text, response.status, type));
+  }
 }
 
 /**
@@ -1993,6 +2078,14 @@ function profileStatus(message, ok) {
   status.hidden = false;
   status.textContent = message;
   status.classList.toggle('notice-ok', Boolean(ok));
+  masquerAideSiStatut();
+}
+
+/** Un seul texte à la fois : l’aide disparaît dès qu’un message de statut s’affiche. */
+function masquerAideSiStatut() {
+  const aide = document.getElementById('profile-email-aide');
+  const status = document.getElementById('profile-status');
+  if (aide && status) aide.hidden = !status.hidden;
 }
 
 function courrielEtatLibelle(etat) {
@@ -2007,9 +2100,17 @@ function paintEmailStatus(profile) {
   const actions = document.getElementById('profile-email-actions');
   if (!etat || !pending || !actions) return;
   const status = profile.courrielEtat || 'non-confirmee';
-  etat.hidden = false;
-  etat.textContent = `État : ${courrielEtatLibelle(status)}`;
-  etat.dataset.etat = status;
+  const email = typeof profile.email === 'string' ? profile.email.trim() : '';
+  paintAdresseActuelle(email);
+  // Sans adresse, une pastille « Non confirmée » n’a pas de sens et un span vide décale la pastille.
+  etat.hidden = !email;
+  if (email) {
+    etat.textContent = `État : ${courrielEtatLibelle(status)}`;
+    etat.dataset.etat = status;
+  } else {
+    etat.textContent = '';
+    etat.removeAttribute('data-etat');
+  }
   pending.hidden = !profile.courrielEnAttente;
   pending.textContent = profile.courrielEnAttente
     ? `Nouvelle adresse en attente : ${profile.courrielEnAttente}`
@@ -2019,12 +2120,15 @@ function paintEmailStatus(profile) {
   const aide = document.getElementById('profile-email-aide');
   if (form) form.hidden = demandeEnCours;
   if (aide) {
-    aide.textContent = demandeEnCours
-      ? 'Annulez la demande pour indiquer une autre adresse.'
-      : 'Un lien de confirmation part à la nouvelle adresse, s’il est possible d’envoyer un courriel. Sinon, demandez à l’administrateur.';
+    aide.textContent = !onSocle()
+      ? 'Dans cette démonstration, aucun lien n’est envoyé : il n’y a pas de serveur d’envoi.'
+      : demandeEnCours
+        ? 'Annulez la demande pour indiquer une autre adresse.'
+        : 'Un lien de confirmation part à la nouvelle adresse, s’il est possible d’envoyer un courriel. Sinon, demandez à l’administrateur.';
   }
+  masquerAideSiStatut();
   const buttons = [];
-  if (status === 'non-confirmee' && !profile.courrielEnAttente) {
+  if (onSocle() && status === 'non-confirmee' && !profile.courrielEnAttente && profile.email) {
     buttons.push(['Confirmer mon adresse', 'confirmer-actuel']);
   }
   if (demandeEnCours) {
@@ -2039,11 +2143,13 @@ function paintEmailStatus(profile) {
     button.onclick = async () => {
       try {
         const action = button.dataset.courrielAction;
+        if (!onSocle()) {
+          profileStatus(MESSAGE_DEMO_COURRIEL_ACTION, true);
+          return;
+        }
         if (action === 'confirmer-actuel') {
           await authCall('POST', 'profil/courriel/confirmer-actuel');
           const next = await authCall('GET', 'profil');
-          const emailLine = document.getElementById('profile-email');
-          if (emailLine && next.email) emailLine.textContent = `Adresse actuelle : ${next.email}`;
           paintEmailStatus(next);
           profileStatus('Si l’envoi de courriel est réglé, un lien de confirmation vient de partir à votre adresse.', true);
         } else if (action === 'renvoyer') {
@@ -2053,8 +2159,6 @@ function paintEmailStatus(profile) {
           profileStatus('Un nouveau lien de confirmation vient d’être demandé.', true);
         } else if (action === 'annuler') {
           const next = await authCall('POST', 'profil/courriel/annuler');
-          const emailLine = document.getElementById('profile-email');
-          if (emailLine && next.email) emailLine.textContent = `Adresse actuelle : ${next.email}`;
           paintEmailStatus(next);
           profileStatus('La demande de confirmation a été annulée.', true);
         }
@@ -2068,24 +2172,44 @@ async function bindProfile() {
   const form = document.getElementById('profile-form');
   if (!form) return;
   let profile = { prenom: '', nom: '', nomAffiche: '', email: '' };
-  try { profile = await authCall('GET', 'profil'); } catch (error) { profileStatus(error.message); }
+  if (!onSocle()) profile = readDemoProfile();
+  else {
+    try { profile = await authCall('GET', 'profil'); } catch (error) { profileStatus(error.message); }
+  }
   form.elements.prenom.value = profile.prenom || '';
   form.elements.nom.value = profile.nom || '';
   form.elements.nomAffiche.value = profile.nomAffiche || '';
-  const emailLine = document.getElementById('profile-email');
-  if (emailLine) emailLine.textContent = profile.email ? `Adresse actuelle : ${profile.email}` : '';
   paintEmailStatus(profile);
   form.onsubmit = async (event) => {
     event.preventDefault();
     try {
+      if (!onSocle()) {
+        const next = writeDemoProfile({ ...readDemoProfile(), prenom: form.elements.prenom.value, nom: form.elements.nom.value, nomAffiche: form.elements.nomAffiche.value });
+        paintEmailStatus(next);
+        profileStatus(MESSAGE_DEMO_PROFIL, true);
+        return;
+      }
       await authCall('POST', 'profil', { prenom: form.elements.prenom.value, nom: form.elements.nom.value, nomAffiche: form.elements.nomAffiche.value });
       profileStatus('Profil enregistré.', true);
     } catch (error) { profileStatus(error.message); }
   };
   document.getElementById('profile-email-form').onsubmit = async (event) => {
     event.preventDefault();
+    const courriel = new FormData(event.currentTarget).get('courriel').trim();
     try {
-      await authCall('POST', 'profil/courriel', { courriel: new FormData(event.currentTarget).get('courriel').trim() });
+      if (!onSocle()) {
+        const current = readDemoProfile();
+        if (courriel && courriel === current.email) {
+          profileStatus('C’est déjà votre courriel.');
+          return;
+        }
+        const next = writeDemoProfile({ ...current, email: courriel, courrielEtat: 'non-confirmee', courrielEnAttente: null });
+        event.currentTarget.reset();
+        paintEmailStatus(next);
+        profileStatus(MESSAGE_DEMO_COURRIEL, true);
+        return;
+      }
+      await authCall('POST', 'profil/courriel', { courriel });
       event.currentTarget.reset();
       const next = await authCall('GET', 'profil');
       paintEmailStatus(next);
@@ -2100,6 +2224,11 @@ async function bindProfile() {
       return;
     }
     try {
+      if (!onSocle()) {
+        event.currentTarget.reset();
+        profileStatus(MESSAGE_DEMO_MOTDEPASSE, true);
+        return;
+      }
       await authCall('POST', 'profil/motdepasse', { actuel: data.get('actuel'), nouveau: data.get('nouveau') });
       event.currentTarget.reset();
       profileStatus('Mot de passe mis à jour. Les autres sessions ont été fermées.', true);
@@ -2112,6 +2241,11 @@ async function confirmEmailFromHash() {
   if (!raw.startsWith('courriel=')) return false;
   const token = decodeURIComponent(raw.slice('courriel='.length));
   try {
+    if (!onSocle()) {
+      notify(MESSAGE_DEMO_COURRIEL_ACTION);
+      history.replaceState(null, '', '#profil');
+      return true;
+    }
     await authCall('POST', 'profil/courriel/confirmer', { token });
     history.replaceState(null, '', '#profil');
     notify('Votre courriel a été mis à jour.');
