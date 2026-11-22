@@ -9,6 +9,7 @@ import { handleAuth } from "../src/auth-http.ts";
 import { hashToken, membersForArchive, nomPourAffichage, parseStoredProfile, restoreMembers } from "../src/auth.ts";
 import { defaultConfig } from "../src/config.ts";
 import { openSqliteMemory } from "../src/sqlite.ts";
+import { codeDepuisMagasin } from "./code-installation.ts";
 
 const JSON_HEADERS = { "content-type": "application/json" };
 
@@ -55,7 +56,12 @@ async function setup(options: { mailer?: (to: string, subject: string, text: str
     { ...JSON_HEADERS, cookie },
     { ip },
   );
-  return { store, call, at, issued };
+  const installer = async (body: Record<string, unknown>) => {
+    await call("GET", "/v1/auth/etat");
+    const code = await codeDepuisMagasin(store);
+    return call("POST", "/v1/auth/installation", { ...body, code });
+  };
+  return { store, call, at, issued, installer };
 }
 
 function cookieOf(headers: Record<string, string>): string {
@@ -64,12 +70,12 @@ function cookieOf(headers: Record<string, string>): string {
 
 test("réinitialisation : même réponse, jeton haché, usage unique, échéance d’une heure, sessions révoquées", async () => {
   const sent: Array<{ to: string; subject: string; text: string }> = [];
-  const { call, at, issued, store } = await setup({
+  const { call, at, issued, store, installer } = await setup({
     mailer: async (to, subject, text) => {
       sent.push({ to, subject, text });
     },
   });
-  const install = await call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" });
+  const install = await installer({ email: "ana@cegep.example", password: "mot de passe d’Ana" });
   assert.equal(install.status, 204);
   const firstCookie = cookieOf(install.headers);
   assert.match(install.headers["set-cookie"] ?? "", /Secure/);
@@ -118,18 +124,18 @@ test("réinitialisation : même réponse, jeton haché, usage unique, échéance
 });
 
 test("réinitialisation : pas d’envoi sans relais, et limitation des essais", async () => {
-  const { call, store } = await setup();
-  await call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" });
+  const { call, store, installer } = await setup();
+  await installer({ email: "ana@cegep.example", password: "mot de passe d’Ana" });
   const etat = JSON.parse((await call("GET", "/v1/auth/etat")).body);
   assert.equal(etat.courriel, false);
   const none = await call("POST", "/v1/auth/reinitialiser", { email: "ana@cegep.example" });
   assert.equal(none.status, 202);
   const keys = (await store.list("auth")).map((row) => row.key).join(" ");
   assert.equal(keys.includes("reset:"), false, "sans relais, aucun jeton n’est créé");
-  const { call: call2 } = await setup({
+  const { call: call2, installer: installer2 } = await setup({
     mailer: async () => {},
   });
-  await call2("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" });
+  await installer2({ email: "ana@cegep.example", password: "mot de passe d’Ana" });
   for (let i = 0; i < 5; i++) {
     assert.equal((await call2("POST", "/v1/auth/reinitialiser", { email: "ana@cegep.example" }, undefined, "203.0.113.10")).status, 202);
   }
@@ -146,13 +152,13 @@ test("réinitialisation : pas d’envoi sans relais, et limitation des essais", 
 
 test("profil : nom, mot de passe actuel exigé, courriel confirmé", async () => {
   const sent: Array<{ to: string; text: string }> = [];
-  const { call, issued } = await setup({
+  const { call, issued, installer } = await setup({
     mailer: async (to, _subject, text) => {
       sent.push({ to, text });
     },
     origin: "https://journal.example",
   });
-  const install = await call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" });
+  const install = await installer({ email: "ana@cegep.example", password: "mot de passe d’Ana" });
   const cookie = cookieOf(install.headers);
   const other = cookieOf((await call("POST", "/v1/auth/motdepasse", { email: "ana@cegep.example", password: "mot de passe d’Ana" })).headers);
   assert.equal((await call("GET", "/v1/auth/profil")).status, 401);
@@ -195,8 +201,8 @@ test("profil : un ancien nom complet devient le nom d’affichage, sans être d�
   const compose = parseStoredProfile(JSON.stringify({ nom: "Jean-Philippe Tremblay" }));
   assert.deepEqual(compose, { prenom: "", nom: "", nomAffiche: "Jean-Philippe Tremblay" });
 
-  const { call, store } = await setup();
-  const install = await call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" });
+  const { call, store, installer } = await setup();
+  const install = await installer({ email: "ana@cegep.example", password: "mot de passe d’Ana" });
   const cookie = cookieOf(install.headers);
   await store.put("auth", "profil:ana@cegep.example", JSON.stringify({ nom: "Anne Marie" }));
   const got = JSON.parse((await call("GET", "/v1/auth/profil", undefined, cookie)).body);
@@ -207,8 +213,8 @@ test("profil : un ancien nom complet devient le nom d’affichage, sans être d�
 });
 
 test("membres : prénom et nom, archive compatible, un envoi sans nom ne les efface pas", async () => {
-  const { call, store } = await setup();
-  const install = await call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" });
+  const { call, store, installer } = await setup();
+  const install = await installer({ email: "ana@cegep.example", password: "mot de passe d’Ana" });
   const cookie = cookieOf(install.headers);
   assert.equal((await call("POST", "/v1/auth/membres", {
     email: "lea@cegep.example",
@@ -244,17 +250,17 @@ test("membres : prénom et nom, archive compatible, un envoi sans nom ne les eff
 
 test("profil : le nouveau courriel n’est appliqué qu’après un lien unique non expiré", async () => {
   const sent: Array<{ to: string; text: string }> = [];
-  const { call, at, issued, store } = await setup({
+  const { call, at, issued, store, installer } = await setup({
     mailer: async (to, _subject, text) => {
       sent.push({ to, text });
     },
   });
-  const install = await call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" });
+  const install = await installer({ email: "ana@cegep.example", password: "mot de passe d’Ana" });
   const cookie = cookieOf(install.headers);
   await call("POST", "/v1/auth/membres", { email: "lea@cegep.example", role: "auteur", password: "mot de passe de Léa" }, cookie);
 
   const withoutMail = await setup();
-  const bare = cookieOf((await withoutMail.call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" })).headers);
+  const bare = cookieOf((await withoutMail.installer({ email: "ana@cegep.example", password: "mot de passe d’Ana" })).headers);
   assert.equal((await withoutMail.call("POST", "/v1/auth/profil/courriel", { courriel: "anne@cegep.example" }, bare)).status, 409);
   assert.equal((await withoutMail.call("POST", "/v1/auth/profil/courriel", { courriel: "anne@cegep.example" }, bare)).body, "smtp absent");
   assert.equal(JSON.parse((await withoutMail.call("GET", "/v1/auth/etat", undefined, bare)).body).email, "ana@cegep.example");
@@ -288,7 +294,7 @@ test("profil : le nouveau courriel n’est appliqué qu’après un lien unique 
       sent.push({ to, text });
     },
   });
-  const foreignAdmin = cookieOf((await foreign.call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" })).headers);
+  const foreignAdmin = cookieOf((await foreign.installer({ email: "ana@cegep.example", password: "mot de passe d’Ana" })).headers);
   await foreign.call("POST", "/v1/auth/membres", { email: "lea@cegep.example", role: "auteur", password: "mot de passe de Léa" }, foreignAdmin);
   const foreignLea = cookieOf((await foreign.call("POST", "/v1/auth/motdepasse", { email: "lea@cegep.example", password: "mot de passe de Léa" })).headers);
   assert.equal((await foreign.call("POST", "/v1/auth/profil/courriel", { courriel: "anne@cegep.example" }, foreignAdmin)).status, 202);
@@ -302,7 +308,7 @@ test("profil : le nouveau courriel n’est appliqué qu’après un lien unique 
       sent.push({ to, text });
     },
   });
-  const expCookie = cookieOf((await expired.call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" })).headers);
+  const expCookie = cookieOf((await expired.installer({ email: "ana@cegep.example", password: "mot de passe d’Ana" })).headers);
   assert.equal((await expired.call("POST", "/v1/auth/profil/courriel", { courriel: "anne@cegep.example" }, expCookie)).status, 202);
   const expToken = expired.issued.at(-1) ?? "";
   expired.at.current = new Date("2026-11-21T21:00:01.000Z");
@@ -315,7 +321,7 @@ test("profil : le nouveau courriel n’est appliqué qu’après un lien unique 
       throw new Error("relais muet");
     },
   });
-  const brokenCookie = cookieOf((await broken.call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" })).headers);
+  const brokenCookie = cookieOf((await broken.installer({ email: "ana@cegep.example", password: "mot de passe d’Ana" })).headers);
   assert.equal((await broken.call("POST", "/v1/auth/profil/courriel", { courriel: "anne@cegep.example" }, brokenCookie)).body, "smtp absent");
   assert.equal(JSON.parse((await broken.call("GET", "/v1/auth/etat", undefined, brokenCookie)).body).email, "ana@cegep.example");
   const leftover = (await broken.store.list("auth")).filter((row) => row.key.startsWith("courriel:"));
@@ -334,13 +340,13 @@ test("profil : le nouveau courriel n’est appliqué qu’après un lien unique 
 
 test("profil : un compte existant reste non confirmé jusqu’à un vrai lien, avec renvoi et annulation", async () => {
   const sent: Array<{ to: string; subject: string; text: string }> = [];
-  const { call, issued } = await setup({
+  const { call, issued, installer } = await setup({
     mailer: async (to, subject, text) => {
       sent.push({ to, subject, text });
     },
     origin: "https://journal.example",
   });
-  const cookie = cookieOf((await call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" })).headers);
+  const cookie = cookieOf((await installer({ email: "ana@cegep.example", password: "mot de passe d’Ana" })).headers);
   const debut = JSON.parse((await call("GET", "/v1/auth/profil", undefined, cookie)).body);
   assert.equal(debut.courrielEtat, "non-confirmee");
   assert.equal(debut.courrielEnAttente, null);
@@ -432,7 +438,8 @@ test("smtp : réglages enregistrés, mot de passe jamais renvoyé, essai vers la
     { "content-type": "application/json", cookie },
   );
   try {
-    const install = await call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana" });
+    await call("GET", "/v1/auth/etat");
+    const install = await call("POST", "/v1/auth/installation", { email: "ana@cegep.example", password: "mot de passe d’Ana", code: await codeDepuisMagasin(store) });
     const cookie = String(install.headers["set-cookie"] ?? "").split(";")[0];
     assert.equal((await call("GET", "/v1/auth/smtp")).status, 401);
     const empty = JSON.parse((await call("GET", "/v1/auth/smtp", undefined, cookie)).body);

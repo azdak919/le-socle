@@ -56,21 +56,15 @@ test("paquet complet : le site du journal servi par le socle PHP", { skip: !hasP
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, data);
   }
-  assert.ok(names.includes("index.php") && names.includes("site/404.html") && names.includes("paquet.json"), names.join(" "));
+  assert.ok(names.includes("index.php") && names.includes("site/404.html") && names.includes("paquet.json") && names.includes("routeur.php"), names.join(" "));
   assert.ok(!names.includes("journal/index.php"), "le ZIP du paquet complet n'enveloppe plus les fichiers dans journal/");
   // Le mode d'emploi installe à la racine du domaine, pas dans un dossier journal/.
   const lisezmoi = readFileSync(join(host, "LISEZMOI.txt"), "utf8");
   assert.match(lisezmoi, /\/redaction\//);
   assert.doesNotMatch(lisezmoi, /kiosque\.config\.ts|socle\/redaction|www\/journal\//);
-  writeFileSync(join(work, "routeur.php"), `<?php
-$uri = $_SERVER['REQUEST_URI'] ?? '/';
-$_SERVER['SCRIPT_NAME'] = '/index.php';
-require ${JSON.stringify(join(host, "index.php"))};
-return true;
-`);
   const port = await freePort();
-  const child: ChildProcess = spawn("php", ["-S", `127.0.0.1:${port}`, "-t", host, join(work, "routeur.php")], {
-    env: { ...process.env, SOCLE_AUTH_MODE: "", SOCLE_CONFIG: "", SOCLE_DB: "", SOCLE_STATIC: "" },
+  const child: ChildProcess = spawn("php", ["-S", `127.0.0.1:${port}`, "-t", host, join(host, "routeur.php")], {
+    env: { ...process.env, SOCLE_AUTH_MODE: "", SOCLE_CONFIG: "", SOCLE_DB: "", SOCLE_STATIC: "", SOCLE_INSTALL_CODE: "ABCD-EFGH" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let logs = "";
@@ -108,11 +102,23 @@ return true;
     assert.match((await call(`${base}/robots.txt`)).text, /Allow: \//);
     assert.equal((await call(`${base}/redaction/`)).status, 200);
     assert.equal((await call(`${base}/admin`, { redirect: "manual" })).status, 303);
+    assert.equal((await call(`${base}/donnees/socle.sqlite`)).status, 403, "la base n’est pas téléchargeable avec le routeur");
+    assert.equal((await call(`${base}/php/src/lib.php`)).status, 403);
+    const sauvegarde = await call(`${base}/admin/sauvegarde`, { redirect: "manual" });
+    assert.notEqual(sauvegarde.status, 404, "Sauvegarde ne doit plus mener à une page introuvable");
+    const maj = await call(`${base}/admin/mise-a-jour`, { redirect: "manual" });
+    assert.notEqual(maj.status, 404, "Mise à jour ne doit plus mener à une page introuvable");
+    const lisezmoi = readFileSync(join(host, "LISEZMOI.txt"), "utf8");
+    assert.match(lisezmoi, /routeur\.php/);
+    assert.match(lisezmoi, /code-installation\.txt/);
+    assert.doesNotMatch(lisezmoi, /la première personne qui ouvre la page peut le créer/);
     // Installation, puis publication marquée noindex.
     const json = { "content-type": "application/json" };
-    const install = await call(`${base}/v1/auth/installation`, { method: "POST", headers: json, body: JSON.stringify({ email: "admin@journal.example", password: "un long secret" }) });
+    const install = await call(`${base}/v1/auth/installation`, { method: "POST", headers: json, body: JSON.stringify({ email: "admin@journal.example", password: "un long secret", code: "ABCD-EFGH", prenom: "Alex", nom: "Rivard" }) });
     assert.equal(install.status, 204, install.text);
     const cookie = String(install.headers.get("set-cookie")).split(";")[0];
+    const etatRedaction = JSON.parse((await call(`${base}/v1/redaction/etat`, { headers: { cookie } })).text);
+    assert.ok((etatRedaction.authors ?? []).some((auteur: { slug?: string; name?: string }) => auteur.slug === "alex-rivard" || auteur.name === "Alex Rivard"), JSON.stringify(etatRedaction.authors));
     const pub = await call(`${base}/v1/redaction/publication`, { method: "POST", headers: { ...json, cookie }, body: JSON.stringify({ publication: { name: "Le Phare", slug: "le-phare", noindex: true, siteUrl: "https://phare.example/journal/" } }) });
     assert.equal(pub.status, 200, `${pub.status} ${pub.text}`);
     const named = await call(`${base}/`);

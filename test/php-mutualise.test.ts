@@ -56,6 +56,8 @@ test("paquet PHP mutualisé : sous-dossier, installation, équipe, rédaction", 
 
   writeFileSync(join(work, "routeur.php"), `<?php
 $uri = $_SERVER['REQUEST_URI'] ?? '/';
+putenv('SOCLE_ROUTEUR=1');
+$_SERVER['SOCLE_ROUTEUR'] = '1';
 if (str_starts_with($uri, '/journal/socle')) {
   $_SERVER['SCRIPT_NAME'] = '/journal/socle/index.php';
   require ${JSON.stringify(join(host, "journal/socle/index.php"))};
@@ -66,7 +68,7 @@ return true;
 `);
   const port = await freePort();
   const child: ChildProcess = spawn("php", ["-S", `127.0.0.1:${port}`, "-t", host, join(work, "routeur.php")], {
-    env: { ...process.env, SOCLE_AUTH_MODE: "", SOCLE_CONFIG: "", SOCLE_DB: "" },
+    env: { ...process.env, SOCLE_AUTH_MODE: "", SOCLE_CONFIG: "", SOCLE_DB: "", SOCLE_INSTALL_CODE: "ABCD-EFGH", SOCLE_ROUTEUR: "1" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let logs = "";
@@ -86,15 +88,18 @@ return true;
     assert.equal((await call(`${base}/v1/redaction/etat`)).status, 401);
     assert.equal((await call(`${base}/donnees/socle.sqlite`)).status, 404, "la base n’est jamais servie");
     const state = JSON.parse((await call(`${base}/v1/auth/etat`)).text);
-    assert.deepEqual(state, { mode: "motdepasse", installed: false, email: null, role: null, journal: null, courriel: false });
+    assert.equal(state.mode, "motdepasse");
+    assert.equal(state.installed, false);
+    assert.equal(state.codeRequis, true);
+    assert.equal(state.avisDonnees, null);
     const json = { "content-type": "application/json" };
-    const install = await call(`${base}/v1/auth/installation`, { method: "POST", headers: json, body: JSON.stringify({ email: "resp@cegep.example", password: "un long secret" }) });
+    const install = await call(`${base}/v1/auth/installation`, { method: "POST", headers: json, body: JSON.stringify({ email: "resp@cegep.example", password: "un long secret", code: "ABCD-EFGH" }) });
     assert.equal(install.status, 204, install.text);
     const cookie = String(install.headers.get("set-cookie")).split(";")[0];
     const etat = await call(`${base}/v1/redaction/etat`, { headers: { cookie } });
     assert.equal(etat.status, 200);
     assert.equal(JSON.parse(etat.text).role, "administrateur");
-    const again = await call(`${base}/v1/auth/installation`, { method: "POST", headers: json, body: JSON.stringify({ email: "intrus@example.org", password: "un autre secret" }) });
+    const again = await call(`${base}/v1/auth/installation`, { method: "POST", headers: json, body: JSON.stringify({ email: "intrus@example.org", password: "un autre secret", code: "ABCD-EFGH" }) });
     assert.equal(again.status, 409);
     const login = await call(`${base}/v1/auth/motdepasse`, { method: "POST", headers: json, body: JSON.stringify({ email: "resp@cegep.example", password: "un long secret" }) });
     assert.equal(login.status, 204);

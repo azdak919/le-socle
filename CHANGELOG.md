@@ -1,6 +1,8 @@
 # Journal
 
 ## Non publié
+- Installation plus sûre, pour un journal prêt à être essayé hors de la démo en ligne. (a) Le paquet PHP inclut `routeur.php` : avec le serveur intégré de PHP, il faut lancer `php -S 127.0.0.1:8080 routeur.php` depuis le dossier du journal, sinon la base SQLite peut être téléchargeable. Le dossier `donnees/` reste fermé par `.htaccess` chez Apache ; un avis s’affiche à l’installation si les données sont encore exposées. (b) Les pages « Sauvegarde » et « Mise à jour » de la rédaction s’ouvrent correctement avec ce serveur (le dossier `admin/` ne fausse plus le préfixe). (c) L’assistant demande le prénom et le nom ; un auteur est créé pour ce compte, et un article publié sans signature reprend ce nom. Le message de fin d’installation le dit clairement. (d) Les exemples de formulaire (assistant, configuration, réseaux sociaux) utilisent le journal fictif « Le Sillage » et le « Cégep du Val-des-Brumes », plus le compte lesillage — plus « La Vigie » ni un vrai cégep. Les crédits de photos réelles et les données d’exemple inchangées restent tels quels. (e) La création du premier administrateur exige un code d’installation à usage unique, écrit dans `donnees/code-installation.txt` et affiché dans le terminal au démarrage. Sans ce code, la première personne qui ouvre `/redaction/` ne peut plus créer le compte.
+
 - Les mentions « Propulsé par Le Socle » de l’espace de rédaction mènent à <https://socle.le-radar.ca/>, le site officiel, et non plus à la page github.io.
 
 - Tableau de bord : le second bouton « Voir le journal », sous les compteurs, à côté de « Créer un article », est retiré. Il faisait doublon avec celui de l’en-tête, qui reste.

@@ -60,6 +60,8 @@ test("paquet complet : mise à jour en un clic, sauvegarde et retour arrière", 
   }
   writeFileSync(join(work, "routeur.php"), `<?php
 $uri = $_SERVER['REQUEST_URI'] ?? '/';
+putenv('SOCLE_ROUTEUR=1');
+$_SERVER['SOCLE_ROUTEUR'] = '1';
 if (str_starts_with($uri, '/journal')) {
   $_SERVER['SCRIPT_NAME'] = '/journal/index.php';
   require ${JSON.stringify(join(host, "journal/index.php"))};
@@ -70,7 +72,7 @@ return true;
 `);
   const port = await freePort();
   const child: ChildProcess = spawn("php", ["-S", `127.0.0.1:${port}`, "-t", host, join(work, "routeur.php")], {
-    env: { ...process.env, SOCLE_AUTH_MODE: "", SOCLE_CONFIG: "", SOCLE_DB: "", SOCLE_STATIC: "", SOCLE_MAJ_SOURCE: release },
+    env: { ...process.env, SOCLE_AUTH_MODE: "", SOCLE_CONFIG: "", SOCLE_DB: "", SOCLE_STATIC: "", SOCLE_MAJ_SOURCE: release, SOCLE_INSTALL_CODE: "ABCD-EFGH", SOCLE_ROUTEUR: "1" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let logs = "";
@@ -84,7 +86,7 @@ return true;
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     assert.match((await call(`${base}/`)).text, /version 1/, logs);
-    const install = await call(`${base}/v1/auth/installation`, { method: "POST", headers: json, body: JSON.stringify({ email: "admin@journal.example", password: "un long secret" }) });
+    const install = await call(`${base}/v1/auth/installation`, { method: "POST", headers: json, body: JSON.stringify({ email: "admin@journal.example", password: "un long secret", code: "ABCD-EFGH" }) });
     assert.equal(install.status, 204, install.text);
     const cookie = String(install.headers.get("set-cookie")).split(";")[0];
     await call(`${base}/v1/auth/membres`, { method: "POST", headers: { ...json, cookie }, body: JSON.stringify({ email: "ana@journal.example", role: "auteur", password: "mot de passe d’Ana" }) });

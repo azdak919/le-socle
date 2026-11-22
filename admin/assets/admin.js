@@ -316,15 +316,15 @@ function flagInvalidFields(form) {
  */
 /* Ordre aligné sur le Kiosque et NETendances 2026, Tableau 1, 18–24 ans : Instagram, Facebook, TikTok, LinkedIn, Threads, X, puis Bluesky, Mastodon, YouTube (sans chiffre comparable), courriel en dernier. Buy Me a Coffee n’est pas un champ du journal. */
 const SOCIAL_FIELDS = [
-  ['instagram', 'Instagram', 'https://www.instagram.com/lavigie', String.raw`https?://(www\.)?instagram\.com/\S+`],
-  ['facebook', 'Facebook', 'https://www.facebook.com/lavigie', String.raw`https?://(www\.|m\.|web\.)?(facebook|fb)\.com/\S+`],
-  ['tiktok', 'TikTok', 'https://www.tiktok.com/@lavigie', String.raw`https?://(www\.)?tiktok\.com/@\S+`],
-  ['linkedin', 'LinkedIn', 'https://www.linkedin.com/company/lavigie', String.raw`https?://([a-z]{2,3}\.)?linkedin\.com/(company|in|school|showcase)/\S+`],
-  ['threads', 'Threads', 'https://www.threads.net/@lavigie', String.raw`https?://(www\.)?threads\.(net|com)/@\S+`],
-  ['x', 'X', 'https://x.com/lavigie', String.raw`https?://(www\.)?(x|twitter)\.com/\S+`],
-  ['bluesky', 'Bluesky', 'https://bsky.app/profile/lavigie.bsky.social', String.raw`https?://bsky\.app/profile/\S+`],
-  ['mastodon', 'Mastodon', 'https://piaille.fr/@lavigie', String.raw`https?://\S+\.\S+/@\S+`],
-  ['youtube', 'YouTube', 'https://www.youtube.com/@lavigie', String.raw`https?://(www\.|m\.)?youtube\.com/\S+`],
+  ['instagram', 'Instagram', 'https://www.instagram.com/lesillage', String.raw`https?://(www\.)?instagram\.com/\S+`],
+  ['facebook', 'Facebook', 'https://www.facebook.com/lesillage', String.raw`https?://(www\.|m\.|web\.)?(facebook|fb)\.com/\S+`],
+  ['tiktok', 'TikTok', 'https://www.tiktok.com/@lesillage', String.raw`https?://(www\.)?tiktok\.com/@\S+`],
+  ['linkedin', 'LinkedIn', 'https://www.linkedin.com/company/lesillage', String.raw`https?://([a-z]{2,3}\.)?linkedin\.com/(company|in|school|showcase)/\S+`],
+  ['threads', 'Threads', 'https://www.threads.net/@lesillage', String.raw`https?://(www\.)?threads\.(net|com)/@\S+`],
+  ['x', 'X', 'https://x.com/lesillage', String.raw`https?://(www\.)?(x|twitter)\.com/\S+`],
+  ['bluesky', 'Bluesky', 'https://bsky.app/profile/lesillage.bsky.social', String.raw`https?://bsky\.app/profile/\S+`],
+  ['mastodon', 'Mastodon', 'https://piaille.fr/@lesillage', String.raw`https?://\S+\.\S+/@\S+`],
+  ['youtube', 'YouTube', 'https://www.youtube.com/@lesillage', String.raw`https?://(www\.|m\.)?youtube\.com/\S+`],
   ['email', 'Courriel', 'redaction@exemple.ca', ''],
 ];
 
@@ -396,18 +396,22 @@ function bindFileChoosers(root) {
   });
 }
 
-function assistantForm() {
+function assistantForm(state = {}) {
+  const avis = state.avisDonnees
+    ? `<p class="notice" role="status">${esc(state.avisDonnees)}</p>`
+    : '';
   return `<section class="panel assistant" style="max-width:40rem"><h2>Installer le journal</h2>
 <p>Ce journal est neuf. Remplissez ce formulaire une fois : le site et la rédaction seront prêts. Tout se change ensuite dans « Configuration ».</p>
+${avis}
 <form id="login-form" class="grid" novalidate>
 <fieldset class="field full"><legend>Le journal</legend>
 <p class="muted">Les exemples en gris pâle disparaissent quand vous écrivez ; un champ laissé vide n’enregistre rien. Les champs marqués « obligatoire » doivent être remplis.</p>
-<label>Nom du journal (obligatoire)<input name="nom" required maxlength="80" placeholder="Le Quorum"></label>
-<label>Établissement (facultatif)<input name="etablissement" maxlength="120" placeholder="Cégep de Saint-Louis-du-Ha! Ha!"></label>
+<label>Nom du journal (obligatoire)<input name="nom" required maxlength="80" placeholder="Le Sillage"></label>
+<label>Établissement (facultatif)<input name="etablissement" maxlength="120" placeholder="Cégep du Val-des-Brumes"></label>
 <label>Année de fondation (facultatif)<input name="fondation" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" data-erreur="Écrivez l’année en quatre chiffres, par exemple 1971." placeholder="1971"></label>
-<label>Organisme responsable du journal (facultatif)<input name="organisme" maxlength="120" placeholder="Association étudiante du Cégep de Saint-Louis-du-Ha! Ha!"></label>
+<label>Organisme responsable du journal (facultatif)<input name="organisme" maxlength="120" placeholder="Association étudiante du Cégep du Val-des-Brumes"></label>
 <label>Courriel de la rédaction, affiché sur le site (facultatif)<input name="contact" type="email" placeholder="redaction@exemple.ca"></label>
-<label>Signature (facultatif)<input name="signature" maxlength="120" placeholder="Le journal étudiant du Cégep de Saint-Louis-du-Ha! Ha!"></label>
+<label>Signature (facultatif)<input name="signature" maxlength="120" placeholder="Le journal étudiant du Cégep du Val-des-Brumes"></label>
 <label>Sections, séparées par des virgules (obligatoire)<input name="sections" required placeholder="Campus, Culture, Sports"></label>
 <label>Droits sur les articles<select name="licence"><option value="">Tous droits réservés (par défaut)</option><option value="CC BY-NC-ND 4.0">Creative Commons BY-NC-ND 4.0 : partage permis, sans modification ni usage commercial</option></select></label>
 <small>Affiché au bas de chaque page : « © 2026 Nom du journal. Tous droits réservés. » Avec l’année de fondation : « © 1971–2026 ». L’année courante se met à jour toute seule.</small>
@@ -428,9 +432,13 @@ ${socialFieldsHtml()}
 <label><input name="fictif" type="checkbox"> Afficher le bandeau « Journal étudiant fictif » (essai ou démonstration)</label>
 </fieldset>
 <fieldset class="field full"><legend>Compte administrateur</legend>
-<p class="muted">Ce compte ajoute ensuite l’équipe (auteurs, photographes, réviseurs…). Son courriel n’est pas affiché sur le site. Notez le mot de passe en lieu sûr.</p>
+<p class="muted">Ce compte ajoute ensuite l’équipe (photographes, réviseurs…). Votre nom devient aussi votre signature d’auteur, pour que vous puissiez publier tout de suite. Son courriel n’est pas affiché sur le site. Notez le mot de passe en lieu sûr.</p>
+<label>Prénom (obligatoire)<input name="prenom" required maxlength="120" autocomplete="given-name" placeholder="Camille"></label>
+<label>Nom (obligatoire)<input name="nomfamille" required maxlength="120" autocomplete="family-name" placeholder="Tremblay"></label>
 <label>Courriel (obligatoire)<input name="email" type="email" autocomplete="username" required placeholder="vous@exemple.ca"></label>
 <label>Mot de passe (obligatoire, 10 caractères ou plus)<input name="password" type="password" autocomplete="new-password" minlength="10" required placeholder="10 caractères ou plus"></label>
+<label>Code d’installation (obligatoire)<input name="code" required autocomplete="one-time-code" spellcheck="false" placeholder="ABCD-EFGH"></label>
+<small>Ce code se trouve dans le fichier donnees/code-installation.txt, sur le serveur. Le terminal l’affiche aussi au démarrage.</small>
 </fieldset>
 <div class="actions full"><button class="primary">Installer le journal</button></div>
 <p id="login-error" class="notice" role="alert" hidden></p></form></section>`;
@@ -490,7 +498,13 @@ function bindAssistant() {
       if (fiche.options.radio && !fiche.options.station) throw new Error('Choisissez une station, ou décochez la radio.');
       button.disabled = true;
       button.textContent = 'Installation…';
-      await authCall('POST', 'installation', { email: String(data.get('email')).trim(), password: data.get('password') });
+      await authCall('POST', 'installation', {
+        email: String(data.get('email')).trim(),
+        password: data.get('password'),
+        code: String(data.get('code') || '').trim(),
+        prenom: String(data.get('prenom') || '').trim(),
+        nom: String(data.get('nomfamille') || '').trim(),
+      });
       sessionStorage.setItem(ASSISTANT_KEY, JSON.stringify(fiche));
       location.reload();
     } catch (failure) {
@@ -509,7 +523,7 @@ async function finishAssistant() {
   sessionStorage.removeItem(ASSISTANT_KEY);
   try {
     await applyKiosqueConfig(JSON.parse(raw));
-    notify('Le journal est installé. Écrivez le premier article, puis ajoutez l’équipe dans « Équipe ».', 8000);
+    notify('Le journal est installé. Votre nom figure déjà parmi les auteurs : vous pouvez écrire et publier le premier article. Ajoutez le reste de l’équipe dans « Équipe ».', 8000);
     return true;
   } catch (error) {
     notify(`Le compte est créé, mais la fiche du journal n’a pas pu être enregistrée : ${error.message} Remplissez « Configuration ».`, 10000);
@@ -595,7 +609,7 @@ async function loginScreen() {
   if (mode === 'motdepasse') {
     const first = !state.installed;
     if (first) {
-      main.innerHTML = assistantForm();
+      main.innerHTML = assistantForm(state);
       bindAssistant();
       bindThemeToggles();
       applyTheme();
@@ -1663,7 +1677,7 @@ function sportsTeamFields(team = {}) {
       <option value="M"${sex === 'M' ? ' selected' : ''}>Masculin</option>
       <option value="mixte"${sex === 'mixte' ? ' selected' : ''}>Mixte</option>
     </select></label>
-    <label>Établissement<input data-team-institution placeholder="Cégep de Saint-Louis-du-Ha! Ha!" value="${esc(team.institution || '')}"></label>
+    <label>Établissement<input data-team-institution placeholder="Cégep du Val-des-Brumes" value="${esc(team.institution || '')}"></label>
     <label>Lien officiel des résultats, facultatif<input data-team-official type="url" placeholder="https://rseq.ca/" value="${esc(official)}"></label>
     <small>Adresse http ou https. Le lien paraît sur la page « Au tableau ».</small>
     <label>Résultats, un par ligne<textarea data-team-results rows="3" placeholder="2026-11-12, Carabins, 4-2, domicile">${esc(results)}</textarea></label>
@@ -1748,15 +1762,15 @@ function settings() {
   const missing = missingSettings(publication);
   return `<section class="panel"><div class="toolbar"><p>Le nom, l’apparence et les renseignements du journal.</p>${importButton()}</div>${missing.length ? `<p class="notice" role="status">À remplir avant de publier : ${esc(missing.join(', '))}.</p>` : ''}<form id="settings-form" class="grid" novalidate>
     <p class="media-quality full">Les exemples en gris pâle disparaissent quand vous écrivez ; ils ne sont jamais enregistrés.</p>
-    <div class="field"><label>Nom (obligatoire)<input name="name" required placeholder="Le Quorum" value="${esc(publication.name)}"></label></div>
+    <div class="field"><label>Nom (obligatoire)<input name="name" required placeholder="Le Sillage" value="${esc(publication.name)}"></label></div>
     <fieldset class="field full"><legend>Adresse, organisme et contacts</legend>
       <label>Adresse du site public<input name="siteUrl" type="url" placeholder="https://votre-journal.com/" value="${esc(publication.siteUrl || detectedSiteUrl())}"></label><small>${(() => { const detected = detectedSiteUrl(); const current = String(publication.siteUrl || '').replace(/\/+$/, ''); return !onSocle() || !current || current === detected.replace(/\/+$/, '') ? `Détectée automatiquement : ${esc(detected)}` : `L’adresse enregistrée ne correspond plus à l’emplacement actuel du site (${esc(detected)}). Enregistrez pour la mettre à jour, ou corrigez-la.`; })()}</small>
       <label>Nom court du journal, utilisé dans les adresses (obligatoire)<input name="slug" required placeholder="la-vigie" pattern="[a-z0-9]+(-[a-z0-9]+)*" value="${esc(publication.slug === 'mon-journal' ? slugify(publication.name || '') : publication.slug || '')}"></label><small>Lettres minuscules, chiffres et tirets, par exemple la-boussole.</small>
-      <label>Organisme ou personne responsable<input name="owner" placeholder="Association étudiante du Cégep de Saint-Louis-du-Ha! Ha!" value="${esc(governance.owner || '')}"></label>
+      <label>Organisme ou personne responsable<input name="owner" placeholder="Association étudiante du Cégep du Val-des-Brumes" value="${esc(governance.owner || '')}"></label>
       <label>Courriel de la rédaction<input name="contact" type="email" placeholder="redaction@exemple.ca" value="${esc(governance.contact || '')}"></label>
       <label>Dépôt GitHub du journal, facultatif<input name="repo" placeholder="organisation/journal" value="${esc(governance.repo || '')}"></label>
       <label><input name="noindex" type="checkbox" ${publication.noindex ? 'checked' : ''}> Cacher le journal des moteurs de recherche (journal d’essai ou fictif)</label><label><input name="fictif" type="checkbox" ${publication.fictif ? 'checked' : ''}> Afficher le bandeau « Journal étudiant fictif »</label>
-    </fieldset><div class="field"><label>Signature<input name="tagline" placeholder="Le journal étudiant du Cégep de Saint-Louis-du-Ha! Ha!" value="${esc(publication.tagline || '')}"></label></div><div class="field"><label>Établissement<input name="institution" placeholder="Cégep de Saint-Louis-du-Ha! Ha!" value="${esc(publication.institution || '')}"></label></div><div class="field"><label>Année de fondation (facultatif)<input name="founded" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" data-erreur="Écrivez l’année en quatre chiffres, par exemple 1971." placeholder="1971" value="${esc(publication.founded || '')}"></label><small>Au bas des pages : « © 1971–${new Date().getFullYear()} ». Vide : seulement l’année courante.</small></div><div class="field"><label>Droits sur les articles<select name="license"><option value="" ${/by-nc-nd/i.test(publication.license || '') ? '' : 'selected'}>Tous droits réservés (par défaut)</option><option value="CC BY-NC-ND 4.0" ${/by-nc-nd/i.test(publication.license || '') ? 'selected' : ''}>Creative Commons BY-NC-ND 4.0 : partage permis, sans modification ni usage commercial</option></select></label></div><div class="field"><label>Typographie<select name="typography"><option value="modern-accessible">Moderne accessible</option><option value="editorial-classic" ${publication.theme?.typography === 'editorial-classic' ? 'selected' : ''}>Éditoriale classique</option><option value="institutional" ${publication.theme?.typography === 'institutional' ? 'selected' : ''}>Institutionnelle</option></select></label></div>
+    </fieldset><div class="field"><label>Signature<input name="tagline" placeholder="Le journal étudiant du Cégep du Val-des-Brumes" value="${esc(publication.tagline || '')}"></label></div><div class="field"><label>Établissement<input name="institution" placeholder="Cégep du Val-des-Brumes" value="${esc(publication.institution || '')}"></label></div><div class="field"><label>Année de fondation (facultatif)<input name="founded" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" data-erreur="Écrivez l’année en quatre chiffres, par exemple 1971." placeholder="1971" value="${esc(publication.founded || '')}"></label><small>Au bas des pages : « © 1971–${new Date().getFullYear()} ». Vide : seulement l’année courante.</small></div><div class="field"><label>Droits sur les articles<select name="license"><option value="" ${/by-nc-nd/i.test(publication.license || '') ? '' : 'selected'}>Tous droits réservés (par défaut)</option><option value="CC BY-NC-ND 4.0" ${/by-nc-nd/i.test(publication.license || '') ? 'selected' : ''}>Creative Commons BY-NC-ND 4.0 : partage permis, sans modification ni usage commercial</option></select></label></div><div class="field"><label>Typographie<select name="typography"><option value="modern-accessible">Moderne accessible</option><option value="editorial-classic" ${publication.theme?.typography === 'editorial-classic' ? 'selected' : ''}>Éditoriale classique</option><option value="institutional" ${publication.theme?.typography === 'institutional' ? 'selected' : ''}>Institutionnelle</option></select></label></div>
     <div class="field"><label>Fuseau horaire<select name="timeZone"><option value="America/Toronto" ${publication.timeZone !== 'America/Blanc-Sablon' ? 'selected' : ''}>Heure de l’Est — majorité du Québec</option><option value="America/Blanc-Sablon" ${publication.timeZone === 'America/Blanc-Sablon' ? 'selected' : ''}>Heure de l’Atlantique — Blanc-Sablon</option></select></label></div>
     <div class="field"><label>Couleur principale<input name="accent" type="color" value="${esc(publication.theme?.accent || '#6c2163')}"></label></div><div class="field"><label>Couleur sombre<input name="accentDark" type="color" value="${esc(publication.theme?.accentDark || '#cf7ec1')}"></label></div><div id="admin-contrast" class="notice full" role="status"></div>
     <fieldset class="field full masthead-fieldset"><legend>Mât illustré</legend><label><input name="backgroundsEnabled" type="checkbox" ${masthead.backgrounds?.enabled !== false ? 'checked' : ''}> Afficher les images de fond</label><div class="field full"><label for="background-files">Ajouter mes propres images</label><input id="background-files" type="file" accept="image/jpeg,image/png,image/webp" multiple></div><p class="media-quality">Chaque image du mât a besoin d’une description accessible et d’un crédit. Les photos trop grandes sont réduites dans le navigateur, et les métadonnées de l’appareil, y compris la position, sont retirées.</p><div class="actions"><button type="button" data-action="choose-masthead-media">Choisir des photos</button><button type="button" data-action="clear-backgrounds">Retirer toutes les images</button></div><p class="media-quality">${masthead.backgrounds?.images?.length || 0} image(s) enregistrée(s). Un nouvel envoi les ajoute à la rotation. Une photo utilisée dans le mât ne peut pas être retirée de la banque.</p><div class="masthead-selection"><div id="masthead-selected-list" class="masthead-selected-list"></div><label class="masthead-random"><span><input name="randomOrder" type="checkbox" ${masthead.backgrounds?.randomOrder !== false ? 'checked' : ''}> Ordre aléatoire</span><small>Activé (par défaut) : une photo au hasard à chaque visite. Désactivé : toujours commencer par la première de la liste.</small></label></div><label>Cadrage horizontal<input name="mastheadFocalX" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.x ?? 50}"></label><label>Cadrage vertical<input name="mastheadFocalY" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.y ?? 50}"></label><label>Assombrir l’image derrière le titre<input name="overlayStrength" type="range" min="0" max="0.9" step="0.05" value="${masthead.overlayStrength ?? 0.55}"></label><label>Alignement du titre<select name="textAlignment"><option value="left">Gauche</option><option value="center" ${masthead.textAlignment === 'center' ? 'selected' : ''}>Centre</option><option value="right" ${masthead.textAlignment === 'right' ? 'selected' : ''}>Droite</option></select></label><div id="masthead-crop-preview">${cropFrames(masthead.backgrounds?.images?.[0], 'masthead')}</div></fieldset>
@@ -1770,7 +1784,7 @@ function settings() {
     </fieldset>
     <fieldset class="field"><legend>Outils</legend><label><input name="pomodoro" type="checkbox" ${masthead.tools?.pomodoro !== false ? 'checked' : ''}> Pomodoro LE-RADAR.ca</label><label><input name="solitaire" type="checkbox" ${masthead.tools?.solitaire !== false ? 'checked' : ''}> Solitaire LE-RADAR.ca</label></fieldset>
     <fieldset class="field full"><legend>Radio étudiante</legend><label><input name="radioEnabled" type="checkbox" ${publication.radio?.enabled !== false ? 'checked' : ''}> Afficher la barre radio sous le mât</label><label>Station<select name="station" id="radar-stations"><option value="">Choisir une station</option>${publication.radio?.station ? `<option value="${esc(publication.radio.station)}" selected>${esc(publication.radio.station)}</option>` : ''}</select></label><small>La barre est le module de LE-RADAR : ses stations et son lecteur se mettent à jour chez LE-RADAR, sans toucher au journal. Éteinte, la barre n’existe pas et rien ne part vers le-radar.ca.</small></fieldset>
-    <div class="field full">${fileChooser('id="logo-file" type="file" accept="image/svg+xml,image/png,image/webp,image/jpeg"', 'Logo local (SVG, PNG, WebP ou JPEG)')}<label>Texte alternatif<input name="logoAlt" placeholder="${esc(publication.name || 'Le Quorum')}" value="${esc(publication.logo?.alt || '')}"></label><small>Vide : le nom du journal sert de texte alternatif. Vérifiez vos droits d’utilisation pour chaque image téléversée.</small><div id="logo-preview"></div></div>
+    <div class="field full">${fileChooser('id="logo-file" type="file" accept="image/svg+xml,image/png,image/webp,image/jpeg"', 'Logo local (SVG, PNG, WebP ou JPEG)')}<label>Texte alternatif<input name="logoAlt" placeholder="${esc(publication.name || 'Le Sillage')}" value="${esc(publication.logo?.alt || '')}"></label><small>Vide : le nom du journal sert de texte alternatif. Vérifiez vos droits d’utilisation pour chaque image téléversée.</small><div id="logo-preview"></div></div>
     <div class="actions full"><button class="primary">Enregistrer</button><button type="button" data-action="recommended-theme">Réinitialiser le thème recommandé</button></div></form></section>${onSocle() && isAdminRole() ? smtpSettingsPanel() : ''}`;
 }
 
