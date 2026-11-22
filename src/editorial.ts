@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { SocleStore } from "./store.ts";
 import { ModuleOffError } from "./store.ts";
 import { attachLibraryVariants } from "./media.ts";
+import { nomPourAffichage, parseStoredProfile } from "./auth.ts";
 
 export const SOURCE_ID = "socle";
 
@@ -181,6 +182,63 @@ export function checkArticle(article: SocleArticle): void {
     if (!article.section) throw new EditorialError("un article publié doit avoir une section");
     if (!article.body.raw.trim()) throw new EditorialError("un article publié ne peut pas être vide");
   }
+}
+
+function slugAuteur(name: string): string {
+  const slug = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 96).replace(/-+$/g, "");
+  return slug || "auteur";
+}
+
+/** Crée (ou retrouve) l’auteur lié au compte, et renvoie son nom court. */
+export async function assurerAuteurDuCompte(
+  store: SocleStore,
+  email: string,
+  nom: string,
+  now: Date,
+): Promise<string | null> {
+  try {
+    const lien = await store.get("auth", `auteur-compte:${email}`);
+    if (lien && lien.trim()) return lien.trim();
+    const affiche = nom.trim() || "La rédaction";
+    const authors = await readKind<{ id: string; slug: string }>(store, "author:");
+    let slug = slugAuteur(affiche);
+    const base = slug;
+    let n = 2;
+    while (authors.some((auteur) => auteur.slug === slug)) {
+      slug = `${base}-${n}`;
+      n += 1;
+    }
+    const id = randomUUID();
+    const instant = now.toISOString();
+    const auteur: SocleAuthor = {
+      id,
+      slug,
+      name: affiche,
+      source: { backend: SOURCE_ID, backendId: id, fetchedAt: instant },
+    };
+    await store.put("editorial", `author:${id}`, JSON.stringify(auteur));
+    await store.put("auth", `auteur-compte:${email}`, slug);
+    return slug;
+  } catch (error) {
+    if (error instanceof ModuleOffError) return null;
+    throw error;
+  }
+}
+
+/** Sur un article publié sans auteur, rattache l’auteur du compte connecté. */
+export async function signerArticleSiBesoin(
+  store: SocleStore,
+  article: SocleArticle,
+  email: string | null,
+  now: Date,
+): Promise<void> {
+  if (!email) return;
+  if (article.status !== "published" && article.status !== "archived") return;
+  if (article.authors && article.authors.length) return;
+  const names = parseStoredProfile(await store.get("auth", `profil:${email}`));
+  const slug = await assurerAuteurDuCompte(store, email, nomPourAffichage(names) || "La rédaction", now);
+  if (slug) article.authors = [slug];
 }
 
 export async function publishDue(store: SocleStore, now: Date): Promise<number> {

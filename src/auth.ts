@@ -3,6 +3,14 @@ import { createHash, pbkdf2Sync, randomBytes, timingSafeEqual } from "node:crypt
 import { cleanScope, ROLES, SCOPED, type OrgRole } from "./roles.ts";
 import { resolveSmtp } from "./smtp.ts";
 import { ModuleOffError, type SocleStore } from "./store.ts";
+import {
+  assurerCodeInstallation,
+  avisDonneesExposees,
+  dossierDesDonnees,
+  retirerCodeInstallation,
+  verifierCodeInstallation,
+  viaRouteur,
+} from "./install-securite.ts";
 
 /** Anciens noms de rôle encore lus (comptes et archives d’avant 1.2). */
 const LEGACY_ROLES: Record<string, (typeof ROLES)[number]> = { responsable: "administrateur" };
@@ -142,15 +150,32 @@ export async function passwordInstall(
   now: Date,
   email: unknown,
   password: unknown,
+  code: unknown = undefined,
+  names?: { prenom?: unknown; nom?: unknown },
 ): Promise<string> {
   requireMode(runtime, "motdepasse");
   const clean = normalizeEmail(email);
   if (!clean) throw new AuthError("demande refusée");
   const secret = checkPassword(password);
   if (await anyMember(store)) throw new AuthError("déjà installé");
+  try {
+    await verifierCodeInstallation(store, code);
+  } catch (error) {
+    throw new AuthError(error instanceof Error ? error.message : "Ce code d’installation n’est pas le bon. Il se trouve dans le fichier donnees/code-installation.txt, sur le serveur.");
+  }
   await store.put("auth", `member:${clean}`, "administrateur");
   await store.put("auth", `password:${clean}`, hashPassword(secret));
-  return createSession(store, runtime, clean, now);
+  if (names && (names.prenom !== undefined || names.nom !== undefined)) {
+    const next = {
+      prenom: names.prenom !== undefined ? cleanName(names.prenom, "prénom") : "",
+      nom: names.nom !== undefined ? cleanName(names.nom, "nom") : "",
+      nomAffiche: "",
+    };
+    if (next.prenom || next.nom) await store.put("auth", `profil:${clean}`, storedProfileJson(next));
+  }
+  const session = await createSession(store, runtime, clean, now);
+  await retirerCodeInstallation(store);
+  return session;
 }
 
 export async function passwordLogin(
@@ -198,14 +223,27 @@ export async function authState(
   role: OrgRole | null;
   journal: string | null;
   courriel: boolean;
+  codeRequis: boolean;
+  avisDonnees: string | null;
 }> {
+  const installed = await anyMember(store);
+  if (!installed && (runtime?.mode ?? null) === "motdepasse") {
+    const { code, created } = await assurerCodeInstallation(store);
+    if (created) console.log(`Socle : code d’installation (donnees/code-installation.txt) : ${code}`);
+  }
   return {
     mode: runtime?.mode ?? null,
-    installed: await anyMember(store),
+    installed,
     email: actor,
     role: actor ? await roleOf(store, actor) : null,
     journal: journal?.trim() ? journal.trim() : null,
     courriel: Boolean(await resolveSmtp(store)) || await canSendMail(runtime),
+    codeRequis: !installed && (runtime?.mode ?? null) === "motdepasse",
+    avisDonnees: avisDonneesExposees({
+      dataDir: dossierDesDonnees(),
+      webRoot: process.cwd(),
+      viaRouteur: viaRouteur(),
+    }),
   };
 }
 
@@ -913,7 +951,7 @@ function requireMode(runtime: AuthRuntime | undefined, expected: AuthMode): asse
   if (runtime?.mode !== expected) throw new AuthError("mode inconnu");
 }
 
-function normalizeEmail(value: unknown): string | null {
+export function normalizeEmail(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const email = value.trim().toLowerCase();
   if (email.length > 200 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;

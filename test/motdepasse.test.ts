@@ -9,6 +9,7 @@ import { handleAuth } from "../src/auth-http.ts";
 import { hashPassword, verifyPassword } from "../src/auth.ts";
 import { defaultConfig } from "../src/config.ts";
 import { openSqliteMemory } from "../src/sqlite.ts";
+import { codeDepuisMagasin } from "./code-installation.ts";
 
 const JSON_HEADERS = { "content-type": "application/json" };
 
@@ -29,7 +30,12 @@ async function setup() {
   };
   const call = (method: string, path: string, body?: unknown, cookie?: string, headers: Record<string, string> = JSON_HEADERS) =>
     handleAuth(method, path, config, deps, new TextEncoder().encode(body === undefined ? "" : JSON.stringify(body)), { ...headers, cookie });
-  return { store, call, at };
+  const installer = async (body: Record<string, unknown>, cookie?: string, headers: Record<string, string> = JSON_HEADERS) => {
+    await call("GET", "/v1/auth/etat");
+    const code = await codeDepuisMagasin(store);
+    return call("POST", "/v1/auth/installation", { ...body, code }, cookie, headers);
+  };
+  return { store, call, at, installer };
 }
 
 function cookieOf(headers: Record<string, string>): string {
@@ -47,27 +53,42 @@ test("mot de passe : empreinte PBKDF2 vérifiable, jamais en clair", () => {
 test("installation : la première personne devient administrateur, une seule fois", async () => {
   const { call, store } = await setup();
   const before = JSON.parse((await call("GET", "/v1/auth/etat")).body);
-  assert.deepEqual(before, { mode: "motdepasse", installed: false, email: null, role: null, journal: null, courriel: false });
-  const short = await call("POST", "/v1/auth/installation", { email: "resp@cegep.example", password: "court" });
+  assert.equal(before.installed, false);
+  assert.equal(before.codeRequis, true);
+  assert.equal(before.avisDonnees, null);
+  assert.equal(before.mode, "motdepasse");
+  const code = await codeDepuisMagasin(store);
+  assert.match(code, /^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
+  const sansCode = await call("POST", "/v1/auth/installation", { email: "resp@cegep.example", password: "un long secret" });
+  assert.equal(sansCode.status, 400);
+  const mauvais = await call("POST", "/v1/auth/installation", { email: "resp@cegep.example", password: "un long secret", code: "ZZZZ-ZZZZ" });
+  assert.equal(mauvais.status, 400);
+  assert.match(mauvais.body, /code d’installation n’est pas le bon/);
+  const short = await call("POST", "/v1/auth/installation", { email: "resp@cegep.example", password: "court", code });
   assert.equal(short.status, 400);
   assert.equal(short.body, "mot de passe trop court");
-  const form = await call("POST", "/v1/auth/installation", { email: "resp@cegep.example", password: "un long secret" }, undefined, { "content-type": "text/plain" });
+  const form = await call("POST", "/v1/auth/installation", { email: "resp@cegep.example", password: "un long secret", code }, undefined, { "content-type": "text/plain" });
   assert.equal(form.status, 400, "un formulaire d’un autre site est refusé");
-  const ok = await call("POST", "/v1/auth/installation", { email: "Resp@Cegep.example", password: "un long secret" });
+  const ok = await call("POST", "/v1/auth/installation", { email: "Resp@Cegep.example", password: "un long secret", code, prenom: "Rémi", nom: "Savard" });
   assert.equal(ok.status, 204);
   const cookie = cookieOf(ok.headers);
   assert.match(cookie, /^socle_session=/);
   const after = JSON.parse((await call("GET", "/v1/auth/etat", undefined, cookie)).body);
-  assert.deepEqual(after, { mode: "motdepasse", installed: true, email: "resp@cegep.example", role: "administrateur", journal: null, courriel: false });
-  const again = await call("POST", "/v1/auth/installation", { email: "intrus@example.org", password: "un autre secret" });
+  assert.equal(after.installed, true);
+  assert.equal(after.email, "resp@cegep.example");
+  assert.equal(after.role, "administrateur");
+  assert.equal(after.codeRequis, false);
+  assert.equal(after.avisDonnees, null);
+  assert.equal(await store.get("auth", "install-code"), null);
+  const again = await call("POST", "/v1/auth/installation", { email: "intrus@example.org", password: "un autre secret", code });
   assert.equal(again.status, 409);
   const raw = JSON.stringify(await store.list("auth"));
   assert.doesNotMatch(raw, /un long secret/);
 });
 
 test("connexion, équipe, essais limités, déconnexion", async () => {
-  const { call, at } = await setup();
-  const install = await call("POST", "/v1/auth/installation", { email: "resp@cegep.example", password: "un long secret" });
+  const { call, at, installer } = await setup();
+  const install = await installer({ email: "resp@cegep.example", password: "un long secret" });
   const resp = cookieOf(install.headers);
   assert.equal((await call("POST", "/v1/auth/membres", { email: "ana@cegep.example", role: "auteur", password: "mot de passe d’Ana" }, resp)).status, 204);
   const team = JSON.parse((await call("GET", "/v1/auth/membres", undefined, resp)).body);
@@ -105,5 +126,5 @@ test("un compte « responsable » d'avant 1.2 reste administrateur, sans rien re
   assert.equal(await store.get("auth", "member:zoe@cegep.example"), "administrateur");
   const team = JSON.parse((await call("GET", "/v1/auth/membres", undefined, cookie)).body);
   assert.deepEqual(team, [{ email: "ancien@cegep.example", role: "administrateur", prenom: "", nom: "", nomAffiche: "", affichage: "" }, { email: "zoe@cegep.example", role: "administrateur", prenom: "", nom: "", nomAffiche: "", affichage: "" }]);
-  assert.equal((await call("POST", "/v1/auth/installation", { email: "intrus@example.org", password: "un autre secret" })).status, 409);
+  assert.equal((await call("POST", "/v1/auth/installation", { email: "intrus@example.org", password: "un autre secret", code: "ZZZZ-ZZZZ" })).status, 409);
 });

@@ -208,6 +208,7 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
                     return socle_redaction_fail(409, "L'adresse « " . $article['slug'] . ' » est déjà prise par un autre article.');
                 }
             }
+            socle_signer_article_si_besoin($store, $article, $actor);
             return socle_redaction_json(200, ['article' => socle_save_article($store, $article, $now)]);
         }
         if ($path === '/v1/redaction/entite') {

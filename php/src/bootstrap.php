@@ -7,6 +7,7 @@ require_once __DIR__ . '/smtp.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/audience.php';
 require_once __DIR__ . '/editorial.php';
+require_once __DIR__ . '/install.php';
 require_once __DIR__ . '/media.php';
 require_once __DIR__ . '/review.php';
 require_once __DIR__ . '/redaction.php';

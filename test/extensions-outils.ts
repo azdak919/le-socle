@@ -85,6 +85,8 @@ export async function lancer(work: string, host: string, env: Record<string, str
   const router = join(work, "routeur.php");
   writeFileSync(router, `<?php
 $uri = $_SERVER['REQUEST_URI'] ?? '/';
+putenv('SOCLE_ROUTEUR=1');
+$_SERVER['SOCLE_ROUTEUR'] = '1';
 if (str_starts_with($uri, '/journal')) {
   $_SERVER['SCRIPT_NAME'] = '/journal/index.php';
   require ${JSON.stringify(join(host, "journal/index.php"))};
@@ -95,7 +97,7 @@ return true;
 `);
   const port = await freePort();
   const child = spawn("php", ["-S", `127.0.0.1:${port}`, "-t", host, router], {
-    env: { ...process.env, SOCLE_AUTH_MODE: "", SOCLE_CONFIG: "", SOCLE_DB: "", SOCLE_STATIC: "", SOCLE_EXTENSIONS_DIR: "", ...env },
+    env: { ...process.env, SOCLE_AUTH_MODE: "", SOCLE_CONFIG: "", SOCLE_DB: "", SOCLE_STATIC: "", SOCLE_EXTENSIONS_DIR: "", SOCLE_INSTALL_CODE: "ABCD-EFGH", SOCLE_ROUTEUR: "1", ...env },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let logs = "";
@@ -113,7 +115,7 @@ export const form = { "content-type": "application/x-www-form-urlencoded" };
 
 /** Compte administrateur, puis un membre par rôle demandé. Rend les témoins de session. */
 export async function equipe(base: string, roles: string[] = []): Promise<Record<string, string>> {
-  const install = await call(`${base}/v1/auth/installation`, { method: "POST", headers: json, body: JSON.stringify({ email: "admin@journal.example", password: "un long secret" }) });
+  const install = await call(`${base}/v1/auth/installation`, { method: "POST", headers: json, body: JSON.stringify({ email: "admin@journal.example", password: "un long secret", code: "ABCD-EFGH" }) });
   assert.equal(install.status, 204, install.text);
   const out: Record<string, string> = { administrateur: String(install.headers.get("set-cookie")).split(";")[0] };
   for (const role of roles) {

@@ -31,6 +31,7 @@ import {
   readPublication,
   refreshCanonicalUrls,
   saveArticle,
+  signerArticleSiBesoin,
   type SocleArticle,
 } from "./editorial.ts";
 import { MediaError, deleteMediaFiles, findDuplicate, readBytes, saveArticleImage, saveLibrary, type LibraryAsset } from "./media.ts";
@@ -236,6 +237,7 @@ export async function handleRedaction(
       if (touchesPublic && !publishesIn(role, allowedHere)) return fail(403, "Publier ou programmer demande un réviseur, un éditeur, l’administrateur, ou le chef de pupitre de la rubrique.");
       const clash = (await readArticles(deps.store)).find((item) => item.slug === article.slug && item.id !== article.id);
       if (clash) return fail(409, `L'adresse « ${article.slug} » est déjà prise par un autre article.`);
+      await signerArticleSiBesoin(deps.store, article, actor, deps.now());
       return json(200, { article: await saveArticle(deps.store, article, now) });
     }
     if (path === "/v1/redaction/entite") {

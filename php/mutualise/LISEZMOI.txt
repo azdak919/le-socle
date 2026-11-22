@@ -9,9 +9,12 @@ LE SOCLE — installation sur un hébergement PHP (serveur du cégep, hébergeur
    préfixe tout seul.
 3. Ouvrez https://votre-journal.com/socle/redaction/ (adaptez le chemin si le dossier
    n'est pas nommé socle, ou s'il est à la racine : https://votre-journal.com/redaction/)
-   et créez tout de suite le compte administrateur (courriel + mot de passe de
-   10 caractères ou plus). Tant que ce compte n'existe pas, la première personne
-   qui ouvre la page peut le créer.
+   et créez tout de suite le compte administrateur (courriel, mot de passe de
+   10 caractères ou plus, et le code d'installation). Ce code se trouve dans
+   le fichier socle/donnees/code-installation.txt, sur le serveur (créé à la
+   première ouverture de la page). Sans ce code, personne ne peut créer le compte.
+   Pour un essai sur votre ordinateur : dans le dossier socle,
+   php -S 127.0.0.1:8080 routeur.php
 4. Dans la rédaction : Configuration → « Importer le fichier du configurateur ».
 5. Mettez l'adresse de Le Socle (https://votre-journal.com/socle) dans kiosque.config.ts
    de votre dépôt GitHub : la publication récupère alors les articles et les photos.

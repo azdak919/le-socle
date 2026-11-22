@@ -15,6 +15,9 @@ import {
   githubStart,
   listMembers,
   logout,
+  nomPourAffichage,
+  normalizeEmail,
+  parseStoredProfile,
   passwordInstall,
   passwordLogin,
   readProfile,
@@ -29,7 +32,8 @@ import {
   updateProfile,
 } from "./auth.ts";
 import type { SocleConfig } from "./config.ts";
-import { readPublication } from "./editorial.ts";
+import { assurerAuteurDuCompte, readPublication } from "./editorial.ts";
+import { ModuleOffError } from "./store.ts";
 import {
   clearSmtpSettings,
   readSmtpPublic,
@@ -108,10 +112,28 @@ export async function handleAuth(
       // JSON seulement : un formulaire d'un autre site ne peut pas l'envoyer.
       if (!String(headers["content-type"] ?? "").startsWith("application/json")) throw new AuthError("demande refusée");
       const body = objectBody(rawBody);
+      if (path === "/v1/auth/installation") {
+        if (!body || !installationBodyOk(body)) throw new AuthError("demande refusée");
+        const session = await passwordInstall(
+          deps.store, deps.auth, deps.now(), body.email, body.password, body.code,
+          { prenom: body.prenom, nom: body.nom },
+        );
+        if (config.modules.editorial) {
+          try {
+            const email = normalizeEmail(body.email);
+            if (email) {
+              const names = parseStoredProfile(await deps.store.get("auth", `profil:${email}`));
+              const nom = nomPourAffichage(names) || "La rédaction";
+              await assurerAuteurDuCompte(deps.store, email, nom, deps.now());
+            }
+          } catch (error) {
+            if (!(error instanceof ModuleOffError)) throw error;
+          }
+        }
+        return { status: 204, body: "", headers: { "set-cookie": sessionCookie(session, secure) } };
+      }
       if (!body || Object.keys(body).sort().join(",") !== "email,password") throw new AuthError("demande refusée");
-      const session = path === "/v1/auth/installation"
-        ? await passwordInstall(deps.store, deps.auth, deps.now(), body.email, body.password)
-        : await passwordLogin(deps.store, deps.auth, deps.now(), body.email, body.password);
+      const session = await passwordLogin(deps.store, deps.auth, deps.now(), body.email, body.password);
       return { status: 204, body: "", headers: { "set-cookie": sessionCookie(session, secure) } };
     }
     if (path === "/v1/auth/deconnexion" && method === "POST") {
@@ -283,6 +305,12 @@ function redirect(location: string, session: string, secure = false): Result {
     body: "",
     headers: { location, "set-cookie": sessionCookie(session, secure) },
   };
+}
+
+function installationBodyOk(body: Record<string, unknown>): boolean {
+  const keys = Object.keys(body);
+  if (!keys.includes("email") || !keys.includes("password") || !keys.includes("code")) return false;
+  return keys.every((key) => ["email", "password", "code", "prenom", "nom"].includes(key));
 }
 
 function objectBody(raw: Uint8Array): Record<string, unknown> | null {

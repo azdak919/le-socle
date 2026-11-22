@@ -38,6 +38,7 @@ const walk = (dir, prefix, skip = () => false) => {
 
 const m = join(root, "php", "mutualise");
 add("index.php", readFileSync(join(m, "index.php")));
+add("routeur.php", readFileSync(join(m, "routeur.php")));
 add(".htaccess", readFileSync(join(m, ".htaccess")));
 add(".user.ini", readFileSync(join(root, "php", "public", ".user.ini")));
 // Le paquet complet (site + rédaction) a son propre mode d'emploi.
