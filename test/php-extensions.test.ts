@@ -143,7 +143,7 @@ test("isolation : extension invalide, incompatible, en attente d'un secret ou en
   const work = mkdtempSync(join(tmpdir(), "socle-isolation-"));
   const host = join(work, "public_html");
   installer(paquet(work, "1.0.0", versionEssai(), SITE), host);
-  for (const id of ["cassee-chargement", "cassee-fatale", "cassee-page", "incompatible", "invalide", "github"]) copierExtension(join(FIXTURES, id), host, id);
+  for (const id of ["cassee-chargement", "cassee-fatale", "cassee-page", "incompatible", "invalide", "github", "vieille"]) copierExtension(join(FIXTURES, id), host, id);
   copierExtension(join(REPO, "examples/extension-bonjour"), host, "bonjour");
   const server = await lancer(work, host);
   try {
@@ -158,10 +158,13 @@ test("isolation : extension invalide, incompatible, en attente d'un secret ou en
     };
     await activate("bonjour");
     const list = (await call(`${server.base}/admin/extensions`, { headers: admin })).text;
-    assert.match(list, /id="extension-invalide" data-statut="invalide"[\s\S]*?Licence « Apache-2\.0 » non compatible avec la GPL version 2 seulement/);
+    assert.match(list, /id="extension-invalide" data-statut="invalide"[\s\S]*?Licence « SSPL-1\.0 » non compatible avec l’AGPLv3 du Socle/);
     assert.match(list, /id="extension-incompatible" data-statut="incompatible"[\s\S]*?Elle demande Le Socle &gt;=99\.0\.0, et la version installée est /);
     assert.match((await activate("incompatible")).text, /« Trop récente » ne peut pas être activée/);
-    assert.match((await activate("invalide")).text, /« invalide » ne peut pas être activée : licence « Apache-2\.0 »/);
+    // Transition api: 1 : GPL-2.0-only se charge encore, avec l'avertissement AGPLv3 dans la fiche.
+    assert.match(list, /id="extension-vieille" data-statut="(?!invalide)[^"]+"[\s\S]*?<dt>Licence<\/dt><dd>GPL-2\.0-only <span class="pastille pastille-attention">incompatible avec l’AGPLv3/);
+    assert.doesNotMatch(list, /id="extension-bonjour"[^>]*>[\s\S]*?<dt>Licence<\/dt><dd>AGPL-3\.0-or-later <span/);
+    assert.match((await activate("invalide")).text, /« invalide » ne peut pas être activée : licence « SSPL-1\.0 »/);
 
     // Secret manquant : l'extension attend, sans erreur ; le nom du secret est dit, jamais une valeur.
     const github = await activate("github");

@@ -4,7 +4,7 @@ declare(strict_types=1);
 /*
  * Bonjour — extension d'exemple du Socle (contrat d'extensions 1).
  * Copiez ce dossier dans extensions/bonjour/ sur le serveur, puis activez-la
- * dans la page Extensions. Licence : GPL version 2 seulement.
+ * dans la page Extensions. Licence : GNU AGPLv3 (AGPL-3.0-or-later).
  *
  * Tout le code vit dans la fonction renvoyée : aucune fonction ni classe
  * nommée au premier niveau, pour ne jamais entrer en conflit avec le Socle.
