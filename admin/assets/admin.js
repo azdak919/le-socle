@@ -211,7 +211,7 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
 
 const AUTH_ERROR_MESSAGES = { 'accès refusé': 'Courriel ou mot de passe incorrect.', "trop d'essais": 'Trop d’essais : attendez 15 minutes.', 'mot de passe trop court': 'Le mot de passe doit avoir au moins 10 caractères.', 'mot de passe inchangé': 'Choisissez un mot de passe différent de l’actuel.', 'déjà installé': 'Ce journal a déjà un administrateur : connectez-vous.', 'réservé à l’administrateur': 'Réservé à l’administrateur du journal.', 'réservé au responsable': 'Réservé à l’administrateur du journal.', 'rôle inconnu': 'Rôle inconnu.', 'demande refusée': 'Demande refusée : vérifiez le courriel (par exemple vous@exemple.ca).', 'lien inconnu': 'Ce lien n’est plus valable. Demandez-en un nouveau.', 'lien expiré': 'Ce lien a expiré. Demandez-en un nouveau.', 'smtp absent': 'L’envoi de courriel n’est pas réglé. Demandez à l’administrateur.', 'courriel déjà utilisé': 'Cette adresse est déjà utilisée par un autre compte.', 'courriel inchangé': 'C’est déjà votre courriel.', 'nom trop long': 'Le nom est trop long (120 caractères au plus).', 'nom d’affichage trop long': 'Le nom d’affichage est trop long (120 caractères au plus).', 'demande absente': 'Aucune demande de confirmation n’est en cours.', 'réglages incomplets': 'Indiquez l’hôte, l’expéditeur, l’identifiant et le mot de passe.', 'smtp muet': 'Impossible de joindre le serveur d’envoi. Vérifiez l’hôte et le port.', 'smtp refusé': 'Le serveur d’envoi a refusé la connexion. Vérifiez l’identifiant, le mot de passe et le chiffrement (465 SSL ou 587 STARTTLS).', 'envoi échoué': 'L’envoi a échoué. Vérifiez les réglages.' };
 const MESSAGE_REPONSE_ILLISIBLE = 'Le serveur du journal n’a pas renvoyé une réponse lisible. Réessayez ; si cela continue, prévenez l’administrateur.';
-const MESSAGE_DEMO_COURRIEL = 'Dans cette démonstration, le courriel est mis à jour uniquement dans votre navigateur. Aucun lien de confirmation n’est envoyé : il n’y a pas de serveur d’envoi.';
+const MESSAGE_DEMO_COURRIEL = 'Le courriel a été mis à jour uniquement dans votre navigateur.';
 const MESSAGE_DEMO_COURRIEL_ACTION = 'Dans cette démonstration, aucun courriel de confirmation n’est envoyé : il n’y a pas de serveur d’envoi. Les données restent dans votre navigateur.';
 const MESSAGE_DEMO_PROFIL = 'Dans cette démonstration, le profil est enregistré uniquement dans votre navigateur.';
 const MESSAGE_DEMO_MOTDEPASSE = 'Dans cette démonstration, le mot de passe n’est pas modifié sur un serveur. Les données restent dans votre navigateur.';
@@ -2066,6 +2066,14 @@ function profileStatus(message, ok) {
   status.hidden = false;
   status.textContent = message;
   status.classList.toggle('notice-ok', Boolean(ok));
+  masquerAideSiStatut();
+}
+
+/** Un seul texte à la fois : l’aide disparaît dès qu’un message de statut s’affiche. */
+function masquerAideSiStatut() {
+  const aide = document.getElementById('profile-email-aide');
+  const status = document.getElementById('profile-status');
+  if (aide && status) aide.hidden = !status.hidden;
 }
 
 function courrielEtatLibelle(etat) {
@@ -2093,11 +2101,12 @@ function paintEmailStatus(profile) {
   if (form) form.hidden = demandeEnCours;
   if (aide) {
     aide.textContent = !onSocle()
-      ? 'Dans cette démonstration, le courriel reste dans votre navigateur. Aucun lien n’est envoyé : il n’y a pas de serveur d’envoi.'
+      ? 'Dans cette démonstration, aucun lien n’est envoyé : il n’y a pas de serveur d’envoi.'
       : demandeEnCours
         ? 'Annulez la demande pour indiquer une autre adresse.'
         : 'Un lien de confirmation part à la nouvelle adresse, s’il est possible d’envoyer un courriel. Sinon, demandez à l’administrateur.';
   }
+  masquerAideSiStatut();
   const buttons = [];
   if (onSocle() && status === 'non-confirmee' && !profile.courrielEnAttente && profile.email) {
     buttons.push(['Confirmer mon adresse', 'confirmer-actuel']);
