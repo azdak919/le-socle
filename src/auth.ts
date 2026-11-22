@@ -759,6 +759,7 @@ export async function updateProfile(
   prenom: unknown,
   nom: unknown,
   nomAffiche: unknown,
+  now: Date,
 ): Promise<ProfileRecord> {
   if (!actor) throw new AuthError("accès refusé");
   if (!(await roleOf(store, actor))) throw new AuthError("accès refusé");
@@ -768,7 +769,7 @@ export async function updateProfile(
     nomAffiche: cleanName(nomAffiche, "nom d’affichage"),
   };
   await store.put("auth", `profil:${actor}`, storedProfileJson(names));
-  return loadProfile(store, actor);
+  return loadProfile(store, actor, now);
 }
 
 export async function changeOwnPassword(
