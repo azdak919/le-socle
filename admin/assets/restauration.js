@@ -43,7 +43,7 @@
     if (!response.ok || !data.resume) { erreur(data.error || response.status); return; }
     var r = data.resume;
     var date = r.createdAt
-      ? new Date(r.createdAt).toLocaleString(document.documentElement.lang === "en" ? "en-CA" : "fr-CA", { dateStyle: "long", timeStyle: "short" })
+      ? new Intl.DateTimeFormat("fr-CA", { dateStyle: "long", timeStyle: "short", hourCycle: "h23", timeZone: "America/Toronto" }).format(new Date(r.createdAt))
       : t.inconnue;
     zone.innerHTML = "<h3>" + esc(t.apercu) + "</h3><dl class=\"fiche\">"
       + ligne(t.fichier, file.name)

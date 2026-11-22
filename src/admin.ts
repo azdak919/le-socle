@@ -21,7 +21,7 @@ import type { NotifyRuntime } from "./notify.ts";
 import { enabledModules, type SocleConfig } from "./config.ts";
 import type { SocleStore } from "./store.ts";
 import { VERSION } from "./version.ts";
-import { SOCLE_ICON_URI, socleFavicons } from "../admin/marque.js";
+import { SOCLE_ICON_URI, socleBriqueHtml, socleFavicons } from "../admin/marque.js";
 
 export type ReleaseInfo = { version: string; notes: string };
 
@@ -199,8 +199,8 @@ export function setAdminJournalName(name: unknown): void {
 }
 
 function adminBrandHtml(sub: string): string {
-  if (journalName) return `<span><strong>${escapeHtml(journalName)}</strong><small>${sub}</small></span>`;
-  return `<img class="logo" src="${SOCLE_ICON_URI}" alt="" width="32" height="32"><span><strong>Le Socle</strong><small>${sub}</small></span>`;
+  const titre = journalName || "Le Socle";
+  return `${socleBriqueHtml("logo")}<span><strong>${escapeHtml(titre)}</strong><small>${sub}</small></span>`;
 }
 
 function escapeHtml(value: string): string {
@@ -230,7 +230,9 @@ ${socleFavicons()}
   .skip:focus { left: 0.5rem; top: 0.5rem; background: #fff; padding: 0.5rem; z-index: 2; }
   .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; padding: 0.75rem 1.25rem; background: #fff; border-bottom: 1px solid var(--border); }
   .brand { display: flex; align-items: center; gap: 0.6rem; color: var(--fg); text-decoration: none; }
-  .brand .logo { display: block; width: 2rem; height: 2rem; flex: none; }
+  .brand .logo, .brand .socle-brique { display: block; width: 2.35rem; height: 2.35rem; flex: none; border-radius: 0.4rem; object-fit: contain; }
+  .socle-brique-sombre { display: none; }
+  @media (prefers-color-scheme: dark) { .socle-brique-clair { display: none; } .socle-brique-sombre { display: block; } }
   .brand strong { display: block; font-size: 0.9rem; line-height: 1.2; }
   .brand small { display: block; color: var(--muted); font-size: 0.75rem; }
   .tabs { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-left: auto; }

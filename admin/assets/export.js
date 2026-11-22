@@ -92,7 +92,7 @@ governance:
     const avatarYaml = author.avatar?.src
       ? `avatar:\n  src: ${yaml(author.avatar.src)}\n  alt: ${yaml(author.avatar.alt || '')}\n  credit: ${yaml(author.avatar.credit || '')}\n  license: ${yaml(author.avatar.license || '')}\n`
       : '';
-    files.push({ path: `content/auteurs/${author.slug}.md`, content: `---\nid: ${yaml(author.id)}\nslug: ${yaml(author.slug)}\nname: ${yaml(author.name)}\nrole: ${yaml(author.role || '')}\neditorialRole: ${yaml(author.editorialRole || 'auteur')}\ncohort: ${yaml(author.cohort || '')}\nactive: ${author.active !== false}\n${avatarYaml}---\n\n${author.bio || ''}\n` });
+    files.push({ path: `content/auteurs/${author.slug}.md`, content: `---\nid: ${yaml(author.id)}\nslug: ${yaml(author.slug)}\nname: ${yaml(author.name)}\nrole: ${yaml(author.role || '')}\neditorialRole: ${yaml(author.editorialRole || 'auteur')}\ncohort: ${yaml(author.cohort || '')}\nstatus: ${author.status === 'former' || author.active === false ? 'former' : 'active'}\nactive: ${author.active !== false && author.status !== 'former'}\n${avatarYaml}---\n\n${author.bio || ''}\n` });
   }
   for (const article of bundle.articles) {
     const date = new Date(article.publishedAt || article.updatedAt || Date.now());

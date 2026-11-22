@@ -28,7 +28,7 @@ const COPY = {
     status: "Statut",
     body: "Texte",
     excerpt: "Extrait",
-    author: "Signature (nom court)",
+    author: "Auteur (nom court)",
     section: "Section",
     scheduled: "Heure de publication",
     session: "Session",

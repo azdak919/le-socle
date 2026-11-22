@@ -81,6 +81,36 @@
 .admin-header-brand strong { @apply block truncate text-sm font-semibold leading-tight; }
 .admin-header-brand small { @apply block text-xs text-muted-foreground leading-tight; }
 .admin-header-brand[data-state="journal-logo"] .admin-brand-logo { @apply h-7 w-auto max-w-32 rounded-none bg-transparent; }
+
+/* Brique du Socle : toujours à gauche du nom, à la hauteur des deux lignes, jamais remplacée par le logo du journal. */
+.socle-brique, .admin-brand .admin-brand-logo, .admin-header-brand .admin-brand-logo {
+  @apply shrink-0 rounded-md object-contain;
+  width: 2.35rem;
+  height: 2.35rem;
+}
+.admin-header-brand .socle-brique, .admin-header-brand .admin-brand-logo {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+.socle-brique-sombre { display: none; }
+html.dark .socle-brique-clair { display: none; }
+html.dark .socle-brique-sombre { display: block; }
+
+/* Date et heure du journal : AAAA-MM-JJ et 24 h, indépendants de la langue du navigateur. */
+.horodatage-champs { @apply flex flex-wrap gap-4 items-end; }
+.horodatage-champs > .field:first-child { @apply flex-1 min-w-[10rem]; }
+.horodatage-heure-champs { @apply flex items-center gap-2; }
+#admin-main .horodatage-heure-champs input {
+  width: 3.25rem;
+  min-width: 3.25rem;
+  text-align: center;
+}
+.horodatage-h { @apply text-sm font-medium; }
+.horodatage-journal > small { @apply text-muted-foreground; }
+
+.auteurs-groupe { @apply mt-6; }
+.auteurs-groupe:first-of-type { @apply mt-4; }
+.auteurs-groupe h3 { @apply mt-0 mb-2; }
 .admin-header h1 .muted { @apply text-muted-foreground font-normal; }
 .admin-header a.btn, .admin-header button.btn, .admin-header-actions { @apply shrink-0; }
 .admin-header-actions { @apply flex items-center gap-2; }

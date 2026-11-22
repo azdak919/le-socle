@@ -3,6 +3,8 @@ import { markdownFiles, zipStore } from './export.js';
 import { download, getBackend, slugify } from './runtime.js';
 import { esc } from './util.js';
 import { mountPhotoPond } from './filepond-banque.js';
+import { aideHeureJournal, civilDepuisIso, civilVersIso, formaterHorodatage, normaliserDate, FUSEAU_DEFAUT } from './date-journal.js';
+import { articlesDeLauteur, auteurPeutEtreSupprime, estAuteurAncien, normaliserAuteur, STATUT_AUTEUR_ACTIF, STATUT_AUTEUR_ANCIEN } from './auteurs-statut.js';
 
 const config = window.KIOSQUE_EDITORIAL;
 const main = document.getElementById('admin-main');
@@ -517,35 +519,25 @@ async function finishAssistant() {
   }
 }
 
-// Le logo et le nom du Socle, tels que la page les sert : on y revient tant
-// que le journal n’est pas configuré.
-const SOCLE_BRAND = document.querySelector('.admin-brand')?.innerHTML || '';
+// Brique du Socle, telle que la page la sert : elle reste à gauche du nom, toujours.
+const SOCLE_BRIQUE = (() => {
+  const racine = document.querySelector('.admin-brand');
+  if (!racine) return '';
+  return [...racine.querySelectorAll('img.socle-brique, img.admin-brand-logo')].map((img) => img.outerHTML).join('');
+})();
 
-/** En-tête de la barre latérale : logo ou nom du journal, sinon Le Socle. */
+/** En-tête : brique du Socle à gauche, puis le nom du journal (ou « Le Socle »). */
 function paintBrand(state) {
   // Barre latérale à l’ordinateur ; barre du haut sur mobile, où le menu dit déjà l’écran.
   document.querySelectorAll('.admin-brand, .admin-header-brand').forEach((root) => paintBrandIn(root, state));
 }
 
 function paintBrandIn(root, state) {
-  const pub = bundle?.publication;
-  const name = String(pub?.name || '').trim();
-  // Même règle que le site public : un monogramme d’initiales généré n’est pas un logo.
-  const src = pub?.logo?.src && !isGeneratedInitialsLogoSrc(pub.logo.src) ? mediaSrc(pub.logo) : '';
+  const name = String(bundle?.publication?.name || '').trim();
   const ready = state === 'journal' && name;
-  if (ready && src) {
-    const alt = esc(pub.logo.alt || name);
-    root.dataset.state = 'journal-logo';
-    root.innerHTML = `<img class="admin-brand-logo" src="${esc(src)}" alt="${alt}"><span><small>Espace de rédaction</small></span>`;
-    return;
-  }
-  if (ready) {
-    root.dataset.state = 'journal-name';
-    root.innerHTML = `<span><strong>${esc(name)}</strong><small>Espace de rédaction</small></span>`;
-    return;
-  }
-  root.dataset.state = 'socle';
-  if (SOCLE_BRAND) root.innerHTML = SOCLE_BRAND;
+  root.dataset.state = ready ? 'journal' : 'socle';
+  const titre = ready ? name : 'Le Socle';
+  root.innerHTML = `${SOCLE_BRIQUE}<span><strong>${esc(titre)}</strong><small>Espace de rédaction</small></span>`;
 }
 
 /** Barre du haut et onglet : le titre de l’écran courant (Articles, Configuration…). */
@@ -573,9 +565,9 @@ function isAuthRoute(raw = location.hash.slice(1)) {
 
 function authCard({ title, intro, form, links }) {
   const journal = window.__socleAuth?.journal || 'Le Socle';
-  const logo = document.querySelector('.admin-brand-logo')?.getAttribute('src') || '';
+  const logo = document.querySelector('.socle-brique-clair, .admin-brand-logo')?.getAttribute('src') || '';
   const version = (window.KIOSQUE_EDITORIAL && window.KIOSQUE_EDITORIAL.version) || '';
-  return `<section class="auth-card"><div class="auth-card-brand">${logo ? `<img src="${esc(logo)}" alt="" width="48" height="48">` : ''}<h1>${esc(journal)}</h1><p>Espace de rédaction</p></div><h2>${title}</h2>${intro ? `<p class="auth-intro">${intro}</p>` : ''}${form}${links ? `<p class="auth-links">${links}</p>` : ''}<p class="auth-card-foot">Propulsé par <a href="https://socle.le-radar.ca/">Le Socle</a>${version ? ` ${esc(version)}` : ''}</p><p class="auth-card-theme"><button type="button" class="btn" data-variant="outline" data-size="sm" data-theme-toggle>Thème du système</button></p></section>`;
+  return `<section class="auth-card"><div class="auth-card-brand">${logo ? `<img class="socle-brique" src="${esc(logo)}" alt="Le Socle" width="48" height="48">` : ''}<h1>${esc(journal)}</h1><p>Espace de rédaction</p></div><h2>${title}</h2>${intro ? `<p class="auth-intro">${intro}</p>` : ''}${form}${links ? `<p class="auth-links">${links}</p>` : ''}<p class="auth-card-foot">Propulsé par <a href="https://socle.le-radar.ca/">Le Socle</a>${version ? ` ${esc(version)}` : ''}</p><p class="auth-card-theme"><button type="button" class="btn" data-variant="outline" data-size="sm" data-theme-toggle>Thème du système</button></p></section>`;
 }
 
 function showAuthError(error, failure) {
@@ -731,11 +723,11 @@ async function fillAccessPanel() {
     const shown = (member.affichage || '').trim();
     return `<li><div><strong>${esc(shown || member.email)}</strong><small>${esc([shown ? member.email : '', ACCOUNT_LABELS[member.role] || member.role, where].filter(Boolean).join(' · '))}</small></div><div><button type="button" data-edit-member="${esc(member.email)}">Modifier</button></div></li>`;
   };
-  panel.innerHTML = `<div class="toolbar"><h2>Comptes et rôles</h2>${logout}</div><p class="notice">Ces comptes ouvrent la rédaction. Le rôle dit ce que chacun peut faire ; le serveur l’applique. Les signatures, plus bas, sont ce que le public voit.</p><ul class="entity-list" id="member-list">${members.map(memberLine).join('')}</ul>
+  panel.innerHTML = `<div class="toolbar"><h2>Comptes et rôles</h2>${logout}</div><p class="notice">Ces comptes ouvrent la rédaction. Le rôle dit ce que chacun peut faire ; le serveur l’applique. Les auteurs, plus bas, sont ce que le public voit.</p><ul class="entity-list" id="member-list">${members.map(memberLine).join('')}</ul>
   <form id="member-form" class="grid"><h3 class="full" id="member-form-title">Ajouter une personne</h3>
   <div class="field"><label>Prénom<input name="prenom" maxlength="120" autocomplete="off"></label></div>
   <div class="field"><label>Nom<input name="nom" maxlength="120" autocomplete="off"></label></div>
-  <div class="field full"><label>Nom d’affichage (facultatif)<input name="nomAffiche" maxlength="120" autocomplete="off"></label><small>S’il est vide, l’affichage et les signatures utilisent le prénom et le nom.</small></div>
+  <div class="field full"><label>Nom d’affichage (facultatif)<input name="nomAffiche" maxlength="120" autocomplete="off"></label><small>S’il est vide, l’affichage et les auteurs utilisent le prénom et le nom.</small></div>
   <div class="field"><label>Courriel<input name="email" type="email" required autocomplete="off"></label></div>
   <div class="field"><label>Rôle<select name="role">${roleOptions}</select></label><small id="member-role-help"></small></div>
   <fieldset class="field full" id="member-sections"><legend>Rubriques permises</legend><small>Rien de coché : toutes les rubriques.</small><div class="chips">${sections.length ? sections.map((item) => `<label><input type="checkbox" name="sections" value="${esc(item.slug)}"> ${esc(item.name)}</label>`).join(' ') : '<em>Aucune section pour l’instant (Sections et catégories).</em>'}</div></fieldset>
@@ -795,12 +787,54 @@ function sanitizePreview(html) {
   return template.innerHTML;
 }
 
-function localDateTime(iso) {
-  if (!iso) return '';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
+function fuseauDuJournal() {
+  return bundle?.publication?.timeZone || FUSEAU_DEFAUT;
+}
+
+function horodatageHtml({ id, legend, iso, hidden = false }) {
+  const civil = civilDepuisIso(iso, fuseauDuJournal());
+  const heure = civil.heure;
+  const minute = civil.minute;
+  return `<fieldset class="horodatage-journal field full"${hidden ? ' hidden' : ''} ${id === 'article-scheduled-at' ? 'data-scheduled-field' : ''}>
+    <legend>${esc(legend)}</legend>
+    <div class="horodatage-champs">
+      <div class="field">
+        <label for="${id}-date">Date</label>
+        <input id="${id}-date" name="${id}-date" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="AAAA-MM-JJ" maxlength="10" value="${esc(civil.date)}" data-date-aaaa>
+      </div>
+      <div class="field horodatage-heure">
+        <span id="${id}-heure-libelle">Heure</span>
+        <div class="horodatage-heure-champs" role="group" aria-labelledby="${id}-heure-libelle">
+          <label class="sr-only" for="${id}-heure">Heure, de 0 à 23</label>
+          <input id="${id}-heure" name="${id}-heure" type="text" inputmode="numeric" autocomplete="off" maxlength="2" placeholder="14" value="${esc(heure)}">
+          <span class="horodatage-h" aria-hidden="true">h</span>
+          <label class="sr-only" for="${id}-minute">Minutes, de 0 à 59</label>
+          <input id="${id}-minute" name="${id}-minute" type="text" inputmode="numeric" autocomplete="off" maxlength="2" placeholder="30" value="${esc(minute)}">
+        </div>
+      </div>
+    </div>
+    <small>${esc(aideHeureJournal(fuseauDuJournal()))}</small>
+  </fieldset>`;
+}
+
+function lierSaisieDate(racine) {
+  (racine || document).querySelectorAll('[data-date-aaaa]').forEach((champ) => {
+    champ.addEventListener('input', () => {
+      const curseur = champ.selectionStart;
+      const avant = champ.value;
+      const apres = normaliserDate(champ.value);
+      if (apres === avant) return;
+      champ.value = apres;
+      // Garder le curseur après le dernier chiffre ou tiret saisi.
+      const decalage = apres.length - avant.length;
+      const position = Math.max(0, (curseur || apres.length) + decalage);
+      champ.setSelectionRange(position, position);
+    });
+  });
+}
+
+function lireHorodatage(form, id) {
+  return civilVersIso(form.get(`${id}-date`), form.get(`${id}-heure`), form.get(`${id}-minute`), fuseauDuJournal());
 }
 
 async function refresh() {
@@ -949,8 +983,7 @@ function cleanLicenseUrl(value) {
 
 function articleDate(article) {
   const value = article.publishedAt || article.scheduledAt || article.updatedAt;
-  if (!value) return '';
-  try { return new Intl.DateTimeFormat('fr-CA', { dateStyle: 'medium', timeStyle: 'short', timeZone: bundle.publication?.timeZone || 'America/Toronto' }).format(new Date(value)); } catch { return ''; }
+  return formaterHorodatage(value, fuseauDuJournal());
 }
 
 function statusLabel(status) {
@@ -960,7 +993,7 @@ function statusLabel(status) {
 function dashboard() {
   const counts = Object.fromEntries(['draft', 'in-review', 'scheduled', 'published'].map((status) => [status, bundle.articles.filter((item) => item.status === status).length]));
   return `<section class="panel">
-    <div class="grid stats"><article><h3>${counts.draft}</h3><p>Brouillons, invisibles du public.</p></article><article><h3>${counts['in-review']}</h3><p>Articles en révision, invisibles du public.</p></article><article><h3>${counts.published}</h3><p>Articles publiés dans le journal.</p></article>${counts.scheduled ? `<article><h3>${counts.scheduled}</h3><p>Articles programmés, publiés à leur heure.</p></article>` : ''}<article><h3>${bundle.authors.length}</h3><p>Signatures : les noms affichés sous les titres.</p></article></div>
+    <div class="grid stats"><article><h3>${counts.draft}</h3><p>Brouillons, invisibles du public.</p></article><article><h3>${counts['in-review']}</h3><p>Articles en révision, invisibles du public.</p></article><article><h3>${counts.published}</h3><p>Articles publiés dans le journal.</p></article>${counts.scheduled ? `<article><h3>${counts.scheduled}</h3><p>Articles programmés, publiés à leur heure.</p></article>` : ''}<article><h3>${bundle.authors.length}</h3><p>Auteurs : les noms affichés sous les titres.</p></article></div>
     ${extensionsBlock()}
     <div class="actions"><button class="primary" data-action="new-article">Créer un article</button></div>
     ${onSocle() && missingSettings(bundle.publication).length ? `<div class="notice" role="status" style="margin-top:2rem"><p><strong>Avant la première publication</strong> : il manque ${esc(missingSettings(bundle.publication).join(', '))}. ${missingSettings(bundle.publication).length > 1 ? 'Sans ces renseignements' : 'Sans ce renseignement'}, le site public refuse le contenu.</p><div class="actions">${importButton()}<button data-action="settings-view">Remplir la configuration</button></div></div>` : ''}
@@ -970,7 +1003,7 @@ function dashboard() {
 }
 
 function articles() {
-  return `<section class="panel"><div class="toolbar"><div><p>Seuls les articles « Publiés » paraissent dans le journal.</p></div><button class="primary" data-action="new-article">Nouvel article</button></div>${bundle.articles.length ? '' : '<p class="empty-state">Aucun article pour l’instant. Cliquez sur « Nouvel article » pour écrire le premier.</p>'}<ul class="entity-list">${bundle.articles.map((article) => `<li><div><strong>${esc(article.title)}</strong>${article.isDemo ? ' <small>Exemple local' + (article.isUserModified ? ' modifié' : '') + '</small>' : ''}<small><span class="status-pill status-${esc(article.status)}">${statusLabel(article.status)}</span> · ${esc(articleDate(article))}${article.authors?.length ? ` · ${esc(article.authors.map((slug) => bundle.authors.find((author) => author.slug === slug)?.name || slug).join(', '))}` : ' · sans signature'}</small></div><div><button data-edit-article="${esc(article.id)}">Modifier</button> <button class="danger" data-delete-article="${esc(article.id)}">Supprimer</button></div></li>`).join('')}</ul></section>`;
+  return `<section class="panel"><div class="toolbar"><div><p>Seuls les articles « Publiés » paraissent dans le journal.</p></div><button class="primary" data-action="new-article">Nouvel article</button></div>${bundle.articles.length ? '' : '<p class="empty-state">Aucun article pour l’instant. Cliquez sur « Nouvel article » pour écrire le premier.</p>'}<ul class="entity-list">${bundle.articles.map((article) => `<li><div><strong>${esc(article.title)}</strong>${article.isDemo ? ' <small>Exemple local' + (article.isUserModified ? ' modifié' : '') + '</small>' : ''}<small><span class="status-pill status-${esc(article.status)}">${statusLabel(article.status)}</span> · ${esc(articleDate(article))}${article.authors?.length ? ` · ${esc(article.authors.map((slug) => bundle.authors.find((author) => author.slug === slug)?.name || slug).join(', '))}` : ' · sans auteur'}</small></div><div><button data-edit-article="${esc(article.id)}">Modifier</button> <button class="danger" data-delete-article="${esc(article.id)}">Supprimer</button></div></li>`).join('')}</ul></section>`;
 }
 
 const MEDIA_USAGE_LABELS = {
@@ -1284,9 +1317,9 @@ function articleEditor(article) {
     <div class="field"><label for="article-section">Section</label><select id="article-section" name="section">${orderedSections().filter((item) => sectionAllowed(item) || item.slug === current.section).map((item) => `<option value="${esc(item.slug)}" ${item.slug === current.section ? 'selected' : ''}>${esc(item.name)}</option>`).join('')}</select></div>
     <div class="field"><label for="article-status">Statut</label><select id="article-status" name="status"><option value="draft" ${current.status === 'draft' ? 'selected' : ''}>Brouillon</option><option value="in-review" ${current.status === 'in-review' ? 'selected' : ''}>En révision</option><option value="scheduled" ${current.status === 'scheduled' ? 'selected' : (authorOnly ? 'disabled' : '')}>Programmé</option><option value="published" ${current.status === 'published' ? 'selected' : (authorOnly ? 'disabled' : '')}>Publié</option><option value="archived" ${current.status === 'archived' ? 'selected' : (authorOnly ? 'disabled' : '')}>Archivé</option></select><small>${authorOnly ? 'Mettez « En révision » quand c’est prêt : un réviseur, un éditeur ou l’administrateur publie.' : 'Programmé : publié tout seul à l’heure choisie. Archivé : la page reste, l’article quitte les listes.'}</small></div>
     <div class="field full"><label><input id="article-featured" name="featured" type="checkbox" ${current.featured ? 'checked' : ''}> Mettre à la une</label><small>L’étiquette « À la une » n’apparaît que si cette case est cochée. Un seul article à la fois : en enregistrer un ici retire l’étiquette des autres.</small></div>
-    <div class="field" data-scheduled-field ${current.status === 'scheduled' ? '' : 'hidden'}><label for="article-scheduled-at">Programmer pour</label><input id="article-scheduled-at" name="scheduledAt" type="datetime-local" value="${esc(localDateTime(current.scheduledAt))}"></div>
-    <div class="field full"><label for="article-published-at">Date et heure de publication</label><input id="article-published-at" name="publishedAt" type="datetime-local" value="${esc(localDateTime(current.publishedAt))}"><small>Heure locale du journal.</small></div>
-    <fieldset class="field"><legend>Signatures</legend>${bundle.authors.length ? '' : '<p class="media-quality">Aucune signature : créez-en dans « Équipe ».</p>'}${bundle.authors.map((author) => `<label><input type="checkbox" name="authors" value="${esc(author.slug)}" ${current.authors.includes(author.slug) ? 'checked' : ''}> ${esc(author.name)}</label>`).join('')}</fieldset>
+    ${horodatageHtml({ id: 'article-scheduled-at', legend: 'Programmer pour', iso: current.scheduledAt, hidden: current.status !== 'scheduled' })}
+    ${horodatageHtml({ id: 'article-published-at', legend: 'Date et heure de publication', iso: current.publishedAt })}
+    <fieldset class="field"><legend>Auteurs</legend>${auteursDuFormulaire(current)}</fieldset>
     <fieldset class="field"><legend>Catégories</legend>${bundle.taxonomies.categories.length ? '' : '<p class="media-quality">Aucune catégorie (facultatif, voir « Sections et catégories »).</p>'}${bundle.taxonomies.categories.map((item) => `<label><input type="checkbox" name="categories" value="${esc(item.slug)}" ${current.categories.includes(item.slug) ? 'checked' : ''}> ${esc(item.name)}</label>`).join('')}</fieldset>
     <fieldset class="field full"><legend>Mots-clés</legend>${bundle.taxonomies.tags.length ? '' : '<p class="media-quality">Aucun mot-clé (facultatif, voir « Sections et catégories »).</p>'}${bundle.taxonomies.tags.map((item) => `<label><input type="checkbox" name="tags" value="${esc(item.slug)}" ${current.tags.includes(item.slug) ? 'checked' : ''}> ${esc(item.name)}</label>`).join('')}</fieldset>
     <fieldset class="field full media-editor"><legend>Photo principale</legend><div class="field full"><label for="article-lead-file">Photo JPEG, PNG ou WebP</label><input id="article-lead-file" type="file" accept="image/jpeg,image/png,image/webp"></div><label><input type="checkbox" name="leadToBank"> Ajouter aussi cette photo à la banque (crédit obligatoire)</label><button type="button" data-action="choose-lead-media">Choisir une photo de la banque</button><label>Description accessible (obligatoire avec une photo)<input name="leadAlt" placeholder="Ce que montre la photo" value="${esc(current.lead?.alt || '')}"></label><label>Crédit (obligatoire pour l’ajouter à la banque)<input name="leadCredit" placeholder="Prénom Nom ou agence" value="${esc(current.lead?.credit || '')}"></label><label>Légende<input name="leadCaption" value="${esc(current.lead?.caption || '')}"></label><label>Licence<input name="leadLicense" list="license-list" value="${esc(current.lead?.license || '')}"></label>${licenseList()}<label>Cadrage horizontal<input name="leadFocalX" type="range" min="0" max="100" value="${current.lead?.focalPoint?.x ?? 50}"></label><label>Cadrage vertical<input name="leadFocalY" type="range" min="0" max="100" value="${current.lead?.focalPoint?.y ?? 50}"></label><div id="article-lead-preview" class="full">${cropFrames(current.lead, 'article')}</div>${current.lead ? `<p class="media-quality">Photo actuelle : ${current.lead.width || '?'} × ${current.lead.height || '?'} px${current.lead.width && (current.lead.width < 720 || current.lead.height < 405) ? ' — résolution faible pour la vedette' : ''}.</p>` : ''}</fieldset>
@@ -1303,6 +1336,7 @@ function articleEditor(article) {
   const articleForm = document.getElementById('article-form');
   const scheduledField = articleForm.querySelector('[data-scheduled-field]');
   articleForm.elements.status.addEventListener('change', () => { scheduledField.hidden = articleForm.elements.status.value !== 'scheduled'; });
+  lierSaisieDate(articleForm);
   const refreshLeadCrop = () => {
     const x = Number(articleForm.elements.leadFocalX.value), y = Number(articleForm.elements.leadFocalY.value);
     articleForm.querySelector('.crop-previews')?.style.setProperty('--crop-position', `${x}% ${y}%`);
@@ -1490,13 +1524,17 @@ function articleEditor(article) {
     if (form.get('status') === 'published' && lead && !lead.alt.trim()) { notify('La description de la photo principale est obligatoire.'); return; }
     let scheduledAt = current.status === 'scheduled' ? current.scheduledAt : undefined;
     if (form.get('status') === 'scheduled') {
-      const requested = form.get('scheduledAt');
-      if (!requested) { notify('Choisissez la date et l’heure de publication programmée.'); return; }
-      scheduledAt = new Date(requested).toISOString();
+      const programme = lireHorodatage(form, 'article-scheduled-at');
+      if (programme.erreur) { notify(programme.erreur, 5000); return; }
+      if (!programme.iso) { notify('Choisissez la date et l’heure de publication programmée.'); return; }
+      scheduledAt = programme.iso;
       if (Date.parse(scheduledAt) <= Date.now()) { notify('L’heure programmée est déjà passée : choisissez Publié, ou une heure à venir.', 5000); return; }
+      if (programme.ambigu) notify(programme.ambigu, 7000);
     } else scheduledAt = undefined;
-    const requestedPublication = form.get('publishedAt');
-    const enteredPublication = requestedPublication ? new Date(requestedPublication).toISOString() : undefined;
+    const parution = lireHorodatage(form, 'article-published-at');
+    if (parution.erreur) { notify(parution.erreur, 5000); return; }
+    if (parution.ambigu) notify(parution.ambigu, 7000);
+    const enteredPublication = parution.iso;
     const saved = {
       ...current, id: form.get('id'), title: form.get('title').trim(), slug: slugify(form.get('slug')), excerpt: form.get('excerpt').trim(), section: form.get('section'), status: form.get('status'), authors: form.getAll('authors'), categories: form.getAll('categories'), tags: form.getAll('tags'), body: { format: format.value, raw: body.value }, lead, media: current.media, publishedAt: enteredPublication || (['published', 'archived'].includes(form.get('status')) ? (current.publishedAt || new Date().toISOString()) : current.publishedAt), scheduledAt, updatedAt: new Date().toISOString(), canonicalUrl: `${String(bundle.publication.siteUrl || '').replace(/\/$/, '')}/articles/${slugify(form.get('slug'))}/`, source: current.source || source('article', form.get('id')), featured: document.getElementById('article-featured').checked,
     };
@@ -1513,14 +1551,60 @@ function articleEditor(article) {
   main.querySelector('[data-action="articles"]').onclick = () => setView('articles');
 }
 
+function auteursDuFormulaire(current) {
+  const retenus = new Set(current.authors || []);
+  const tous = bundle.authors || [];
+  const proposables = tous.filter((auteur) => !estAuteurAncien(auteur) || retenus.has(auteur.slug));
+  if (!tous.length) return '<p class="media-quality">Aucun auteur : créez-en dans « Équipe ».</p>';
+  if (!proposables.length) return '<p class="media-quality">Aucun auteur actif : créez-en un, ou ramenez-en un depuis « Équipe ».</p>';
+  return proposables.map((auteur) => {
+    const note = estAuteurAncien(auteur) ? ' <small>(dans les anciens)</small>' : '';
+    const coche = retenus.has(auteur.slug) ? 'checked' : '';
+    return `<label><input type="checkbox" name="authors" value="${esc(auteur.slug)}" ${coche}> ${esc(auteur.name)}${note}</label>`;
+  }).join('');
+}
+
+function ligneAuteur(auteur) {
+  const fonction = auteur.role ? `<small>${esc(auteur.role)}</small>` : '';
+  if (estAuteurAncien(auteur)) {
+    return `<li><div><strong>${esc(auteur.name)}</strong>${fonction}</div><div><button type="button" data-activer-auteur="${esc(auteur.id)}">Ramener dans les actifs</button></div></li>`;
+  }
+  const supprimer = auteurPeutEtreSupprime(auteur, bundle.articles)
+    ? ` <button type="button" class="danger" data-delete-author="${esc(auteur.id)}">Supprimer</button>`
+    : '';
+  return `<li><div><strong>${esc(auteur.name)}</strong>${fonction}</div><div><button type="button" data-edit-author="${esc(auteur.id)}">Modifier</button> <button type="button" data-archiver-auteur="${esc(auteur.id)}">Passer dans les anciens</button>${supprimer}</div></li>`;
+}
+
 function authors() {
-  return `${onSocle() ? '<section class="panel" id="access-panel" hidden></section>' : ''}<section class="panel"><div class="toolbar"><h2>Signatures</h2><button class="primary" data-action="new-author">Nouvelle signature</button></div><div class="notice">Une signature est le nom affiché sous le titre d’un article, avec sa fonction et sa biographie. Elle ne donne aucun accès à la rédaction : pour cela, ajoutez un compte dans « Comptes et rôles », plus haut.</div>${bundle.authors.length ? '' : '<p class="empty-state">Aucune signature pour l’instant. Créez-en une par personne qui écrit.</p>'}<ul class="entity-list">${bundle.authors.map((author) => `<li><div><strong>${esc(author.name)}</strong><small>${esc([author.role, ROLE_LABELS[author.editorialRole || 'auteur'] || author.editorialRole].filter(Boolean).join(' · '))}</small></div><div><button data-edit-author="${esc(author.id)}">Modifier</button> <button class="danger" data-delete-author="${esc(author.id)}">Supprimer</button></div></li>`).join('')}</ul></section>`;
+  const auteurs = (bundle.authors || []).map(normaliserAuteur);
+  const actifs = auteurs.filter((auteur) => !estAuteurAncien(auteur));
+  const anciens = auteurs.filter((auteur) => estAuteurAncien(auteur));
+  const groupe = (titre, items, vide) => `<section class="auteurs-groupe"><h3>${titre}</h3>${items.length ? `<ul class="entity-list">${items.map(ligneAuteur).join('')}</ul>` : `<p class="empty-state">${vide}</p>`}</section>`;
+  const corps = auteurs.length
+    ? `${groupe('Actifs', actifs, 'Aucun auteur actif pour l’instant.')}${groupe('Anciens', anciens, 'Aucun ancien pour l’instant.')}`
+    : '<p class="empty-state">Aucun auteur pour l’instant. Créez-en un par personne qui écrit.</p>';
+  return `${onSocle() ? '<section class="panel" id="access-panel" hidden></section>' : ''}<section class="panel"><div class="toolbar"><h2>Auteurs</h2><button class="primary" data-action="new-author">Nouvel auteur</button></div><div class="notice">Un auteur est le nom affiché sous le titre d’un article, avec sa fonction et sa biographie. Il ne donne aucun accès à la rédaction : pour cela, ajoutez un compte dans « Comptes et rôles », plus haut. Un auteur déjà cité dans un article ne peut pas être supprimé : passez-le dans les anciens.</div>${corps}</section>`;
 }
 
 function authorEditor(author) {
-  const current = author || { id: crypto.randomUUID(), name: '', slug: '', role: '', editorialRole: 'auteur', bio: '', cohort: '', active: true, source: source('author', 'local') };
-  main.innerHTML = `<section class="panel"><h2>${author ? 'Modifier' : 'Créer'} une signature</h2><form id="author-form" class="grid"><div class="field"><label>Nom<input name="name" required value="${esc(current.name)}"></label></div><div class="field"><label>Nom court, dans les adresses<input name="slug" value="${esc(current.slug)}" placeholder="Se remplit à partir du nom"></label></div><div class="field"><label>Fonction affichée<input name="role" value="${esc(current.role || '')}"></label></div><div class="field"><label>Rôle informatif<select name="editorialRole">${Object.entries(ROLE_LABELS).map(([value, label]) => `<option value="${value}" ${(current.editorialRole || 'auteur') === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label></div><div class="field full"><label>Biographie<textarea name="bio">${esc(current.bio || '')}</textarea></label></div><div class="actions full"><button class="primary">Enregistrer</button><button type="button" data-action="authors">Annuler</button></div></form></section>`;
-  main.querySelector('form').onsubmit = async (event) => { event.preventDefault(); const data = new FormData(event.currentTarget); await backend.save('author', { ...current, name: data.get('name').trim(), slug: slugify(data.get('slug')), role: data.get('role').trim(), editorialRole: data.get('editorialRole'), bio: data.get('bio').trim() }); await refresh(); notify('Signature enregistrée.'); setView('authors'); };
+  const current = normaliserAuteur(author || { id: crypto.randomUUID(), name: '', slug: '', role: '', editorialRole: 'auteur', bio: '', cohort: '', status: STATUT_AUTEUR_ACTIF, active: true, source: source('author', 'local') });
+  main.innerHTML = `<section class="panel"><h2>${author ? 'Modifier un auteur' : 'Créer un auteur'}</h2><form id="author-form" class="grid"><div class="field"><label>Nom<input name="name" required value="${esc(current.name)}"></label></div><div class="field"><label>Nom court, dans les adresses<input name="slug" value="${esc(current.slug)}" placeholder="Se remplit à partir du nom"></label></div><div class="field"><label>Fonction affichée<input name="role" value="${esc(current.role || '')}"></label></div><div class="field"><label>Rôle informatif<select name="editorialRole">${Object.entries(ROLE_LABELS).map(([value, label]) => `<option value="${value}" ${(current.editorialRole || 'auteur') === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label></div><div class="field full"><label>Biographie<textarea name="bio">${esc(current.bio || '')}</textarea></label></div><div class="actions full"><button class="primary">Enregistrer</button><button type="button" data-action="authors">Annuler</button></div></form></section>`;
+  main.querySelector('form').onsubmit = async (event) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const enregistre = normaliserAuteur({
+      ...current,
+      name: data.get('name').trim(),
+      slug: slugify(data.get('slug')),
+      role: data.get('role').trim(),
+      editorialRole: data.get('editorialRole'),
+      bio: data.get('bio').trim(),
+    });
+    await backend.save('author', enregistre);
+    await refresh();
+    notify('Auteur enregistré.');
+    setView('authors');
+  };
   main.querySelector('[data-action="authors"]').onclick = () => setView('authors');
 }
 
@@ -1950,7 +2034,33 @@ function bindCommon() {
   main.querySelectorAll('[data-edit-article]').forEach((button) => button.onclick = () => articleEditor(bundle.articles.find((item) => item.id === button.dataset.editArticle)));
   main.querySelectorAll('[data-delete-article]').forEach((button) => button.onclick = async () => { if (!confirm('Supprimer cet article de ce navigateur?')) return; await backend.remove('article', button.dataset.deleteArticle); await refresh(); render(); });
   main.querySelectorAll('[data-edit-author]').forEach((button) => button.onclick = () => authorEditor(bundle.authors.find((item) => item.id === button.dataset.editAuthor)));
-  main.querySelectorAll('[data-delete-author]').forEach((button) => button.onclick = async () => { if (!confirm('Supprimer cette signature?')) return; await backend.remove('author', button.dataset.deleteAuthor); await refresh(); render(); });
+  main.querySelectorAll('[data-delete-author]').forEach((button) => button.onclick = async () => {
+    const auteur = bundle.authors.find((item) => item.id === button.dataset.deleteAuthor);
+    if (!auteurPeutEtreSupprime(auteur, bundle.articles)) {
+      notify('Cet auteur figure encore sur un article. Passez-le dans les anciens plutôt que de le supprimer.', 6000);
+      return;
+    }
+    if (!confirm('Supprimer cet auteur? Cette action est définitive.')) return;
+    await backend.remove('author', button.dataset.deleteAuthor);
+    await refresh();
+    render();
+  });
+  main.querySelectorAll('[data-archiver-auteur]').forEach((button) => button.onclick = async () => {
+    const auteur = bundle.authors.find((item) => item.id === button.dataset.archiverAuteur);
+    if (!auteur) return;
+    await backend.save('author', normaliserAuteur({ ...auteur, status: STATUT_AUTEUR_ANCIEN }));
+    await refresh();
+    notify('L’auteur est maintenant dans les anciens.');
+    render();
+  });
+  main.querySelectorAll('[data-activer-auteur]').forEach((button) => button.onclick = async () => {
+    const auteur = bundle.authors.find((item) => item.id === button.dataset.activerAuteur);
+    if (!auteur) return;
+    await backend.save('author', normaliserAuteur({ ...auteur, status: STATUT_AUTEUR_ACTIF }));
+    await refresh();
+    notify('L’auteur est de nouveau dans les actifs.');
+    render();
+  });
   main.querySelector('[data-action="new-author"]')?.addEventListener('click', () => authorEditor());
   main.querySelectorAll('[data-action="settings-view"]').forEach((button) => button.onclick = () => setView('settings'));
   bindImport(main);
@@ -1961,7 +2071,7 @@ function profileView() {
     <form id="profile-form" class="grid">
       <div class="field"><label>Prénom<input name="prenom" maxlength="120" autocomplete="given-name"></label></div>
       <div class="field"><label>Nom<input name="nom" maxlength="120" autocomplete="family-name"></label></div>
-      <div class="field full"><label>Nom d’affichage (facultatif)<input name="nomAffiche" maxlength="120" autocomplete="nickname"></label><small>S’il est vide, l’affichage et les signatures utilisent le prénom et le nom.</small></div>
+      <div class="field full"><label>Nom d’affichage (facultatif)<input name="nomAffiche" maxlength="120" autocomplete="nickname"></label><small>S’il est vide, l’affichage et les auteurs utilisent le prénom et le nom.</small></div>
       <div class="actions full"><button class="primary">Enregistrer le profil</button></div>
     </form>
     <h3>Mot de passe</h3>

@@ -824,7 +824,8 @@ test("le push PHP se déchiffre, et le dossier mutualisé est nommé", async () 
     const page = await fetch(php.url + "/admin/mise-a-jour");
     const html = await page.text();
     // Journal pas encore configuré : l'en-tête montre le logo du Socle, et l'onglet son icône.
-    assert.match(html, /<a class="brand" href="\/admin"><img class="logo" src="data:image\/svg\+xml;base64,[^"]+" alt="" width="32" height="32"><span><strong>Le Socle<\/strong>/);
+    assert.match(html, /<a class="brand" href="\/admin"><img class="socle-brique[^"]*socle-brique-clair[^"]*" src="data:image\/svg\+xml;base64,[^"]+" alt="Le Socle"/);
+    assert.match(html, /<strong>Le Socle<\/strong>/);
     assert.match(html, /<link rel="icon" type="image\/svg\+xml" sizes="any"/);
     const shownUpload = mapWork(folder, upload, usePodman());
     assert.match(html, new RegExp(shownUpload.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));

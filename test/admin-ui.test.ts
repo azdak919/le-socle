@@ -31,8 +31,10 @@ test("l'en-tête de la barre peint le journal ou, à défaut, Le Socle", () => {
   assert.match(source, /Espace de rédaction/);
   const page = readFileSync(join(ROOT, "admin", "serveur.html"), "utf8");
   // Logo du Socle (Twemoji, CC BY 4.0) dans la barre latérale et, sur mobile, dans la barre du haut.
-  assert.equal(page.match(/<img class="admin-brand-logo" src="data:image\/svg\+xml;base64,/g)?.length, 2);
-  assert.match(page, /<div class="admin-header-brand" data-state="socle" aria-hidden="true">/);
+  assert.equal(page.match(/class="socle-brique /g)?.length, 4, "deux briques (clair et sombre) dans la barre latérale et dans celle du haut");
+  assert.equal((page.match(/alt="Le Socle"/g) || []).length, 2);
+  assert.match(page, /<div class="admin-header-brand" data-state="socle">/);
+  assert.doesNotMatch(page, /admin-header-brand"[^>]*aria-hidden="true"/);
   // Icônes d'onglet : 16 et 32 px, puis le SVG clair ou sombre.
   assert.match(page, /<link rel="icon" type="image\/png" sizes="16x16"/);
   assert.match(page, /<link rel="icon" type="image\/png" sizes="32x32"/);
@@ -55,11 +57,13 @@ test("barre du haut : le titre de l'écran, jamais « Rédaction de … » rép�
 test("pages Sauvegarde et Mise à jour : le journal s'il est configuré, sinon le logo du Socle", () => {
   setAdminJournalName("");
   const neuf = String(adminDocument("fr", "Sauvegarde", "<p>x</p>").body);
-  assert.match(neuf, /<a class="brand" href="\/admin"><img class="logo" src="data:image\/svg\+xml;base64,[^"]+" alt="" width="32" height="32"><span><strong>Le Socle<\/strong><small>Espace de rédaction<\/small>/);
+  assert.match(neuf, /<a class="brand" href="\/admin"><img class="socle-brique[^"]*socle-brique-clair[^"]*" src="data:image\/svg\+xml;base64,[^"]+" alt="Le Socle"/);
+  assert.match(neuf, /<strong>Le Socle<\/strong><small>Espace de rédaction<\/small>/);
   assert.match(neuf, /<link rel="icon" type="image\/svg\+xml" sizes="any"/);
   setAdminJournalName("La <Vigie>");
   const vigie = String(adminDocument("fr", "Sauvegarde", "<p>x</p>").body);
-  assert.match(vigie, /<a class="brand" href="\/admin"><span><strong>La &lt;Vigie&gt;<\/strong><small>Espace de rédaction<\/small>/);
+  assert.match(vigie, /alt="Le Socle"/);
+  assert.match(vigie, /<strong>La &lt;Vigie&gt;<\/strong><small>Espace de rédaction<\/small>/);
   assert.match(vigie, /<title>Sauvegarde — La &lt;Vigie&gt;<\/title>/);
   assert.match(vigie, /Propulsé par <a href="https:\/\/socle\.le-radar\.ca\/">Le Socle<\/a>/);
   setAdminJournalName("");
@@ -77,6 +81,19 @@ test("le logo du Socle est le même en Node et en PHP", () => {
   assert.match(svg, /prefers-color-scheme:dark/);
   assert.equal(svg, readFileSync(join(ROOT, "site", "assets", "logo", "icone.svg"), "utf8"));
 });
+
+test("les variantes claire et sombre de la brique du Socle sont les mêmes en JS et en PHP", () => {
+  const js = readFileSync(join(ROOT, "admin", "marque.js"), "utf8");
+  const php = readFileSync(join(ROOT, "php", "src", "lib.php"), "utf8");
+  for (const [name, file] of [["SOCLE_ICON_CLAIR_B64", "icone-clair.svg"], ["SOCLE_ICON_SOMBRE_B64", "icone-sombre.svg"]] as const) {
+    const value = js.match(new RegExp(`${name} = '([^']+)'`))?.[1];
+    assert.ok(value && value.length > 500, name);
+    assert.ok(php.includes(`const ${name} = '${value}';`), `${name} identique dans lib.php`);
+    const svg = Buffer.from(value, "base64").toString("utf8");
+    assert.equal(svg, readFileSync(join(ROOT, "site", "assets", "logo", file), "utf8"));
+  }
+});
+
 
 test("l'admin vit dans le socle : chaque fichier importé est là, et seulement là", () => {
   const present = readdirSync(ASSETS).sort();
@@ -221,7 +238,7 @@ test("la démo en mode navigateur tourne sur sql.js copié tel quel, sans PGlite
   db.run(toSqlite("INSERT INTO articles(id,slug,status,is_demo,is_user_modified,updated_at,data) VALUES ($1,$2,$3,$4,$5,$6,$7)"), ["r1", "un", "published", 0, 1, "2026-11-18", JSON.stringify({ authors: ["lea"] })]);
   const removeDemo = /await tx\.exec\(`(DELETE FROM authors[\s\S]*?)`\);/.exec(demo)?.[1] ?? "";
   db.exec(toSqlite(removeDemo));
-  assert.deepEqual(db.exec("SELECT slug FROM authors ORDER BY slug")[0].values, [["lea"]], "une signature encore utilisée reste");
+  assert.deepEqual(db.exec("SELECT slug FROM authors ORDER BY slug")[0].values, [["lea"]], "un auteur encore cité dans un article reste");
   db.run(toSqlite("INSERT INTO kiosque_meta(key, value) VALUES ('seeded', $1::jsonb) ON CONFLICT (key) DO UPDATE SET value = excluded.value"), [JSON.stringify({ version: 3 })]);
   assert.equal(JSON.parse(String(db.exec("SELECT value FROM kiosque_meta WHERE key = 'seeded'")[0].values[0][0])).version, 3);
 });
@@ -279,8 +296,8 @@ test("rédaction pour néophytes : mots simples, états vides, erreurs lisibles"
   // Pas de « socle » dans les messages montrés à la rédaction.
   assert.doesNotMatch(admin, /'Le socle ne répond pas\.'|Le socle a refusé|Ce socle a déjà/);
   assert.doesNotMatch(backend, /Le socle a refusé|Connectez-vous au socle/);
-  assert.match(backend, /'un article publié doit être signé': 'Pour publier, cochez au moins une signature/);
-  for (const empty of ["Aucun article pour l’instant", "La banque est vide", "Aucune signature pour l’instant"]) assert.ok(admin.includes(empty), empty);
+  assert.match(backend, /'un article publié doit être signé': 'Pour publier, cochez au moins un auteur/);
+  for (const empty of ["Aucun article pour l’instant", "La banque est vide", "Aucun auteur pour l’instant"]) assert.ok(admin.includes(empty), empty);
   assert.match(admin, /document\.body\.classList\.add\('signed-out'\)/);
   // Pages sans JavaScript : champ de restauration étiqueté en français, confirmation, et plus de page blanche au rechargement.
   assert.match(php, /<span class="choix-fichier-etiquette">Fichier de sauvegarde \(ZIP\)<\/span>/);
@@ -427,7 +444,10 @@ test("réseaux sociaux : un champ par réseau, exemple pâle et adresse vérifi�
 test("la barre de l'espace de rédaction ignore un monogramme d'initiales, comme le site public", () => {
   const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
   const brand = admin.slice(admin.indexOf("function paintBrandIn"), admin.indexOf("function paintBrandIn") + 1200);
-  assert.match(brand, /!isGeneratedInitialsLogoSrc\(pub\.logo\.src\)/);
+  assert.match(brand, /SOCLE_BRIQUE/);
+  assert.match(brand, /Espace de rédaction/);
+  assert.doesNotMatch(brand, /journal-logo/);
+  assert.doesNotMatch(brand, /pub\.logo/);
 });
 
 test("liste des articles au téléphone : les boutons passent sous le titre", () => {
@@ -568,4 +588,30 @@ test("tableau de bord : un seul « Voir le journal », celui de l’en-tête", (
   assert.match(page, /label-long">Voir le journal ↗<\/span>/);
   assert.match(page, /admin-header-actions/);
   assert.match(server, /label-long">Voir le journal ↗<\/span>/);
+});
+
+test("l’horodatage de publication n’utilise pas l’invite native du navigateur", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  assert.doesNotMatch(admin, /datetime-local/);
+  assert.doesNotMatch(admin, /type="date"/);
+  assert.doesNotMatch(admin, /type="time"/);
+  assert.match(admin, /horodatageHtml/);
+  assert.match(admin, /AAAA-MM-JJ/);
+  assert.match(admin, /aideHeureJournal/);
+  const css = readFileSync(join(ROOT, "admin", "ui", "admin.css"), "utf8");
+  assert.match(css, /\.horodatage-champs/);
+});
+
+test("la page Équipe parle d’auteurs, avec les actifs et les anciens", () => {
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  assert.match(admin, /<h2>Auteurs<\/h2>/);
+  assert.match(admin, /Nouvel auteur/);
+  assert.match(admin, /groupe\('Actifs'/);
+  assert.match(admin, /groupe\('Anciens'/);
+  assert.match(admin, /Passer dans les anciens/);
+  assert.match(admin, /Ramener dans les actifs/);
+  assert.doesNotMatch(admin, /alumni/i);
+  assert.match(admin, /<legend>Auteurs<\/legend>/);
+  assert.doesNotMatch(admin, /<legend>Signatures<\/legend>/);
+  assert.doesNotMatch(admin, /Nouvelle signature/);
 });

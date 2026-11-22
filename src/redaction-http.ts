@@ -36,6 +36,7 @@ import {
 import { MediaError, deleteMediaFiles, findDuplicate, readBytes, saveArticleImage, saveLibrary, type LibraryAsset } from "./media.ts";
 import { inScope, isEditor, managesBank, publishesIn, writesArticles, type Scope } from "./roles.ts";
 import { ModuleOffError } from "./store.ts";
+import { auteurPeutEtreSupprime, normaliserAuteur } from "../admin/assets/auteurs-statut.js";
 
 type Result = { status: number; body: string | Uint8Array; headers: Record<string, string> };
 
@@ -242,14 +243,16 @@ export async function handleRedaction(
       const kind = text(body.kind, 20) as (typeof KINDS)[number];
       if (!KINDS.includes(kind)) return fail(400, "Genre inconnu.");
       if (kind !== "author" && !editor) return fail(403, "Les sections, catégories et étiquettes demandent un éditeur.");
-      if (kind === "author" && role === "photographe") return fail(403, "Un compte photographe ne gère pas les signatures.");
+      if (kind === "author" && role === "photographe") return fail(403, "Un compte photographe ne gère pas les auteurs.");
       const input = (body.entity ?? {}) as Record<string, unknown>;
       const id = text(input.id, 80) || randomUUID();
       const name = text(input.name, 200);
       const slug = text(input.slug, 96) || slugFrom(name);
       if (!name) return fail(400, "Un nom est requis.");
       if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return fail(400, "Le nom court ne garde que des lettres minuscules, des chiffres et des tirets.");
-      const entity = { ...input, id, name, slug };
+      const entity = kind === "author"
+        ? normaliserAuteur({ ...input, id, name, slug })
+        : { ...input, id, name, slug };
       await deps.store.put("editorial", `${kind}:${id}`, JSON.stringify(entity));
       return json(200, { entity });
     }
@@ -261,6 +264,14 @@ export async function handleRedaction(
         const target = kind === "article" ? (await readArticles(deps.store)).find((item) => item.id === id) : undefined;
         const pupitre = role === "chef-pupitre" && target !== undefined && await sectionsAllow(deps, scope, target.section);
         if (!pupitre) return fail(403, "Supprimer demande un éditeur, ou le chef de pupitre de la rubrique.");
+      }
+      if (kind === "author") {
+        const raw = await deps.store.get("editorial", `author:${id}`);
+        const auteur = raw ? JSON.parse(raw) as { slug?: string; id?: string } : null;
+        const articles = await readArticles(deps.store);
+        if (auteur && !auteurPeutEtreSupprime(auteur, articles)) {
+          return fail(409, "Cet auteur figure encore sur un article. Passez-le dans les anciens plutôt que de le supprimer.");
+        }
       }
       await deps.store.delete("editorial", `${kind}:${id}`);
       return json(200, { ok: true });

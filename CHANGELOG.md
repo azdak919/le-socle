@@ -1,6 +1,10 @@
 # Journal
 
 ## Non publié
+- Date et heure de publication (et « Programmer pour ») : plus d’invite native du navigateur (qui affichait parfois mm/dd/yyyy et AM/PM selon la langue de l’appareil). On inscrit la date en AAAA-MM-JJ et l’heure en 24 h (14 h 30). L’instant est celui du fuseau du journal (heure de l’Est — majorité du Québec, ou heure de l’Atlantique à Blanc-Sablon), y compris aux changements d’heure : une heure qui n’existe pas est refusée ; une heure qui arrive deux fois retient la première occurrence, avec un avis.
+- Dans l’espace de rédaction, les personnes qui signent un article s’appellent des auteurs (plus « signatures ») : formulaire d’article, page « Équipe », messages d’aide et d’erreur. La devise du journal, champ « Signature », ne change pas. La page « Équipe » a deux listes, « Actifs » et « Anciens ». On passe un auteur dans les anciens plutôt que de le supprimer s’il figure déjà sur un article ; un ancien n’est plus proposé pour un nouvel article, mais son nom reste sur ceux déjà signés. Les personnes fictives « Ancien » ou « Ancienne » de la démonstration sont des anciens.
+- La brique du Socle reste toujours à gauche du nom du journal (ou de « Le Socle ») dans l’espace de rédaction, en-tête et barre latérale, thèmes clair et sombre. Elle ne cède pas la place au logo du journal. Texte alternatif : « Le Socle ».
+
 - Les mentions « Propulsé par Le Socle » de l’espace de rédaction mènent à <https://socle.le-radar.ca/>, le site officiel, et non plus à la page github.io.
 
 - Tableau de bord : le second bouton « Voir le journal », sous les compteurs, à côté de « Créer un article », est retiré. Il faisait doublon avec celui de l’en-tête, qui reste.

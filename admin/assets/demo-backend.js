@@ -1,4 +1,5 @@
 import { SqlJsDb } from './sqljs-db.js';
+import { auteurPeutEtreSupprime, normaliserAuteur } from './auteurs-statut.js';
 
 const TABLES = {
   article: 'articles',
@@ -403,7 +404,7 @@ export class DemoBackendNavigateur {
     return {
       publication: publicationResult.rows[0].data,
       articles: visibleArticles.sort((a, b) => String(b.publishedAt || b.updatedAt).localeCompare(String(a.publishedAt || a.updatedAt))),
-      authors: visibleAuthors,
+      authors: visibleAuthors.map(normaliserAuteur),
       taxonomies: { sections, categories, tags },
       media,
       syncedAt: now(),
@@ -418,12 +419,12 @@ export class DemoBackendNavigateur {
     if (kind === 'article') {
       if (!STATUSES.includes(entity.status)) throw new Error('Statut éditorial invalide.');
       if (entity.status === 'scheduled' && (!entity.scheduledAt || Number.isNaN(Date.parse(entity.scheduledAt)))) throw new Error('Programmer exige une date et une heure de publication.');
-      if (entity.status === 'scheduled' && (!entity.authors?.length || !entity.section)) throw new Error('Programmer exige au moins une signature et une section.');
+      if (entity.status === 'scheduled' && (!entity.authors?.length || !entity.section)) throw new Error('Programmer exige au moins un auteur et une section.');
       if (!entity.title?.trim() || !entity.slug?.trim()) throw new Error('Un article requiert un titre et un identifiant URL.');
       entity.updatedAt = now();
       if ((entity.status === 'published' || entity.status === 'archived') && !entity.publishedAt) entity.publishedAt = entity.updatedAt;
       if ((entity.status === 'published' || entity.status === 'archived') && (!entity.authors?.length || !entity.section || !entity.publishedAt)) {
-        throw new Error('Publier exige au moins une signature, une section et une date de publication.');
+        throw new Error('Publier exige au moins un auteur, une section et une date de publication.');
       }
       if (entity.isDemo) entity.isUserModified = true;
       await this.db.query(
@@ -435,7 +436,8 @@ export class DemoBackendNavigateur {
         [entity.id, entity.slug, entity.status, Boolean(entity.isDemo), Boolean(entity.isUserModified), entity.updatedAt, JSON.stringify(entity)],
       );
     } else if (kind === 'author') {
-      if (!entity.name?.trim() || !entity.slug?.trim()) throw new Error('Une signature requiert un nom et un identifiant URL.');
+      Object.assign(entity, normaliserAuteur(entity));
+      if (!entity.name?.trim() || !entity.slug?.trim()) throw new Error('Un auteur requiert un nom et un identifiant URL.');
       if (entity.isDemo) entity.isUserModified = true;
       await this.db.query(
         `INSERT INTO authors(id, slug, is_demo, is_user_modified, data) VALUES ($1, $2, $3, $4, $5)
@@ -463,6 +465,13 @@ export class DemoBackendNavigateur {
   async remove(kind, id) {
     const table = TABLES[kind];
     if (!table) throw new Error(`Type éditorial inconnu : ${kind}`);
+    if (kind === 'author') {
+      const snapshot = await this.getSnapshot({ audience: 'editorial', includeDemo: true });
+      const auteur = snapshot.authors.find((item) => item.id === id);
+      if (auteur && !auteurPeutEtreSupprime(auteur, snapshot.articles)) {
+        throw new Error('Cet auteur figure encore sur un article. Passez-le dans les anciens plutôt que de le supprimer.');
+      }
+    }
     await this.db.query(`DELETE FROM ${table} WHERE id = $1`, [id]);
     this.#emit({ kind, id });
   }
