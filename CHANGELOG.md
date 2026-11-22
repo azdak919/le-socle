@@ -1,6 +1,8 @@
 # Journal
 
 ## Non publié
+- Les mentions « Propulsé par Le Socle » de l’espace de rédaction mènent à <https://socle.le-radar.ca/>, le site officiel, et non plus à la page github.io.
+
 - Tableau de bord : le second bouton « Voir le journal », sous les compteurs, à côté de « Créer un article », est retiré. Il faisait doublon avec celui de l’en-tête, qui reste.
 
 - Ordre des réseaux sociaux (Configuration et assistant) : Instagram, Facebook, TikTok, LinkedIn, Threads, X, puis Bluesky, Mastodon et YouTube (pas de chiffre comparable dans le Tableau 1 de NETendances 2026 pour ces trois-là ; YouTube y est mesuré à part, comme consommation vidéo), et le courriel en dernier. Source : Académie de la transformation numérique, Université Laval, NETendances 2026, « Réseaux sociaux et divertissement en ligne », Tableau 1, 18–24 ans (Instagram 73 %, Facebook 64 %, TikTok 53 %, LinkedIn 24 %, Threads 8 %, X 7 %) — https://transformation-numerique.ulaval.ca/wp-content/uploads/2026/09/netendances-2026-reseaux-sociaux-et-divertissement-en-ligne.pdf. Buy Me a Coffee reste propre à LE-RADAR et n’est pas ajouté au journal.

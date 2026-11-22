@@ -301,7 +301,7 @@ ${socleFavicons()}
 ${body}
 </div>
 </main>
-<p class="powered noprint">${copy.powered} <a href="https://azdak919.github.io/le-socle/">Le Socle</a> ${VERSION}</p>
+<p class="powered noprint">${copy.powered} <a href="https://socle.le-radar.ca/">Le Socle</a> ${VERSION}</p>
 </body>
 </html>`,
   };

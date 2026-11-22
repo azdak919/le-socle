@@ -61,7 +61,7 @@ test("pages Sauvegarde et Mise à jour : le journal s'il est configuré, sinon l
   const vigie = String(adminDocument("fr", "Sauvegarde", "<p>x</p>").body);
   assert.match(vigie, /<a class="brand" href="\/admin"><span><strong>La &lt;Vigie&gt;<\/strong><small>Espace de rédaction<\/small>/);
   assert.match(vigie, /<title>Sauvegarde — La &lt;Vigie&gt;<\/title>/);
-  assert.match(vigie, /Propulsé par <a href="https:\/\/azdak919\.github\.io\/le-socle\/">Le Socle<\/a>/);
+  assert.match(vigie, /Propulsé par <a href="https:\/\/socle\.le-radar\.ca\/">Le Socle<\/a>/);
   setAdminJournalName("");
 });
 
@@ -114,7 +114,7 @@ test("admin/serveur.html est à jour (npm run ui)", () => {
   assert.doesNotMatch(html, /pglite|sql-wasm|seedUrl/);
   assert.match(html, /data-state="socle"/);
   assert.match(html, /<strong>Le Socle<\/strong><small>Espace de rédaction<\/small>/);
-  assert.match(html, /Propulsé par <a href="https:\/\/azdak919\.github\.io\/le-socle\/">Le Socle<\/a> 1\.\d/);
+  assert.match(html, /Propulsé par <a href="https:\/\/socle\.le-radar\.ca\/">Le Socle<\/a> 1\.\d/);
   assert.ok(html.includes(`"version":"${SOCLE_VERSION}"`));
   assert.doesNotMatch(html, /admin-brand[\s\S]*Le Kiosque/);
   assert.doesNotMatch(html, /chaque enregistrement est écrit sur le serveur/);
@@ -543,6 +543,19 @@ test("mât illustré : plusieurs photos de la banque, ordre aléatoire, photos d
   const php = readFileSync(join(ROOT, "php/src/media.php"), "utf8");
   assert.match(php, /function socle_media_used_in_masthead/);
   assert.match(php, /foreach \(\(\$publication\['masthead'\]\['backgrounds'\]\['images'\] \?\? \[\]\) as \$image\)/);
+});
+
+test("Propulsé par Le Socle mène au site officiel, pas à github.io", () => {
+  const site = "https://socle.le-radar.ca/";
+  const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
+  const page = readFileSync(join(ROOT, "admin/page.js"), "utf8");
+  const server = readFileSync(join(ROOT, "admin/serveur.html"), "utf8");
+  const node = readFileSync(join(ROOT, "src/admin.ts"), "utf8");
+  const php = readFileSync(join(ROOT, "php/src/lib.php"), "utf8");
+  for (const [name, source] of [["admin.js", admin], ["page.js", page], ["serveur.html", server], ["admin.ts", node], ["lib.php", php]]) {
+    assert.ok(source.includes(site), `${name} pointe vers ${site}`);
+    assert.ok(!source.includes("azdak919.github.io/le-socle"), `${name} ne garde pas github.io`);
+  }
 });
 
 test("tableau de bord : un seul « Voir le journal », celui de l’en-tête", () => {
