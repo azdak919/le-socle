@@ -184,7 +184,7 @@ export async function handleAuth(
       const body = objectBody(rawBody);
       if (!body || Object.keys(body).sort().join(",") !== "nom,nomAffiche,prenom") throw new AuthError("demande refusée");
       const actor = await emailFromCookie(deps.store, deps.now, headers.cookie);
-      const profile = await updateProfile(deps.store, actor, body.prenom, body.nom, body.nomAffiche);
+      const profile = await updateProfile(deps.store, actor, body.prenom, body.nom, body.nomAffiche, deps.now());
       return { status: 200, body: JSON.stringify(profile), headers: JSON_TYPE };
     }
     if (path === "/v1/auth/profil/motdepasse" && method === "POST") {
