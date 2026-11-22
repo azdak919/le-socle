@@ -3,7 +3,7 @@
   "version": "1.4.2",
   "private": true,
   "type": "module",
-  "license": "GPL-2.0-only",
+  "license": "AGPL-3.0-or-later",
   "engines": {
     "node": ">=22.18"
   },

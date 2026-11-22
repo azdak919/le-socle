@@ -1,10 +1,10 @@
 # Code tiers
 
-Le socle est sous GPL-2.0-only. Le code repris ci-dessous l'est sous une licence compatible.
+Le socle est sous GNU AGPLv3 (`AGPL-3.0-or-later`). Le code repris ci-dessous l'est sous une licence compatible.
 
 | Code | Licence | Usage | Fichiers |
 |---|---|---|---|
-| Admin de rédaction de [LE KIOSQUE](https://github.com/azdak919/le-kiosque) | GPL-2.0-only, même auteur | Interface d'administration, déplacée ici pour se développer à un seul endroit | `admin/` |
+| Admin de rédaction de [LE KIOSQUE](https://github.com/azdak919/le-kiosque) | AGPL-3.0-or-later, même auteur | Interface d'administration, déplacée ici pour se développer à un seul endroit | `admin/` |
 | [marked](https://github.com/markedjs/marked) 18.2.0 © MarkedJS, Christopher Jeffrey | MIT | Aperçu Markdown dans l'éditeur | `admin/assets/marked.esm.js` (copie telle quelle, en-tête de licence gardé) |
 | [FilePond](https://github.com/pqina/filepond) 4.32.14 © Rik Schennink / PQINA, et greffons officiels [image-preview](https://github.com/pqina/filepond-plugin-image-preview) 4.6.12, [image-resize](https://github.com/pqina/filepond-plugin-image-resize) 2.0.10, [image-transform](https://github.com/pqina/filepond-plugin-image-transform) 3.8.8, [image-exif-orientation](https://github.com/pqina/filepond-plugin-image-exif-orientation) 1.0.11, [file-validate-type](https://github.com/pqina/filepond-plugin-file-validate-type) 1.2.9, [file-validate-size](https://github.com/pqina/filepond-plugin-file-validate-size) 2.2.8, locale française `fr-fr` | MIT | Téléversement par glisser-déposer dans l'espace de rédaction : plusieurs photos, aperçu, réduction et réencodage dans le navigateur | `admin/assets/filepond.esm.min.js`, `admin/assets/filepond.min.css`, `admin/assets/filepond-locale-fr-fr.js`, `admin/assets/filepond-plugin-*.js` / `.css`, `admin/assets/filepond-banque.js` (adaptateur maison vers `/v1/redaction/photo`) |
 | [Basecoat](https://github.com/hunvreus/basecoat) (`basecoat-css` 1.1.0) © hunvreus | MIT | Jetons et composants (bouton, badge, carte, alerte, kbd) | `admin/ui/vendor/basecoat-subset.css` (extrait généré), `admin/assets/admin.css` |

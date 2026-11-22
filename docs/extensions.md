@@ -239,7 +239,7 @@ Une extension coupée le reste jusqu’à ce que l’administrateur clique sur *
 
 ## Licences
 
-Le Socle est sous GPL version 2 seulement. Une extension chargée par le Socle doit avoir une licence compatible : `GPL-2.0-only`, `GPL-2.0-or-later`, `LGPL-2.1-only`, `LGPL-2.1-or-later`, `MIT`, `BSD-2-Clause`, `BSD-3-Clause`, `ISC`, `Zlib` ou `CC0-1.0`. Une licence absente de cette liste (par exemple `Apache-2.0`, incompatible avec la GPL version 2) rend l’extension invalide.
+Le Socle est sous GNU AGPLv3 (`AGPL-3.0-or-later`). La liste ci-dessous date de la GPL version 2 seulement et n’a pas encore été révisée : elle accepte des licences « -only » de la version 2, incompatibles avec l’AGPLv3, et refuse des licences compatibles comme `GPL-3.0-or-later`, `AGPL-3.0-or-later` ou `Apache-2.0`. Sa révision touche le contrat `api: 1` et fera l’objet d’un changement séparé. Une extension chargée par le Socle doit aujourd’hui avoir une de ces licences : `GPL-2.0-only`, `GPL-2.0-or-later`, `LGPL-2.1-only`, `LGPL-2.1-or-later`, `MIT`, `BSD-2-Clause`, `BSD-3-Clause`, `ISC`, `Zlib` ou `CC0-1.0`. Une licence absente de cette liste (par exemple `Apache-2.0`, incompatible avec la GPL version 2) rend l’extension invalide.
 
 ## Essai de contrat en intégration continue
 

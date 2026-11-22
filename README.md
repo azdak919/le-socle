@@ -9,14 +9,14 @@
 
 **Espace de rédaction des journaux étudiants.** C’est l’interface d’administration et son serveur : on y écrit les articles, on gère les photos, les rôles, les sauvegardes et les mises à jour.
 
-Le Socle n’est pas un service central. Chaque journal installe sa propre copie, chez lui, et reçoit les versions publiées à appliquer. Dans le cas le plus simple, le Socle arrive déjà dans le paquet complet du [Kiosque](https://azdak919.github.io/le-kiosque/), `kiosque-journal.zip`. Ce dépôt est le programme lui-même.
+Le Socle n’est pas un service central. Chaque journal installe sa propre copie, chez lui, et reçoit les versions publiées à appliquer. Dans le cas le plus simple, le Socle arrive déjà dans le paquet complet du [Kiosque](https://kiosque.le-radar.ca/), `kiosque-journal.zip`. Ce dépôt est le programme lui-même.
 
-[![Tableau de bord de l’espace de rédaction](site/assets/captures/tableau-de-bord.jpg)](https://azdak919.github.io/le-socle/)
+[![Tableau de bord de l’espace de rédaction](site/assets/captures/tableau-de-bord.jpg)](https://socle.le-radar.ca/)
 
 <p align="center"><em>Le tableau de bord, sur Le Quorum, journal de démonstration.</em></p>
 
-- **Page de présentation :** <https://azdak919.github.io/le-socle/>
-- **La plateforme dont il fait partie :** <https://azdak919.github.io/le-kiosque/>
+- **Page de présentation :** <https://socle.le-radar.ca/>
+- **La plateforme dont il fait partie :** <https://kiosque.le-radar.ca/>
 
 ---
 
@@ -51,7 +51,7 @@ Aux équipes qui utilisent le Kiosque, et à qui veut faire tourner l’espace d
 
 ## Comment l’obtenir
 
-**Chemin recommandé :** installer le [paquet complet du Kiosque](https://github.com/azdak919/le-kiosque/releases/latest/download/kiosque-journal.zip). L’assistant dans le navigateur installe le site public et l’espace de rédaction en même temps. Voir le [guide d’une page](https://azdak919.github.io/le-kiosque/guide/).
+**Chemin recommandé :** installer le [paquet complet du Kiosque](https://github.com/azdak919/le-kiosque/releases/latest/download/kiosque-journal.zip). L’assistant dans le navigateur installe le site public et l’espace de rédaction en même temps. Voir le [guide d’une page](https://kiosque.le-radar.ca/guide/).
 
 **Pour faire tourner le Socle seul** (PHP, ou Node pour essayer et tester), le guide court est [`docs/adoption.md`](docs/adoption.md). En PHP, le contrôleur est `php/public/index.php` et la base, `php/data/socle.sqlite`, reste hors de la racine Web. Il faut PHP 8.1 ou plus récent, avec SQLite.
 
@@ -71,6 +71,19 @@ Un journal peut ajouter ses propres outils par des **extensions** déposées dan
 
 ---
 
-## Licence et crédits
+## Licence et crédits / License
 
-Le logiciel est sous [GPL version 2 seulement](LICENSE). Les articles, les photos et les noms du journal appartiennent à l’équipe qui les publie. Les composants tiers sont listés dans [`THIRD_PARTY.md`](THIRD_PARTY.md). Le logo reprend l’emoji « brique » de [Twemoji](https://github.com/jdecked/twemoji) (© Twitter, Inc. et autres contributeurs), sous licence [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.fr).
+| Partie | Licence | Fichier |
+| --- | --- | --- |
+| Code source : serveurs Node et PHP, API `/v1`, admin de rédaction, outils | [GNU AGPLv3](https://www.gnu.org/licenses/agpl-3.0.html) (`AGPL-3.0-or-later`) | [`LICENSE`](LICENSE) |
+| Admin recopiée par le Kiosque dans le site d’un journal | Libre d’usage pour le journal, sans obligation de l’AGPLv3 | [`LICENSE-EXCEPTIONS.md`](LICENSE-EXCEPTIONS.md) |
+| Articles, photos et noms du journal | Propriété exclusive de l’équipe qui les publie et de leurs autrices et auteurs | — |
+
+- L’AGPLv3 couvre l’usage en réseau : quiconque fait tourner une version modifiée du serveur du Socle doit en offrir le code source à ses utilisateurs.
+- Le Socle n’a pas de kit-média ni de scripts d’intégration pour sites tiers.
+- Les composants tiers sont listés dans [`THIRD_PARTY.md`](THIRD_PARTY.md). Le logo reprend l’emoji « brique » de [Twemoji](https://github.com/jdecked/twemoji) (© Twitter, Inc. et autres contributeurs), sous licence [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.fr).
+- La liste des licences acceptées pour les extensions ([`docs/extensions.md`](docs/extensions.md#licences)) date de la GPL v2 et sera révisée à part.
+
+*English:* the source code is under the GNU AGPLv3 (`AGPL-3.0-or-later`). An additional permission frees the admin files that Le Kiosque copies into a newspaper’s site. Articles and photos belong to the newspaper and their authors.
+
+Projets liés : [LE-RADAR](https://github.com/azdak919/le-radar) (<https://le-radar.ca/>) et [LE KIOSQUE](https://github.com/azdak919/le-kiosque) (<https://kiosque.le-radar.ca/>), sous la même licence.
