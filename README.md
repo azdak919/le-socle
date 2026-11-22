@@ -73,6 +73,10 @@ Un journal peut ajouter ses propres outils par des **extensions** déposées dan
 
 ## Licence et crédits / License
 
+**Auteur du code** — Azdak (2026)
+
+**Contact du projet** — [azdak-qc@proton.me](mailto:azdak-qc@proton.me)
+
 | Partie | Licence | Fichier |
 | --- | --- | --- |
 | Code source : serveurs Node et PHP, API `/v1`, admin de rédaction, outils | [GNU AGPLv3](https://www.gnu.org/licenses/agpl-3.0.html) (`AGPL-3.0-or-later`) | [`LICENSE`](LICENSE) |
@@ -82,7 +86,7 @@ Un journal peut ajouter ses propres outils par des **extensions** déposées dan
 - L’AGPLv3 couvre l’usage en réseau : quiconque fait tourner une version modifiée du serveur du Socle doit en offrir le code source à ses utilisateurs.
 - Le Socle n’a pas de kit-média ni de scripts d’intégration pour sites tiers.
 - Les composants tiers sont listés dans [`THIRD_PARTY.md`](THIRD_PARTY.md). Le logo reprend l’emoji « brique » de [Twemoji](https://github.com/jdecked/twemoji) (© Twitter, Inc. et autres contributeurs), sous licence [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.fr).
-- La liste des licences acceptées pour les extensions ([`docs/extensions.md`](docs/extensions.md#licences)) date de la GPL v2 et sera révisée à part.
+- Les extensions doivent avoir une licence compatible avec l’AGPLv3 ([`docs/extensions.md`](docs/extensions.md#licences)).
 
 *English:* the source code is under the GNU AGPLv3 (`AGPL-3.0-or-later`). An additional permission frees the admin files that Le Kiosque copies into a newspaper’s site. Articles and photos belong to the newspaper and their authors.
 

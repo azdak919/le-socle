@@ -17,7 +17,12 @@ declare(strict_types=1);
 
 const SOCLE_EXT_API = 1;
 const SOCLE_EXT_ECHECS_MAX = 3;
-const SOCLE_EXT_LICENCES = ['GPL-2.0-only', 'GPL-2.0-or-later', 'LGPL-2.1-only', 'LGPL-2.1-or-later', 'MIT', 'BSD-2-Clause', 'BSD-3-Clause', 'ISC', 'Zlib', 'CC0-1.0'];
+// Licences compatibles avec l'AGPLv3 du Socle (identifiants SPDX).
+const SOCLE_EXT_LICENCES = ['AGPL-3.0-only', 'AGPL-3.0-or-later', 'GPL-3.0-only', 'GPL-3.0-or-later', 'GPL-2.0-or-later', 'LGPL-3.0-only', 'LGPL-3.0-or-later', 'LGPL-2.1-only', 'LGPL-2.1-or-later', 'Apache-2.0', 'MPL-2.0', 'MIT', 'BSD-2-Clause', 'BSD-3-Clause', 'ISC', 'Zlib', 'CC0-1.0'];
+// Contrat api: 1 : ces licences, acceptées quand le Socle était sous GPL version 2
+// seulement, restent chargées pendant la transition, avec un avertissement dans la
+// fiche. Elles sont incompatibles avec l'AGPLv3 et seront refusées par api: 2.
+const SOCLE_EXT_LICENCES_TRANSITION = ['GPL-2.0-only'];
 const SOCLE_EXT_ID = '/^[a-z][a-z0-9-]{1,39}$/';
 const SOCLE_EXT_SECRET = '/^[A-Z][A-Z0-9_]{1,63}$/';
 const SOCLE_EXT_CHEMIN = '#^[a-z0-9][a-z0-9/-]{0,79}$|^$#';
@@ -124,7 +129,7 @@ function socle_ext_manifeste(string $dir): array {
     if (!is_int($api)) throw new SocleExtensionErreur('champ « api » manquant (nombre entier)');
     $m['api'] = $api;
     $m['licence'] = $text('licence', 40);
-    if (!in_array($m['licence'], SOCLE_EXT_LICENCES, true)) throw new SocleExtensionErreur('licence « ' . $m['licence'] . ' » non compatible avec la GPL version 2 seulement');
+    if (!in_array($m['licence'], SOCLE_EXT_LICENCES, true) && !in_array($m['licence'], SOCLE_EXT_LICENCES_TRANSITION, true)) throw new SocleExtensionErreur('licence « ' . $m['licence'] . ' » non compatible avec l’AGPLv3 du Socle');
     $entree = $raw['point_entree'] ?? 'extension.php';
     if (!is_string($entree) || preg_match('#^[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*\.php$#', $entree) !== 1) throw new SocleExtensionErreur('point d’entrée invalide');
     $m['point_entree'] = $entree;
@@ -1005,7 +1010,7 @@ function socle_ext_fiche_html(array $item, ?SocleExtension $ext): string {
         $html .= '<dl class="fiche">';
         $html .= '<dt>Dossier</dt><dd><code>extensions/' . socle_escape($id) . '</code></dd>';
         $html .= '<dt>Demande</dt><dd>Le Socle ' . socle_escape($m['socle']) . '</dd>';
-        $html .= '<dt>Licence</dt><dd>' . socle_escape($m['licence']) . '</dd>';
+        $html .= '<dt>Licence</dt><dd>' . socle_escape($m['licence']) . (in_array($m['licence'], SOCLE_EXT_LICENCES_TRANSITION, true) ? ' <span class="pastille pastille-attention">incompatible avec l’AGPLv3 : acceptée pendant la transition, refusée par le contrat 2</span>' : '') . '</dd>';
         if ($m['auteur'] !== '') $html .= '<dt>Auteur</dt><dd>' . socle_escape($m['auteur']) . '</dd>';
         if ($item['secrets'] !== []) {
             $secrets = [];

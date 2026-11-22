@@ -1,1 +1,1 @@
-{ "id": "incompatible", "nom": "Trop récente", "version": "1.0.0", "socle": ">=99.0.0", "api": 1, "licence": "GPL-2.0-only", "secrets": [] }
+{ "id": "incompatible", "nom": "Trop récente", "version": "1.0.0", "socle": ">=99.0.0", "api": 1, "licence": "AGPL-3.0-or-later", "secrets": [] }
