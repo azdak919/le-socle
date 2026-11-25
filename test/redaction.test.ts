@@ -132,3 +132,25 @@ test("le serveur Node : local, mandataire et pages construites", async () => {
     await store.close();
   }
 });
+
+test("un article publié sans auteur reçoit la signature du compte connecté", async () => {
+  const store = openSqliteMemory();
+  const cfg = config({ editorial: true, media: true, auth: true });
+  await store.migrate(["auth", "editorial", "media"]);
+  await store.put("auth", "member:resp@gazette.exemple", "administrateur");
+  await store.put("auth", "profil:resp@gazette.exemple", JSON.stringify({ prenom: "Kim", nom: "Bouchard", nomAffiche: "" }));
+  const admin = direct(store, cfg, "resp@gazette.exemple", false);
+  assert.equal((await admin("POST", "/v1/redaction/publication", { publication: PUBLICATION })).status, 200);
+  assert.equal((await admin("POST", "/v1/redaction/entite", { kind: "section", entity: { id: "s1", name: "Campus", slug: "campus" } })).status, 200);
+  const published = {
+    id: "p1", slug: "premier", title: "Premier article",
+    body: { format: "markdown", raw: "Bonjour." }, authors: [], status: "published",
+    section: "campus", publishedAt: NOW,
+  };
+  const saved = await admin("POST", "/v1/redaction/article", { article: published });
+  assert.equal(saved.status, 200, JSON.stringify(saved.json));
+  assert.deepEqual(saved.json.article.authors, ["kim-bouchard"]);
+  const etat = await admin("GET", "/v1/redaction/etat");
+  assert.ok(etat.json.authors.some((auteur: { slug: string; name: string }) => auteur.slug === "kim-bouchard" && auteur.name === "Kim Bouchard"));
+  await store.close();
+});

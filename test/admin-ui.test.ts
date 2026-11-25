@@ -245,7 +245,7 @@ test("la démo en mode navigateur tourne sur sql.js copié tel quel, sans PGlite
 
 test("assistant d'installation : le journal et le compte administrateur en un formulaire", () => {
   const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
-  for (const field of ["nom", "etablissement", "organisme", "contact", "sections", "couleur", "logo", "radio", "station", "noindex", "fictif", "email", "password"]) {
+  for (const field of ["nom", "etablissement", "organisme", "contact", "sections", "couleur", "logo", "radio", "station", "noindex", "fictif", "prenom", "nomfamille", "email", "password", "code"]) {
     assert.match(admin, new RegExp(`name="${field}"`), `champ ${field} de l'assistant`);
   }
   // La fiche passe par la même porte que le fichier du configurateur.
@@ -255,16 +255,21 @@ test("assistant d'installation : le journal et le compte administrateur en un fo
 
 test("assistant : exemples en placeholder, jamais de valeur préremplie, champs obligatoires signalés", () => {
   const admin = readFileSync(join(ASSETS, "admin.js"), "utf8");
-  const form = admin.slice(admin.indexOf("function assistantForm()"), admin.indexOf("function bindAssistant()"));
+  const form = admin.slice(admin.indexOf("function assistantForm("), admin.indexOf("function bindAssistant()"));
   const inputs = form.match(/<input [^>]*>/g) || [];
   for (const input of inputs) {
     if (/type="(checkbox|file|color)"/.test(input)) continue;
     assert.match(input, /placeholder="[^"]+"/, `exemple pâle pour ${input}`);
     assert.doesNotMatch(input, /\svalue=/, `aucune valeur préremplie pour ${input}`);
   }
-  for (const example of ["Le Quorum", "Cégep de Saint-Louis-du-Ha! Ha!", "redaction@exemple.ca"]) assert.ok(form.includes(`placeholder="${example}"`), example);
-  assert.ok(form.includes('placeholder="Association étudiante du Cégep de Saint-Louis-du-Ha! Ha!"'));
-  assert.ok(form.includes('placeholder="Le journal étudiant du Cégep de Saint-Louis-du-Ha! Ha!"'));
+  for (const example of ["Le Sillage", "Cégep du Val-des-Brumes", "redaction@exemple.ca"]) assert.ok(form.includes(`placeholder="${example}"`), example);
+  assert.ok(form.includes('placeholder="Association étudiante du Cégep du Val-des-Brumes"'));
+  assert.ok(form.includes('placeholder="Le journal étudiant du Cégep du Val-des-Brumes"'));
+  assert.ok(form.includes("Code d’installation (obligatoire)"));
+  assert.ok(form.includes('placeholder="ABCD-EFGH"'));
+  assert.match(form, /name="prenom"/);
+  assert.match(form, /name="nomfamille"/);
+  assert.ok(form.includes("donnees/code-installation.txt"));
   assert.match(form, /fileChooser\(/);
   assert.doesNotMatch(form, /<input name="logo" type="file"/);
   assert.match(admin, /button: 'Choisir un fichier'/);

@@ -48,15 +48,31 @@ function socle_any_member(SocleStore $store): bool {
     return false;
 }
 
-function socle_password_install(SocleStore $store, DateTimeImmutable $now, mixed $email, mixed $password): string {
+function socle_password_install(SocleStore $store, DateTimeImmutable $now, mixed $email, mixed $password, mixed $code = null, mixed $prenom = null, mixed $nom = null): string {
     socle_require_mode(socle_auth_runtime(), 'motdepasse');
     $clean = socle_normalize_email($email);
     if ($clean === null) throw new SocleHttp('demande refusée');
     $secret = socle_check_password($password);
     if (socle_any_member($store)) throw new SocleHttp('déjà installé', 409);
+    socle_verifier_code_installation($store, $code);
     $store->put('auth', 'member:' . $clean, 'administrateur');
     $store->put('auth', 'password:' . $clean, socle_hash_password($secret));
-    return socle_create_session($store, $clean, $now);
+    $givenPrenom = is_string($prenom) ? trim(preg_replace('/\s+/', ' ', $prenom) ?? '') : '';
+    $givenNom = is_string($nom) ? trim(preg_replace('/\s+/', ' ', $nom) ?? '') : '';
+    if (mb_strlen($givenPrenom) > 120) throw new SocleHttp('prénom trop long');
+    if (mb_strlen($givenNom) > 120) throw new SocleHttp('nom trop long');
+    if ($givenPrenom !== '' || $givenNom !== '') {
+        $store->put('auth', 'profil:' . $clean, socle_json(['prenom' => $givenPrenom, 'nom' => $givenNom, 'nomAffiche' => '']));
+    }
+    $session = socle_create_session($store, $clean, $now);
+    socle_retirer_code_installation($store);
+    return $session;
+}
+
+function socle_installation_keys_ok(array $body): bool {
+    $keys = array_keys($body);
+    if (!in_array('email', $keys, true) || !in_array('password', $keys, true) || !in_array('code', $keys, true)) return false;
+    return array_diff($keys, ['email', 'password', 'code', 'prenom', 'nom']) === [];
 }
 
 function socle_password_login(SocleStore $store, DateTimeImmutable $now, mixed $email, mixed $password): string {
@@ -863,22 +879,38 @@ function socle_handle_auth(string $method, string $url, array $config, SocleStor
         $jsonType = ['content-type' => 'application/json; charset=utf-8', 'cache-control' => 'no-store'];
         if ($path === '/v1/auth/etat' && $method === 'GET') {
             $actor = socle_email_from_cookie($store, $now, $cookie);
+            $installed = socle_any_member($store);
+            $mode = socle_auth_runtime()['mode'];
+            if (!$installed && $mode === 'motdepasse') socle_assurer_code_installation($store);
             return socle_result(200, socle_json([
-                'mode' => socle_auth_runtime()['mode'],
-                'installed' => socle_any_member($store),
+                'mode' => $mode,
+                'installed' => $installed,
                 'email' => $actor,
                 'role' => $actor !== null ? socle_role_of($store, $actor) : null,
                 'journal' => socle_journal_name($store, $config),
                 'courriel' => $smtp !== null,
+                'codeRequis' => !$installed && $mode === 'motdepasse',
+                'avisDonnees' => socle_avis_donnees_exposees(),
             ]), $jsonType);
         }
         if (($path === '/v1/auth/installation' || $path === '/v1/auth/motdepasse') && $method === 'POST') {
             if (!str_starts_with((string) ($_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? ''), 'application/json')) throw new SocleHttp('demande refusée');
             $body = socle_object_body($raw);
+            if ($path === '/v1/auth/installation') {
+                if ($body === null || !socle_installation_keys_ok($body)) throw new SocleHttp('demande refusée');
+                $session = socle_password_install($store, $now, $body['email'], $body['password'], $body['code'] ?? null, $body['prenom'] ?? null, $body['nom'] ?? null);
+                if (!empty($config['modules']['editorial'])) {
+                    $email = socle_normalize_email($body['email']);
+                    if ($email !== null) {
+                        $names = socle_parse_stored_profile($store->get('auth', 'profil:' . $email));
+                        $nom = socle_nom_pour_affichage($names);
+                        socle_assurer_auteur_du_compte($store, $email, $nom !== '' ? $nom : 'La rédaction', $now);
+                    }
+                }
+                return socle_result(204, '', ['set-cookie' => socle_session_cookie($session)]);
+            }
             if ($body === null || socle_keys($body) !== 'email,password') throw new SocleHttp('demande refusée');
-            $session = $path === '/v1/auth/installation'
-                ? socle_password_install($store, $now, $body['email'], $body['password'])
-                : socle_password_login($store, $now, $body['email'], $body['password']);
+            $session = socle_password_login($store, $now, $body['email'], $body['password']);
             return socle_result(204, '', ['set-cookie' => socle_session_cookie($session)]);
         }
         if ($path === '/v1/auth/deconnexion' && $method === 'POST') {

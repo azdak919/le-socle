@@ -1,1 +1,1 @@
-{ "id": "github", "nom": "Pilote GitHub", "version": "1.0.0", "socle": ">=1.5.0", "api": 1, "licence": "GPL-2.0-only", "secrets": ["SOCLE_GITHUB_JETON"] }
+{ "id": "github", "nom": "Pilote GitHub", "version": "1.0.0", "socle": ">=1.5.0", "api": 1, "licence": "AGPL-3.0-or-later", "secrets": ["SOCLE_GITHUB_JETON"] }

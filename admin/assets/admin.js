@@ -211,18 +211,103 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
 });
 
 
-async function authCall(method, path, body) {
-  const response = await fetch(`${socleRoot()}/v1/auth/${path}`, {
-    method, credentials: 'same-origin',
-    headers: body === undefined ? { accept: 'application/json' } : { accept: 'application/json', 'content-type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const text = await response.text();
-  if (!response.ok) {
-    const messages = { 'accès refusé': 'Courriel ou mot de passe incorrect.', "trop d'essais": 'Trop d’essais : attendez 15 minutes.', 'mot de passe trop court': 'Le mot de passe doit avoir au moins 10 caractères.', 'mot de passe inchangé': 'Choisissez un mot de passe différent de l’actuel.', 'déjà installé': 'Ce journal a déjà un administrateur : connectez-vous.', 'réservé à l’administrateur': 'Réservé à l’administrateur du journal.', 'réservé au responsable': 'Réservé à l’administrateur du journal.', 'rôle inconnu': 'Rôle inconnu.', 'demande refusée': 'Demande refusée : vérifiez le courriel (par exemple vous@exemple.ca).', 'lien inconnu': 'Ce lien n’est plus valable. Demandez-en un nouveau.', 'lien expiré': 'Ce lien a expiré. Demandez-en un nouveau.', 'smtp absent': 'L’envoi de courriel n’est pas réglé. Demandez à l’administrateur.', 'courriel déjà utilisé': 'Cette adresse est déjà utilisée par un autre compte.', 'courriel inchangé': 'C’est déjà votre courriel.', 'nom trop long': 'Le nom est trop long (120 caractères au plus).', 'nom d’affichage trop long': 'Le nom d’affichage est trop long (120 caractères au plus).', 'demande absente': 'Aucune demande de confirmation n’est en cours.', 'réglages incomplets': 'Indiquez l’hôte, l’expéditeur, l’identifiant et le mot de passe.', 'smtp muet': 'Impossible de joindre le serveur d’envoi. Vérifiez l’hôte et le port.', 'smtp refusé': 'Le serveur d’envoi a refusé la connexion. Vérifiez l’identifiant, le mot de passe et le chiffrement (465 SSL ou 587 STARTTLS).', 'envoi échoué': 'L’envoi a échoué. Vérifiez les réglages.' };
-    throw new Error(messages[text] || text || `Le serveur du journal a refusé la demande (code ${response.status}). Réessayez ; si cela continue, prévenez l’administrateur.`);
+const AUTH_ERROR_MESSAGES = { 'accès refusé': 'Courriel ou mot de passe incorrect.', "trop d'essais": 'Trop d’essais : attendez 15 minutes.', 'mot de passe trop court': 'Le mot de passe doit avoir au moins 10 caractères.', 'mot de passe inchangé': 'Choisissez un mot de passe différent de l’actuel.', 'déjà installé': 'Ce journal a déjà un administrateur : connectez-vous.', 'réservé à l’administrateur': 'Réservé à l’administrateur du journal.', 'réservé au responsable': 'Réservé à l’administrateur du journal.', 'rôle inconnu': 'Rôle inconnu.', 'demande refusée': 'Demande refusée : vérifiez le courriel (par exemple vous@exemple.ca).', 'lien inconnu': 'Ce lien n’est plus valable. Demandez-en un nouveau.', 'lien expiré': 'Ce lien a expiré. Demandez-en un nouveau.', 'smtp absent': 'L’envoi de courriel n’est pas réglé. Demandez à l’administrateur.', 'courriel déjà utilisé': 'Cette adresse est déjà utilisée par un autre compte.', 'courriel inchangé': 'C’est déjà votre courriel.', 'nom trop long': 'Le nom est trop long (120 caractères au plus).', 'nom d’affichage trop long': 'Le nom d’affichage est trop long (120 caractères au plus).', 'demande absente': 'Aucune demande de confirmation n’est en cours.', 'réglages incomplets': 'Indiquez l’hôte, l’expéditeur, l’identifiant et le mot de passe.', 'smtp muet': 'Impossible de joindre le serveur d’envoi. Vérifiez l’hôte et le port.', 'smtp refusé': 'Le serveur d’envoi a refusé la connexion. Vérifiez l’identifiant, le mot de passe et le chiffrement (465 SSL ou 587 STARTTLS).', 'envoi échoué': 'L’envoi a échoué. Vérifiez les réglages.' };
+const MESSAGE_REPONSE_ILLISIBLE = 'Le serveur du journal n’a pas renvoyé une réponse lisible. Réessayez ; si cela continue, prévenez l’administrateur.';
+const MESSAGE_DEMO_COURRIEL = 'Le courriel a été mis à jour uniquement dans votre navigateur.';
+const MESSAGE_DEMO_COURRIEL_ACTION = 'Dans cette démonstration, aucun courriel de confirmation n’est envoyé : il n’y a pas de serveur d’envoi. Les données restent dans votre navigateur.';
+const MESSAGE_DEMO_PROFIL = 'Dans cette démonstration, le profil est enregistré uniquement dans votre navigateur.';
+const MESSAGE_DEMO_MOTDEPASSE = 'Dans cette démonstration, le mot de passe n’est pas modifié sur un serveur. Les données restent dans votre navigateur.';
+const DEMO_PROFIL_KEY = 'socle-demo-profil';
+const DEMO_COURRIEL = 'redaction@exemple.ca';
+
+function libelleAdresseActuelle(email) {
+  const clean = typeof email === 'string' ? email.trim() : '';
+  return clean ? `Adresse actuelle : ${clean}` : 'Adresse actuelle : aucune';
+}
+
+function paintAdresseActuelle(email) {
+  const emailLine = document.getElementById('profile-email');
+  if (emailLine) emailLine.textContent = libelleAdresseActuelle(email);
+}
+
+/** Réponse d’un hébergement statique (page d’accueil, 404 ou 405 en HTML) ou tout corps qui n’est pas un code d’erreur court. */
+function reponseAuthIllisible(text, contentType) {
+  const trimmed = String(text ?? '').trim();
+  const type = String(contentType ?? '').toLowerCase();
+  if (type.includes('text/html') || type.includes('application/xhtml')) return true;
+  if (/<[!]?(?:doctype|html|head|body|meta|title|div|p)\b/i.test(trimmed) || /^\s*</.test(trimmed)) return true;
+  if (trimmed.includes('\n') || trimmed.includes('\r') || trimmed.length > 120) return true;
+  return false;
+}
+
+function codeErreurAuth(text) {
+  const trimmed = String(text ?? '').trim();
+  if (Object.hasOwn(AUTH_ERROR_MESSAGES, trimmed)) return trimmed;
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      const data = JSON.parse(trimmed);
+      const code = typeof data?.error === 'string' ? data.error.trim()
+        : typeof data?.message === 'string' ? data.message.trim() : '';
+      if (Object.hasOwn(AUTH_ERROR_MESSAGES, code)) return code;
+    } catch { /* corps JSON illisible : traité plus bas */ }
   }
-  return text ? JSON.parse(text) : null;
+  return '';
+}
+
+function messageErreurAuth(text, status, contentType) {
+  const code = codeErreurAuth(text);
+  if (code) return AUTH_ERROR_MESSAGES[code];
+  const trimmed = String(text ?? '').trim();
+  if (!trimmed) return `Le serveur du journal a refusé la demande (code ${status}). Réessayez ; si cela continue, prévenez l’administrateur.`;
+  if (reponseAuthIllisible(trimmed, contentType)) return MESSAGE_REPONSE_ILLISIBLE;
+  return MESSAGE_REPONSE_ILLISIBLE;
+}
+
+function readDemoProfile() {
+  const empty = { prenom: '', nom: '', nomAffiche: '', email: DEMO_COURRIEL, courrielEtat: 'non-confirmee', courrielEnAttente: null };
+  try {
+    const raw = localStorage.getItem(DEMO_PROFIL_KEY);
+    if (!raw) return empty;
+    const parsed = JSON.parse(raw);
+    const email = typeof parsed.email === 'string' ? parsed.email.trim() : '';
+    return {
+      prenom: typeof parsed.prenom === 'string' ? parsed.prenom : '',
+      nom: typeof parsed.nom === 'string' ? parsed.nom : '',
+      nomAffiche: typeof parsed.nomAffiche === 'string' ? parsed.nomAffiche : '',
+      email: email || DEMO_COURRIEL,
+      courrielEtat: parsed.courrielEtat === 'confirmee' || parsed.courrielEtat === 'en-attente' ? parsed.courrielEtat : 'non-confirmee',
+      courrielEnAttente: typeof parsed.courrielEnAttente === 'string' ? parsed.courrielEnAttente : null,
+    };
+  } catch {
+    return empty;
+  }
+}
+
+function writeDemoProfile(profile) {
+  localStorage.setItem(DEMO_PROFIL_KEY, JSON.stringify(profile));
+  return profile;
+}
+
+async function authCall(method, path, body) {
+  let response;
+  try {
+    response = await fetch(`${socleRoot()}/v1/auth/${path}`, {
+      method, credentials: 'same-origin',
+      headers: body === undefined ? { accept: 'application/json' } : { accept: 'application/json', 'content-type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    throw new Error('Le serveur du journal ne répond pas. Réessayez dans un instant.');
+  }
+  const text = await response.text();
+  const type = response.headers.get('content-type');
+  if (!response.ok) throw new Error(messageErreurAuth(text, response.status, type));
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(messageErreurAuth(text, response.status, type));
+  }
 }
 
 /**
@@ -318,15 +403,15 @@ function flagInvalidFields(form) {
  */
 /* Ordre aligné sur le Kiosque et NETendances 2026, Tableau 1, 18–24 ans : Instagram, Facebook, TikTok, LinkedIn, Threads, X, puis Bluesky, Mastodon, YouTube (sans chiffre comparable), courriel en dernier. Buy Me a Coffee n’est pas un champ du journal. */
 const SOCIAL_FIELDS = [
-  ['instagram', 'Instagram', 'https://www.instagram.com/lavigie', String.raw`https?://(www\.)?instagram\.com/\S+`],
-  ['facebook', 'Facebook', 'https://www.facebook.com/lavigie', String.raw`https?://(www\.|m\.|web\.)?(facebook|fb)\.com/\S+`],
-  ['tiktok', 'TikTok', 'https://www.tiktok.com/@lavigie', String.raw`https?://(www\.)?tiktok\.com/@\S+`],
-  ['linkedin', 'LinkedIn', 'https://www.linkedin.com/company/lavigie', String.raw`https?://([a-z]{2,3}\.)?linkedin\.com/(company|in|school|showcase)/\S+`],
-  ['threads', 'Threads', 'https://www.threads.net/@lavigie', String.raw`https?://(www\.)?threads\.(net|com)/@\S+`],
-  ['x', 'X', 'https://x.com/lavigie', String.raw`https?://(www\.)?(x|twitter)\.com/\S+`],
-  ['bluesky', 'Bluesky', 'https://bsky.app/profile/lavigie.bsky.social', String.raw`https?://bsky\.app/profile/\S+`],
-  ['mastodon', 'Mastodon', 'https://piaille.fr/@lavigie', String.raw`https?://\S+\.\S+/@\S+`],
-  ['youtube', 'YouTube', 'https://www.youtube.com/@lavigie', String.raw`https?://(www\.|m\.)?youtube\.com/\S+`],
+  ['instagram', 'Instagram', 'https://www.instagram.com/lesillage', String.raw`https?://(www\.)?instagram\.com/\S+`],
+  ['facebook', 'Facebook', 'https://www.facebook.com/lesillage', String.raw`https?://(www\.|m\.|web\.)?(facebook|fb)\.com/\S+`],
+  ['tiktok', 'TikTok', 'https://www.tiktok.com/@lesillage', String.raw`https?://(www\.)?tiktok\.com/@\S+`],
+  ['linkedin', 'LinkedIn', 'https://www.linkedin.com/company/lesillage', String.raw`https?://([a-z]{2,3}\.)?linkedin\.com/(company|in|school|showcase)/\S+`],
+  ['threads', 'Threads', 'https://www.threads.net/@lesillage', String.raw`https?://(www\.)?threads\.(net|com)/@\S+`],
+  ['x', 'X', 'https://x.com/lesillage', String.raw`https?://(www\.)?(x|twitter)\.com/\S+`],
+  ['bluesky', 'Bluesky', 'https://bsky.app/profile/lesillage.bsky.social', String.raw`https?://bsky\.app/profile/\S+`],
+  ['mastodon', 'Mastodon', 'https://piaille.fr/@lesillage', String.raw`https?://\S+\.\S+/@\S+`],
+  ['youtube', 'YouTube', 'https://www.youtube.com/@lesillage', String.raw`https?://(www\.|m\.)?youtube\.com/\S+`],
   ['email', 'Courriel', 'redaction@exemple.ca', ''],
 ];
 
@@ -398,18 +483,22 @@ function bindFileChoosers(root) {
   });
 }
 
-function assistantForm() {
+function assistantForm(state = {}) {
+  const avis = state.avisDonnees
+    ? `<p class="notice" role="status">${esc(state.avisDonnees)}</p>`
+    : '';
   return `<section class="panel assistant" style="max-width:40rem"><h2>Installer le journal</h2>
 <p>Ce journal est neuf. Remplissez ce formulaire une fois : le site et la rédaction seront prêts. Tout se change ensuite dans « Configuration ».</p>
+${avis}
 <form id="login-form" class="grid" novalidate>
 <fieldset class="field full"><legend>Le journal</legend>
 <p class="muted">Les exemples en gris pâle disparaissent quand vous écrivez ; un champ laissé vide n’enregistre rien. Les champs marqués « obligatoire » doivent être remplis.</p>
-<label>Nom du journal (obligatoire)<input name="nom" required maxlength="80" placeholder="Le Quorum"></label>
-<label>Établissement (facultatif)<input name="etablissement" maxlength="120" placeholder="Cégep de Saint-Louis-du-Ha! Ha!"></label>
+<label>Nom du journal (obligatoire)<input name="nom" required maxlength="80" placeholder="Le Sillage"></label>
+<label>Établissement (facultatif)<input name="etablissement" maxlength="120" placeholder="Cégep du Val-des-Brumes"></label>
 <label>Année de fondation (facultatif)<input name="fondation" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" data-erreur="Écrivez l’année en quatre chiffres, par exemple 1971." placeholder="1971"></label>
-<label>Organisme responsable du journal (facultatif)<input name="organisme" maxlength="120" placeholder="Association étudiante du Cégep de Saint-Louis-du-Ha! Ha!"></label>
+<label>Organisme responsable du journal (facultatif)<input name="organisme" maxlength="120" placeholder="Association étudiante du Cégep du Val-des-Brumes"></label>
 <label>Courriel de la rédaction, affiché sur le site (facultatif)<input name="contact" type="email" placeholder="redaction@exemple.ca"></label>
-<label>Signature (facultatif)<input name="signature" maxlength="120" placeholder="Le journal étudiant du Cégep de Saint-Louis-du-Ha! Ha!"></label>
+<label>Signature (facultatif)<input name="signature" maxlength="120" placeholder="Le journal étudiant du Cégep du Val-des-Brumes"></label>
 <label>Sections, séparées par des virgules (obligatoire)<input name="sections" required placeholder="Campus, Culture, Sports"></label>
 <label>Droits sur les articles<select name="licence"><option value="">Tous droits réservés (par défaut)</option><option value="CC BY-NC-ND 4.0">Creative Commons BY-NC-ND 4.0 : partage permis, sans modification ni usage commercial</option></select></label>
 <small>Affiché au bas de chaque page : « © 2026 Nom du journal. Tous droits réservés. » Avec l’année de fondation : « © 1971–2026 ». L’année courante se met à jour toute seule.</small>
@@ -430,9 +519,13 @@ ${socialFieldsHtml()}
 <label><input name="fictif" type="checkbox"> Afficher le bandeau « Journal étudiant fictif » (essai ou démonstration)</label>
 </fieldset>
 <fieldset class="field full"><legend>Compte administrateur</legend>
-<p class="muted">Ce compte ajoute ensuite l’équipe (auteurs, photographes, réviseurs…). Son courriel n’est pas affiché sur le site. Notez le mot de passe en lieu sûr.</p>
+<p class="muted">Ce compte ajoute ensuite l’équipe (photographes, réviseurs…). Votre nom devient aussi votre signature d’auteur, pour que vous puissiez publier tout de suite. Son courriel n’est pas affiché sur le site. Notez le mot de passe en lieu sûr.</p>
+<label>Prénom (obligatoire)<input name="prenom" required maxlength="120" autocomplete="given-name" placeholder="Camille"></label>
+<label>Nom (obligatoire)<input name="nomfamille" required maxlength="120" autocomplete="family-name" placeholder="Tremblay"></label>
 <label>Courriel (obligatoire)<input name="email" type="email" autocomplete="username" required placeholder="vous@exemple.ca"></label>
 <label>Mot de passe (obligatoire, 10 caractères ou plus)<input name="password" type="password" autocomplete="new-password" minlength="10" required placeholder="10 caractères ou plus"></label>
+<label>Code d’installation (obligatoire)<input name="code" required autocomplete="one-time-code" spellcheck="false" placeholder="ABCD-EFGH"></label>
+<small>Ce code se trouve dans le fichier donnees/code-installation.txt, sur le serveur. Le terminal l’affiche aussi au démarrage.</small>
 </fieldset>
 <div class="actions full"><button class="primary">Installer le journal</button></div>
 <p id="login-error" class="notice" role="alert" hidden></p></form></section>`;
@@ -492,7 +585,13 @@ function bindAssistant() {
       if (fiche.options.radio && !fiche.options.station) throw new Error('Choisissez une station, ou décochez la radio.');
       button.disabled = true;
       button.textContent = 'Installation…';
-      await authCall('POST', 'installation', { email: String(data.get('email')).trim(), password: data.get('password') });
+      await authCall('POST', 'installation', {
+        email: String(data.get('email')).trim(),
+        password: data.get('password'),
+        code: String(data.get('code') || '').trim(),
+        prenom: String(data.get('prenom') || '').trim(),
+        nom: String(data.get('nomfamille') || '').trim(),
+      });
       sessionStorage.setItem(ASSISTANT_KEY, JSON.stringify(fiche));
       location.reload();
     } catch (failure) {
@@ -511,7 +610,7 @@ async function finishAssistant() {
   sessionStorage.removeItem(ASSISTANT_KEY);
   try {
     await applyKiosqueConfig(JSON.parse(raw));
-    notify('Le journal est installé. Écrivez le premier article, puis ajoutez l’équipe dans « Équipe ».', 8000);
+    notify('Le journal est installé. Votre nom figure déjà parmi les auteurs : vous pouvez écrire et publier le premier article. Ajoutez le reste de l’équipe dans « Équipe ».', 8000);
     return true;
   } catch (error) {
     notify(`Le compte est créé, mais la fiche du journal n’a pas pu être enregistrée : ${error.message} Remplissez « Configuration ».`, 10000);
@@ -587,7 +686,7 @@ async function loginScreen() {
   if (mode === 'motdepasse') {
     const first = !state.installed;
     if (first) {
-      main.innerHTML = assistantForm();
+      main.innerHTML = assistantForm(state);
       bindAssistant();
       bindThemeToggles();
       applyTheme();
@@ -1747,7 +1846,7 @@ function sportsTeamFields(team = {}) {
       <option value="M"${sex === 'M' ? ' selected' : ''}>Masculin</option>
       <option value="mixte"${sex === 'mixte' ? ' selected' : ''}>Mixte</option>
     </select></label>
-    <label>Établissement<input data-team-institution placeholder="Cégep de Saint-Louis-du-Ha! Ha!" value="${esc(team.institution || '')}"></label>
+    <label>Établissement<input data-team-institution placeholder="Cégep du Val-des-Brumes" value="${esc(team.institution || '')}"></label>
     <label>Lien officiel des résultats, facultatif<input data-team-official type="url" placeholder="https://rseq.ca/" value="${esc(official)}"></label>
     <small>Adresse http ou https. Le lien paraît sur la page « Au tableau ».</small>
     <label>Résultats, un par ligne<textarea data-team-results rows="3" placeholder="2026-11-12, Carabins, 4-2, domicile">${esc(results)}</textarea></label>
@@ -1832,15 +1931,15 @@ function settings() {
   const missing = missingSettings(publication);
   return `<section class="panel"><div class="toolbar"><p>Le nom, l’apparence et les renseignements du journal.</p>${importButton()}</div>${missing.length ? `<p class="notice" role="status">À remplir avant de publier : ${esc(missing.join(', '))}.</p>` : ''}<form id="settings-form" class="grid" novalidate>
     <p class="media-quality full">Les exemples en gris pâle disparaissent quand vous écrivez ; ils ne sont jamais enregistrés.</p>
-    <div class="field"><label>Nom (obligatoire)<input name="name" required placeholder="Le Quorum" value="${esc(publication.name)}"></label></div>
+    <div class="field"><label>Nom (obligatoire)<input name="name" required placeholder="Le Sillage" value="${esc(publication.name)}"></label></div>
     <fieldset class="field full"><legend>Adresse, organisme et contacts</legend>
       <label>Adresse du site public<input name="siteUrl" type="url" placeholder="https://votre-journal.com/" value="${esc(publication.siteUrl || detectedSiteUrl())}"></label><small>${(() => { const detected = detectedSiteUrl(); const current = String(publication.siteUrl || '').replace(/\/+$/, ''); return !onSocle() || !current || current === detected.replace(/\/+$/, '') ? `Détectée automatiquement : ${esc(detected)}` : `L’adresse enregistrée ne correspond plus à l’emplacement actuel du site (${esc(detected)}). Enregistrez pour la mettre à jour, ou corrigez-la.`; })()}</small>
       <label>Nom court du journal, utilisé dans les adresses (obligatoire)<input name="slug" required placeholder="la-vigie" pattern="[a-z0-9]+(-[a-z0-9]+)*" value="${esc(publication.slug === 'mon-journal' ? slugify(publication.name || '') : publication.slug || '')}"></label><small>Lettres minuscules, chiffres et tirets, par exemple la-boussole.</small>
-      <label>Organisme ou personne responsable<input name="owner" placeholder="Association étudiante du Cégep de Saint-Louis-du-Ha! Ha!" value="${esc(governance.owner || '')}"></label>
+      <label>Organisme ou personne responsable<input name="owner" placeholder="Association étudiante du Cégep du Val-des-Brumes" value="${esc(governance.owner || '')}"></label>
       <label>Courriel de la rédaction<input name="contact" type="email" placeholder="redaction@exemple.ca" value="${esc(governance.contact || '')}"></label>
       <label>Dépôt GitHub du journal, facultatif<input name="repo" placeholder="organisation/journal" value="${esc(governance.repo || '')}"></label>
       <label><input name="noindex" type="checkbox" ${publication.noindex ? 'checked' : ''}> Cacher le journal des moteurs de recherche (journal d’essai ou fictif)</label><label><input name="fictif" type="checkbox" ${publication.fictif ? 'checked' : ''}> Afficher le bandeau « Journal étudiant fictif »</label>
-    </fieldset><div class="field"><label>Signature<input name="tagline" placeholder="Le journal étudiant du Cégep de Saint-Louis-du-Ha! Ha!" value="${esc(publication.tagline || '')}"></label></div><div class="field"><label>Établissement<input name="institution" placeholder="Cégep de Saint-Louis-du-Ha! Ha!" value="${esc(publication.institution || '')}"></label></div><div class="field"><label>Année de fondation (facultatif)<input name="founded" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" data-erreur="Écrivez l’année en quatre chiffres, par exemple 1971." placeholder="1971" value="${esc(publication.founded || '')}"></label><small>Au bas des pages : « © 1971–${new Date().getFullYear()} ». Vide : seulement l’année courante.</small></div><div class="field"><label>Droits sur les articles<select name="license"><option value="" ${/by-nc-nd/i.test(publication.license || '') ? '' : 'selected'}>Tous droits réservés (par défaut)</option><option value="CC BY-NC-ND 4.0" ${/by-nc-nd/i.test(publication.license || '') ? 'selected' : ''}>Creative Commons BY-NC-ND 4.0 : partage permis, sans modification ni usage commercial</option></select></label></div><div class="field"><label>Typographie<select name="typography"><option value="modern-accessible">Moderne accessible</option><option value="editorial-classic" ${publication.theme?.typography === 'editorial-classic' ? 'selected' : ''}>Éditoriale classique</option><option value="institutional" ${publication.theme?.typography === 'institutional' ? 'selected' : ''}>Institutionnelle</option></select></label></div>
+    </fieldset><div class="field"><label>Signature<input name="tagline" placeholder="Le journal étudiant du Cégep du Val-des-Brumes" value="${esc(publication.tagline || '')}"></label></div><div class="field"><label>Établissement<input name="institution" placeholder="Cégep du Val-des-Brumes" value="${esc(publication.institution || '')}"></label></div><div class="field"><label>Année de fondation (facultatif)<input name="founded" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" data-erreur="Écrivez l’année en quatre chiffres, par exemple 1971." placeholder="1971" value="${esc(publication.founded || '')}"></label><small>Au bas des pages : « © 1971–${new Date().getFullYear()} ». Vide : seulement l’année courante.</small></div><div class="field"><label>Droits sur les articles<select name="license"><option value="" ${/by-nc-nd/i.test(publication.license || '') ? '' : 'selected'}>Tous droits réservés (par défaut)</option><option value="CC BY-NC-ND 4.0" ${/by-nc-nd/i.test(publication.license || '') ? 'selected' : ''}>Creative Commons BY-NC-ND 4.0 : partage permis, sans modification ni usage commercial</option></select></label></div><div class="field"><label>Typographie<select name="typography"><option value="modern-accessible">Moderne accessible</option><option value="editorial-classic" ${publication.theme?.typography === 'editorial-classic' ? 'selected' : ''}>Éditoriale classique</option><option value="institutional" ${publication.theme?.typography === 'institutional' ? 'selected' : ''}>Institutionnelle</option></select></label></div>
     <div class="field"><label>Fuseau horaire<select name="timeZone"><option value="America/Toronto" ${publication.timeZone !== 'America/Blanc-Sablon' ? 'selected' : ''}>Heure de l’Est — majorité du Québec</option><option value="America/Blanc-Sablon" ${publication.timeZone === 'America/Blanc-Sablon' ? 'selected' : ''}>Heure de l’Atlantique — Blanc-Sablon</option></select></label></div>
     <div class="field"><label>Couleur principale<input name="accent" type="color" value="${esc(publication.theme?.accent || '#6c2163')}"></label></div><div class="field"><label>Couleur sombre<input name="accentDark" type="color" value="${esc(publication.theme?.accentDark || '#cf7ec1')}"></label></div><div id="admin-contrast" class="notice full" role="status"></div>
     <fieldset class="field full masthead-fieldset"><legend>Mât illustré</legend><label><input name="backgroundsEnabled" type="checkbox" ${masthead.backgrounds?.enabled !== false ? 'checked' : ''}> Afficher les images de fond</label><div class="field full"><label for="background-files">Ajouter mes propres images</label><input id="background-files" type="file" accept="image/jpeg,image/png,image/webp" multiple></div><p class="media-quality">Chaque image du mât a besoin d’une description accessible et d’un crédit. Les photos trop grandes sont réduites dans le navigateur, et les métadonnées de l’appareil, y compris la position, sont retirées.</p><div class="actions"><button type="button" data-action="choose-masthead-media">Choisir des photos</button><button type="button" data-action="clear-backgrounds">Retirer toutes les images</button></div><p class="media-quality">${masthead.backgrounds?.images?.length || 0} image(s) enregistrée(s). Un nouvel envoi les ajoute à la rotation. Une photo utilisée dans le mât ne peut pas être retirée de la banque.</p><div class="masthead-selection"><div id="masthead-selected-list" class="masthead-selected-list"></div><label class="masthead-random"><span><input name="randomOrder" type="checkbox" ${masthead.backgrounds?.randomOrder !== false ? 'checked' : ''}> Ordre aléatoire</span><small>Activé (par défaut) : une photo au hasard à chaque visite. Désactivé : toujours commencer par la première de la liste.</small></label></div><label>Cadrage horizontal<input name="mastheadFocalX" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.x ?? 50}"></label><label>Cadrage vertical<input name="mastheadFocalY" type="range" min="0" max="100" value="${masthead.backgrounds?.images?.[0]?.focalPoint?.y ?? 50}"></label><label>Assombrir l’image derrière le titre<input name="overlayStrength" type="range" min="0" max="0.9" step="0.05" value="${masthead.overlayStrength ?? 0.55}"></label><label>Alignement du titre<select name="textAlignment"><option value="left">Gauche</option><option value="center" ${masthead.textAlignment === 'center' ? 'selected' : ''}>Centre</option><option value="right" ${masthead.textAlignment === 'right' ? 'selected' : ''}>Droite</option></select></label><div id="masthead-crop-preview">${cropFrames(masthead.backgrounds?.images?.[0], 'masthead')}</div></fieldset>
@@ -1854,7 +1953,7 @@ function settings() {
     </fieldset>
     <fieldset class="field"><legend>Outils</legend><label><input name="pomodoro" type="checkbox" ${masthead.tools?.pomodoro !== false ? 'checked' : ''}> Pomodoro LE-RADAR.ca</label><label><input name="solitaire" type="checkbox" ${masthead.tools?.solitaire !== false ? 'checked' : ''}> Solitaire LE-RADAR.ca</label></fieldset>
     <fieldset class="field full"><legend>Radio étudiante</legend><label><input name="radioEnabled" type="checkbox" ${publication.radio?.enabled !== false ? 'checked' : ''}> Afficher la barre radio sous le mât</label><label>Station<select name="station" id="radar-stations"><option value="">Choisir une station</option>${publication.radio?.station ? `<option value="${esc(publication.radio.station)}" selected>${esc(publication.radio.station)}</option>` : ''}</select></label><small>La barre est le module de LE-RADAR : ses stations et son lecteur se mettent à jour chez LE-RADAR, sans toucher au journal. Éteinte, la barre n’existe pas et rien ne part vers le-radar.ca.</small></fieldset>
-    <div class="field full">${fileChooser('id="logo-file" type="file" accept="image/svg+xml,image/png,image/webp,image/jpeg"', 'Logo local (SVG, PNG, WebP ou JPEG)')}<label>Texte alternatif<input name="logoAlt" placeholder="${esc(publication.name || 'Le Quorum')}" value="${esc(publication.logo?.alt || '')}"></label><small>Vide : le nom du journal sert de texte alternatif. Vérifiez vos droits d’utilisation pour chaque image téléversée.</small><div id="logo-preview"></div></div>
+    <div class="field full">${fileChooser('id="logo-file" type="file" accept="image/svg+xml,image/png,image/webp,image/jpeg"', 'Logo local (SVG, PNG, WebP ou JPEG)')}<label>Texte alternatif<input name="logoAlt" placeholder="${esc(publication.name || 'Le Sillage')}" value="${esc(publication.logo?.alt || '')}"></label><small>Vide : le nom du journal sert de texte alternatif. Vérifiez vos droits d’utilisation pour chaque image téléversée.</small><div id="logo-preview"></div></div>
     <div class="actions full"><button class="primary">Enregistrer</button><button type="button" data-action="recommended-theme">Réinitialiser le thème recommandé</button></div></form></section>${onSocle() && isAdminRole() ? smtpSettingsPanel() : ''}`;
 }
 
@@ -2103,6 +2202,14 @@ function profileStatus(message, ok) {
   status.hidden = false;
   status.textContent = message;
   status.classList.toggle('notice-ok', Boolean(ok));
+  masquerAideSiStatut();
+}
+
+/** Un seul texte à la fois : l’aide disparaît dès qu’un message de statut s’affiche. */
+function masquerAideSiStatut() {
+  const aide = document.getElementById('profile-email-aide');
+  const status = document.getElementById('profile-status');
+  if (aide && status) aide.hidden = !status.hidden;
 }
 
 function courrielEtatLibelle(etat) {
@@ -2117,9 +2224,17 @@ function paintEmailStatus(profile) {
   const actions = document.getElementById('profile-email-actions');
   if (!etat || !pending || !actions) return;
   const status = profile.courrielEtat || 'non-confirmee';
-  etat.hidden = false;
-  etat.textContent = `État : ${courrielEtatLibelle(status)}`;
-  etat.dataset.etat = status;
+  const email = typeof profile.email === 'string' ? profile.email.trim() : '';
+  paintAdresseActuelle(email);
+  // Sans adresse, une pastille « Non confirmée » n’a pas de sens et un span vide décale la pastille.
+  etat.hidden = !email;
+  if (email) {
+    etat.textContent = `État : ${courrielEtatLibelle(status)}`;
+    etat.dataset.etat = status;
+  } else {
+    etat.textContent = '';
+    etat.removeAttribute('data-etat');
+  }
   pending.hidden = !profile.courrielEnAttente;
   pending.textContent = profile.courrielEnAttente
     ? `Nouvelle adresse en attente : ${profile.courrielEnAttente}`
@@ -2129,12 +2244,15 @@ function paintEmailStatus(profile) {
   const aide = document.getElementById('profile-email-aide');
   if (form) form.hidden = demandeEnCours;
   if (aide) {
-    aide.textContent = demandeEnCours
-      ? 'Annulez la demande pour indiquer une autre adresse.'
-      : 'Un lien de confirmation part à la nouvelle adresse, s’il est possible d’envoyer un courriel. Sinon, demandez à l’administrateur.';
+    aide.textContent = !onSocle()
+      ? 'Dans cette démonstration, aucun lien n’est envoyé : il n’y a pas de serveur d’envoi.'
+      : demandeEnCours
+        ? 'Annulez la demande pour indiquer une autre adresse.'
+        : 'Un lien de confirmation part à la nouvelle adresse, s’il est possible d’envoyer un courriel. Sinon, demandez à l’administrateur.';
   }
+  masquerAideSiStatut();
   const buttons = [];
-  if (status === 'non-confirmee' && !profile.courrielEnAttente) {
+  if (onSocle() && status === 'non-confirmee' && !profile.courrielEnAttente && profile.email) {
     buttons.push(['Confirmer mon adresse', 'confirmer-actuel']);
   }
   if (demandeEnCours) {
@@ -2149,11 +2267,13 @@ function paintEmailStatus(profile) {
     button.onclick = async () => {
       try {
         const action = button.dataset.courrielAction;
+        if (!onSocle()) {
+          profileStatus(MESSAGE_DEMO_COURRIEL_ACTION, true);
+          return;
+        }
         if (action === 'confirmer-actuel') {
           await authCall('POST', 'profil/courriel/confirmer-actuel');
           const next = await authCall('GET', 'profil');
-          const emailLine = document.getElementById('profile-email');
-          if (emailLine && next.email) emailLine.textContent = `Adresse actuelle : ${next.email}`;
           paintEmailStatus(next);
           profileStatus('Si l’envoi de courriel est réglé, un lien de confirmation vient de partir à votre adresse.', true);
         } else if (action === 'renvoyer') {
@@ -2163,8 +2283,6 @@ function paintEmailStatus(profile) {
           profileStatus('Un nouveau lien de confirmation vient d’être demandé.', true);
         } else if (action === 'annuler') {
           const next = await authCall('POST', 'profil/courriel/annuler');
-          const emailLine = document.getElementById('profile-email');
-          if (emailLine && next.email) emailLine.textContent = `Adresse actuelle : ${next.email}`;
           paintEmailStatus(next);
           profileStatus('La demande de confirmation a été annulée.', true);
         }
@@ -2178,24 +2296,44 @@ async function bindProfile() {
   const form = document.getElementById('profile-form');
   if (!form) return;
   let profile = { prenom: '', nom: '', nomAffiche: '', email: '' };
-  try { profile = await authCall('GET', 'profil'); } catch (error) { profileStatus(error.message); }
+  if (!onSocle()) profile = readDemoProfile();
+  else {
+    try { profile = await authCall('GET', 'profil'); } catch (error) { profileStatus(error.message); }
+  }
   form.elements.prenom.value = profile.prenom || '';
   form.elements.nom.value = profile.nom || '';
   form.elements.nomAffiche.value = profile.nomAffiche || '';
-  const emailLine = document.getElementById('profile-email');
-  if (emailLine) emailLine.textContent = profile.email ? `Adresse actuelle : ${profile.email}` : '';
   paintEmailStatus(profile);
   form.onsubmit = async (event) => {
     event.preventDefault();
     try {
+      if (!onSocle()) {
+        const next = writeDemoProfile({ ...readDemoProfile(), prenom: form.elements.prenom.value, nom: form.elements.nom.value, nomAffiche: form.elements.nomAffiche.value });
+        paintEmailStatus(next);
+        profileStatus(MESSAGE_DEMO_PROFIL, true);
+        return;
+      }
       await authCall('POST', 'profil', { prenom: form.elements.prenom.value, nom: form.elements.nom.value, nomAffiche: form.elements.nomAffiche.value });
       profileStatus('Profil enregistré.', true);
     } catch (error) { profileStatus(error.message); }
   };
   document.getElementById('profile-email-form').onsubmit = async (event) => {
     event.preventDefault();
+    const courriel = new FormData(event.currentTarget).get('courriel').trim();
     try {
-      await authCall('POST', 'profil/courriel', { courriel: new FormData(event.currentTarget).get('courriel').trim() });
+      if (!onSocle()) {
+        const current = readDemoProfile();
+        if (courriel && courriel === current.email) {
+          profileStatus('C’est déjà votre courriel.');
+          return;
+        }
+        const next = writeDemoProfile({ ...current, email: courriel, courrielEtat: 'non-confirmee', courrielEnAttente: null });
+        event.currentTarget.reset();
+        paintEmailStatus(next);
+        profileStatus(MESSAGE_DEMO_COURRIEL, true);
+        return;
+      }
+      await authCall('POST', 'profil/courriel', { courriel });
       event.currentTarget.reset();
       const next = await authCall('GET', 'profil');
       paintEmailStatus(next);
@@ -2210,6 +2348,11 @@ async function bindProfile() {
       return;
     }
     try {
+      if (!onSocle()) {
+        event.currentTarget.reset();
+        profileStatus(MESSAGE_DEMO_MOTDEPASSE, true);
+        return;
+      }
       await authCall('POST', 'profil/motdepasse', { actuel: data.get('actuel'), nouveau: data.get('nouveau') });
       event.currentTarget.reset();
       profileStatus('Mot de passe mis à jour. Les autres sessions ont été fermées.', true);
@@ -2222,6 +2365,11 @@ async function confirmEmailFromHash() {
   if (!raw.startsWith('courriel=')) return false;
   const token = decodeURIComponent(raw.slice('courriel='.length));
   try {
+    if (!onSocle()) {
+      notify(MESSAGE_DEMO_COURRIEL_ACTION);
+      history.replaceState(null, '', '#profil');
+      return true;
+    }
     await authCall('POST', 'profil/courriel/confirmer', { token });
     history.replaceState(null, '', '#profil');
     notify('Votre courriel a été mis à jour.');

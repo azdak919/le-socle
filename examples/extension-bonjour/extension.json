@@ -6,7 +6,7 @@
   "auteur": "Le Socle",
   "socle": ">=1.5.0 <2.0.0",
   "api": 1,
-  "licence": "GPL-2.0-only",
+  "licence": "AGPL-3.0-or-later",
   "point_entree": "extension.php",
   "secrets": [],
   "roles": [

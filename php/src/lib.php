@@ -926,8 +926,15 @@ function socle_serve_site(string $uri, ?SocleStore $store): array {
 function socle_base_path(string $scriptName): string {
     $dir = str_replace('\\', '/', dirname($scriptName));
     $dir = rtrim($dir, '/.');
-    return $dir === '' ? '' : $dir;
+    if ($dir === '' || $dir === '/' || $dir === '.') return '';
+    // Sans routeur, le serveur intégré de PHP voit SCRIPT_NAME=/admin/sauvegarde
+    // (le dossier admin/ existe sur le disque) et prendrait /admin pour préfixe.
+    $parts = array_values(array_filter(explode('/', $dir), static function (string $p): bool {
+        return $p !== '' && !in_array($p, ['admin', 'site', 'php', 'donnees', 'extensions'], true);
+    }));
+    return $parts === [] ? '' : '/' . implode('/', $parts);
 }
+
 
 /** Remet le sous-dossier dans les redirections et les liens des pages HTML. */
 function socle_with_base(array $result, string $base): array {

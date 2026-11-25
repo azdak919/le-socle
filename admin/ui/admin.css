@@ -328,6 +328,7 @@ html.dark .auth-card-foot { color: oklch(0.93 0.01 340); }
 .panel-profil .actions { @apply mt-2; }
 .panel-profil .profil-courriel-ligne { @apply flex flex-wrap items-baseline gap-x-2 gap-y-1 mt-0 mb-2; }
 .panel-profil .profil-actuel { @apply text-sm m-0; color: oklch(0.32 0.03 340); }
+.panel-profil .profil-actuel:empty { display: none; }
 .panel-profil .profil-courriel-etat { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium m-0; }
 .panel-profil .profil-courriel-etat[data-etat="confirmee"] { color: oklch(0.40 0.08 160); background: oklch(0.94 0.03 160); }
 .panel-profil .profil-courriel-etat[data-etat="en-attente"] { color: oklch(0.50 0.10 70); background: oklch(0.95 0.04 80); }

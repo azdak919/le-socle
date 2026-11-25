@@ -35,7 +35,7 @@ Pour retirer une extension : **Désactiver**, puis supprimer son dossier. Sa tab
   "auteur": "Le Socle",
   "socle": ">=1.5.0 <2.0.0",
   "api": 1,
-  "licence": "GPL-2.0-only",
+  "licence": "AGPL-3.0-or-later",
   "point_entree": "extension.php",
   "secrets": [],
   "roles": [
@@ -52,7 +52,7 @@ Pour retirer une extension : **Désactiver**, puis supprimer son dossier. Sa tab
 | `description`, `auteur` | non | Texte affiché dans la fiche. |
 | `socle` | oui | Versions du Socle acceptées (voir plus bas). |
 | `api` | oui | Version du contrat d’extensions. Aujourd’hui : `1`. |
-| `licence` | oui | Identifiant SPDX compatible avec la GPL version 2 seulement (voir « Licences »). |
+| `licence` | oui | Identifiant SPDX compatible avec l’AGPLv3 du Socle (voir « Licences »). |
 | `point_entree` | non | Fichier PHP chargé, dans le dossier de l’extension. Par défaut `extension.php`. |
 | `secrets` | non | **Noms** des secrets dont l’extension a besoin (`SOCLE_GITHUB_JETON`). Jamais leurs valeurs. Majuscules, chiffres et `_`. |
 | `roles` | non | Rôles propres à l’extension : `id` (même règle que l’identifiant), `nom` lisible et `defaut`, les rôles du Socle qui le détiennent au départ. |
@@ -239,7 +239,9 @@ Une extension coupée le reste jusqu’à ce que l’administrateur clique sur *
 
 ## Licences
 
-Le Socle est sous GPL version 2 seulement. Une extension chargée par le Socle doit avoir une licence compatible : `GPL-2.0-only`, `GPL-2.0-or-later`, `LGPL-2.1-only`, `LGPL-2.1-or-later`, `MIT`, `BSD-2-Clause`, `BSD-3-Clause`, `ISC`, `Zlib` ou `CC0-1.0`. Une licence absente de cette liste (par exemple `Apache-2.0`, incompatible avec la GPL version 2) rend l’extension invalide.
+Le Socle est sous GNU AGPLv3 (`AGPL-3.0-or-later`). Une extension chargée par le Socle doit avoir une licence compatible : `AGPL-3.0-only`, `AGPL-3.0-or-later`, `GPL-3.0-only`, `GPL-3.0-or-later`, `GPL-2.0-or-later`, `LGPL-3.0-only`, `LGPL-3.0-or-later`, `LGPL-2.1-only`, `LGPL-2.1-or-later`, `Apache-2.0`, `MPL-2.0`, `MIT`, `BSD-2-Clause`, `BSD-3-Clause`, `ISC`, `Zlib` ou `CC0-1.0`. Une licence absente de cette liste (par exemple `SSPL-1.0` ou une licence propriétaire) rend l’extension invalide.
+
+**Transition.** Le contrat `api: 1` acceptait `GPL-2.0-only`, quand le Socle était sous GPL version 2 seulement. Cette licence est incompatible avec l’AGPLv3. Une extension qui la déclare se charge encore, mais sa fiche l’affiche avec l’avertissement « incompatible avec l’AGPLv3 ». Le contrat `api: 2` la refusera. Pour s’y préparer, il suffit que l’auteur publie l’extension sous `GPL-2.0-or-later` ou une licence de la liste.
 
 ## Essai de contrat en intégration continue
 

@@ -55,6 +55,7 @@ function mapWork(work: string, value: string, podman: boolean): string {
 }
 
 async function startPhp(work: string, env: Record<string, string>): Promise<{ url: string; stop: () => Promise<void> }> {
+  env = { SOCLE_INSTALL_CODE: "ABCD-EFGH", ...env };
   const tree = join(work, "tree");
   mkdirSync(tree, { recursive: true });
   cpSync(join(REPO, "php"), join(tree, "php"), { recursive: true });
@@ -505,7 +506,7 @@ test("PHP : le nouveau courriel n’est appliqué qu’après un lien unique non
     const install = await fetch(php.url + "/v1/auth/installation", {
       method: "POST",
       headers: json,
-      body: JSON.stringify({ email: "ana@cegep.example", password: "mot de passe d’Ana" }),
+      body: JSON.stringify({ email: "ana@cegep.example", password: "mot de passe d’Ana", code: "ABCD-EFGH" }),
     });
     assert.equal(install.status, 204, await install.text());
     cookie = cookieOf(install);
@@ -600,7 +601,7 @@ test("PHP : prénom et nom, ancien nom complet devenu nom d’affichage", async 
     const install = await fetch(php.url + "/v1/auth/installation", {
       method: "POST",
       headers: json,
-      body: JSON.stringify({ email: "ana@cegep.example", password: "mot de passe d’Ana" }),
+      body: JSON.stringify({ email: "ana@cegep.example", password: "mot de passe d’Ana", code: "ABCD-EFGH" }),
     });
     assert.equal(install.status, 204, await install.text());
     const cookie = cookieOf(install);
