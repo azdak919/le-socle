@@ -8,6 +8,7 @@
  */
 export const SERVER_ASSETS: ReadonlySet<string> = new Set([
   "admin.js", "admin.css", "runtime.js", "util.js", "export.js",
+  "date-journal.js", "auteurs-statut.js",
   "marked.esm.js", "socle-backend.js",
   "filepond-banque.js", "filepond.esm.min.js", "filepond.min.css", "filepond-locale-fr-fr.js", "filepond-plugin-image-preview.esm.min.js", "filepond-plugin-image-preview.min.css", "filepond-plugin-image-resize.esm.min.js", "filepond-plugin-image-transform.esm.min.js", "filepond-plugin-image-exif-orientation.esm.min.js", "filepond-plugin-file-validate-type.esm.min.js", "filepond-plugin-file-validate-size.esm.min.js",
 ]);

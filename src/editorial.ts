@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { SocleStore } from "./store.ts";
 import { ModuleOffError } from "./store.ts";
 import { attachLibraryVariants } from "./media.ts";
+import { normaliserAuteur } from "../admin/assets/auteurs-statut.js";
 import { nomPourAffichage, parseStoredProfile } from "./auth.ts";
 
 export const SOURCE_ID = "socle";
@@ -71,6 +72,10 @@ export type SocleAuthor = {
   name: string;
   editorialRole?: "auteur" | "reviseur" | "editeur";
   email?: string;
+  /** « former » : dans les anciens. Absence ou « active » : actif. */
+  status?: "active" | "former";
+  /** Conservé pour les fichiers existants ; false équivaut à status: "former". */
+  active?: boolean;
   isDemo?: boolean;
   source: SourceMark;
 };
@@ -287,7 +292,7 @@ export async function saveArticle(store: SocleStore, article: SocleArticle, now:
 }
 
 function publicAuthor(author: SocleAuthor): SocleAuthor {
-  const copy = { ...author };
+  const copy = normaliserAuteur(author) as SocleAuthor;
   delete copy.email;
   return copy;
 }

@@ -214,7 +214,7 @@ function socle_editorial_copy(string $lang): array {
     }
     return [
         'articles' => 'Articles', 'review' => 'Relecture', 'title' => 'Titre', 'slug' => 'Adresse', 'status' => 'Statut',
-        'body' => 'Texte', 'excerpt' => 'Extrait', 'author' => 'Signature (nom court)', 'section' => 'Section',
+        'body' => 'Texte', 'excerpt' => 'Extrait', 'author' => 'Auteur (nom court)', 'section' => 'Section',
         'scheduled' => 'Heure de publication', 'session' => 'Session', 'submitted' => 'Soumis le',
         'reviewedAt' => 'Révisé le', 'reviewedBy' => 'Révisé par', 'save' => 'Enregistrer',
         'empty' => 'Aucun article.', 'queueEmpty' => 'Rien en relecture.',

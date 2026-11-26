@@ -14,7 +14,7 @@
  */
 import { createRequire } from 'node:module';
 
-import { SOCLE_ICON_URI, socleFavicons } from './marque.js';
+import { SOCLE_ICON_URI, socleBriqueHtml, socleFavicons } from './marque.js';
 
 const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ESCAPES[character]);
@@ -23,10 +23,9 @@ export const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character
 export const SOCLE_VERSION = createRequire(import.meta.url)('../package.json').version;
 export const SOCLE_SITE = 'https://socle.le-radar.ca/';
 
-/** En-tête de la barre : le logo et le nom du Socle tant que le journal n’est pas configuré. */
+/** En-tête : la brique du Socle à gauche, puis le nom du journal (ou « Le Socle » tant qu’il n’est pas configuré). */
 export function adminBrand(className = 'admin-brand') {
-  const hidden = className === 'admin-brand' ? '' : ' aria-hidden="true"';
-  return `<div class="${className}" data-state="socle"${hidden}><img class="admin-brand-logo" src="${SOCLE_ICON_URI}" alt="" width="32" height="32"><span><strong>Le Socle</strong><small>Espace de rédaction</small></span></div>`;
+  return `<div class="${className}" data-state="socle">${socleBriqueHtml('admin-brand-logo')}<span><strong>Le Socle</strong><small>Espace de rédaction</small></span></div>`;
 }
 
 export { socleFavicons };
@@ -40,6 +39,7 @@ export function adminSidebarFoot(version = SOCLE_VERSION) {
 /** Fichiers de l'admin, tous sous `admin/assets/`. */
 export const ADMIN_ASSETS = Object.freeze([
   'admin.js', 'admin.css', 'runtime.js', 'util.js', 'export.js',
+  'date-journal.js', 'auteurs-statut.js',
   'marked.esm.js', 'socle-backend.js', 'public-backend.js', 'demo-backend.js', 'sqljs-db.js', 'sql-wasm.js', 'sql-wasm.wasm',
   'filepond-banque.js', 'filepond.esm.min.js', 'filepond.min.css', 'filepond-locale-fr-fr.js',
   'filepond-plugin-image-preview.esm.min.js', 'filepond-plugin-image-preview.min.css',

@@ -5,6 +5,31 @@ declare(strict_types=1);
 // Lire l'en-tête de ce fichier Node pour les règles (local, rôles, JSON).
 
 const SOCLE_REDACTION_KINDS = ['author', 'section', 'category', 'tag'];
+
+function socle_statut_auteur(array $auteur): string {
+    $statut = $auteur['status'] ?? null;
+    if ($statut === 'former' || $statut === 'ancien') return 'former';
+    if ($statut === 'active' || $statut === 'actif') return 'active';
+    if (array_key_exists('active', $auteur) && $auteur['active'] === false) return 'former';
+    return 'active';
+}
+
+function socle_normaliser_auteur(array $auteur): array {
+    $statut = socle_statut_auteur($auteur);
+    $auteur['status'] = $statut;
+    $auteur['active'] = $statut === 'active';
+    return $auteur;
+}
+
+function socle_auteur_cite(array $auteur, array $articles): bool {
+    $slug = (string) ($auteur['slug'] ?? '');
+    if ($slug === '') return false;
+    foreach ($articles as $article) {
+        if (in_array($slug, $article['authors'] ?? [], true)) return true;
+    }
+    return false;
+}
+
 const SOCLE_REDACTION_PUBLIC = ['published', 'scheduled', 'archived', 'retracted'];
 const SOCLE_REDACTION_MAX = 8388608;
 const SOCLE_REDACTION_EXT = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
@@ -215,7 +240,7 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
             $kind = socle_redaction_text($body['kind'] ?? null, 20);
             if (!in_array($kind, SOCLE_REDACTION_KINDS, true)) return socle_redaction_fail(400, 'Genre inconnu.');
             if ($kind !== 'author' && !$editor) return socle_redaction_fail(403, 'Les sections, catégories et étiquettes demandent un éditeur.');
-            if ($kind === 'author' && $role === 'photographe') return socle_redaction_fail(403, 'Un compte photographe ne gère pas les signatures.');
+            if ($kind === 'author' && $role === 'photographe') return socle_redaction_fail(403, 'Un compte photographe ne gère pas les auteurs.');
             $input = is_array($body['entity'] ?? null) ? $body['entity'] : [];
             $id = socle_redaction_text($input['id'] ?? null, 80);
             if ($id === '') $id = socle_uuid();
@@ -224,6 +249,7 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
             if ($name === '') return socle_redaction_fail(400, 'Un nom est requis.');
             if (preg_match(SOCLE_SLUG, $slug) !== 1) return socle_redaction_fail(400, 'Le nom court ne garde que des lettres minuscules, des chiffres et des tirets.');
             $entity = array_merge($input, ['id' => $id, 'name' => $name, 'slug' => $slug]);
+            if ($kind === 'author') $entity = socle_normaliser_auteur($entity);
             $store->put('editorial', $kind . ':' . $id, socle_json($entity));
             return socle_redaction_json(200, ['entity' => $entity]);
         }
@@ -236,6 +262,13 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
                 if ($kind === 'article') foreach (socle_read_articles($store) as $item) if (($item['id'] ?? null) === $id) $target = $item;
                 $pupitre = $role === 'chef-pupitre' && $target !== null && socle_sections_allow($store, $scope, $target['section'] ?? null);
                 if (!$pupitre) return socle_redaction_fail(403, 'Supprimer demande un éditeur, ou le chef de pupitre de la rubrique.');
+            }
+            if ($kind === 'author') {
+                $brut = $store->get('editorial', 'author:' . $id);
+                $auteur = is_string($brut) ? json_decode($brut, true) : null;
+                if (is_array($auteur) && socle_auteur_cite($auteur, socle_read_articles($store))) {
+                    return socle_redaction_fail(409, 'Cet auteur figure encore sur un article. Passez-le dans les anciens plutôt que de le supprimer.');
+                }
             }
             $store->delete('editorial', $kind . ':' . $id);
             return socle_redaction_json(200, ['ok' => true]);
@@ -403,6 +436,7 @@ function socle_handle_redaction(string $method, string $uri, array $config, Socl
  */
 const SOCLE_REDACTION_ASSETS = [
     'admin.js', 'admin.css', 'runtime.js', 'util.js', 'export.js',
+    'date-journal.js', 'auteurs-statut.js',
     'marked.esm.js', 'socle-backend.js', 'filepond-banque.js',
     'filepond.esm.min.js', 'filepond.min.css', 'filepond-locale-fr-fr.js',
     'filepond-plugin-image-preview.esm.min.js', 'filepond-plugin-image-preview.min.css',

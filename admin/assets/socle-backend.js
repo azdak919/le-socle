@@ -18,7 +18,7 @@ const KINDS = new Set(['article', 'author', 'section', 'category', 'tag', 'media
 
 // Les messages du serveur sont courts et techniques ; on les dit en mots simples.
 const FRIENDLY_ERRORS = {
-  'un article publié doit être signé': 'Pour publier, cochez au moins une signature. Sans signature, créez-en une dans « Équipe ».',
+  'un article publié doit être signé': 'Pour publier, cochez au moins un auteur. Sans auteur, créez-en un dans « Équipe ».',
   'un article publié doit avoir une section': 'Pour publier, choisissez une section.',
   'un article publié ne peut pas être vide': 'L’article est vide : écrivez son texte avant de publier.',
   'date de publication requise': 'Indiquez la date et l’heure de publication.',
